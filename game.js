@@ -1,48 +1,3 @@
-class LoadingManager {
-    constructor() {
-        this.loadingScreen = document.getElementById('loadingScreen');
-        this.progressBar = document.getElementById('loadingProgress');
-        this.loadingText = document.getElementById('loadingText');
-        this.currentProgress = 0;
-    }
-
-    updateProgress(progress, message = '') {
-        this.currentProgress = Math.min(progress, 100);
-        this.progressBar.style.width = `${this.currentProgress}%`;
-
-        const displayMessage = message || `Loading... ${Math.round(this.currentProgress)}%`;
-        this.loadingText.textContent = displayMessage;
-    }
-
-    async simulateLoading() {
-        const steps = [
-            { progress: 20, message: 'Loading assets...', delay: 200 },
-            { progress: 40, message: 'Initializing game...', delay: 300 },
-            { progress: 60, message: 'Setting up canvas...', delay: 200 },
-            { progress: 80, message: 'Preparing symbols...', delay: 300 },
-            { progress: 100, message: 'Ready!', delay: 200 }
-        ];
-
-        for (const step of steps) {
-            await this.delay(step.delay);
-            this.updateProgress(step.progress, step.message);
-        }
-
-        await this.delay(500);
-        this.hide();
-    }
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    hide() {
-        this.loadingScreen.classList.add('fade-out');
-        setTimeout(() => {
-            this.loadingScreen.style.display = 'none';
-        }, 500);
-    }
-}
 // ==========================================
 // ASSET CONFIGURATION
 // ==========================================
@@ -84,17 +39,17 @@ const ASSETS = {
 const CONFIG = {
     canvas: {
         baseWidth: 600,
-        baseHeight: 400,
+        baseHeight: 800,
         width: 600,
-        height: 400
+        height: 800
     },
     reels: {
         count: 5,
         rows: 3,
-        symbolSize: 80,
-        spacing: 10,
-        offsetX: 60,
-        offsetY: 50
+        symbolSize: 70,
+        spacing: 8,
+        offsetX: 0,
+        offsetY: 0
     },
     paytable: {
         wild: { 3: 15, 4: 60, 5: 100 },
@@ -141,7 +96,6 @@ class GameState {
         this.goldenSymbols = new Set();
         this.animationFrame = null;
         this.cascading = false;
-        this.canSpin = true;
     }
 
     createEmptyGrid() {
@@ -180,13 +134,11 @@ class SlotMachine {
         this.ctx = this.canvas.getContext('2d');
         this.state = new GameState();
 
-        // In-canvas UI metrics
-        this.uiMetrics = {
-            topHeaderHeight: 28,
-            multiplierBarHeight: 42,
-            bottomHudHeight: 48,
-            spinRadius: 36,
-            spinCenter: { x: 0, y: 0 }
+        // UI button hit areas
+        this.buttons = {
+            spin: { x: 0, y: 0, width: 0, height: 0, radius: 50 },
+            betPlus: { x: 0, y: 0, width: 60, height: 50 },
+            betMinus: { x: 0, y: 0, width: 60, height: 50 }
         };
 
         this.setupCanvas();
@@ -202,11 +154,13 @@ class SlotMachine {
     setupCanvas() {
         const container = this.canvas.parentElement;
         const containerWidth = container.clientWidth;
-        const maxWidth = Math.min(containerWidth - 40, CONFIG.canvas.baseWidth);
+        const containerHeight = window.innerHeight;
 
+        // Use full available space
+        const maxWidth = Math.min(containerWidth, 600);
         const aspectRatio = CONFIG.canvas.baseHeight / CONFIG.canvas.baseWidth;
         const width = maxWidth;
-        const height = width * aspectRatio;
+        const height = Math.min(width * aspectRatio, containerHeight - 20);
 
         this.canvas.width = width;
         this.canvas.height = height;
@@ -214,67 +168,96 @@ class SlotMachine {
         CONFIG.canvas.width = width;
         CONFIG.canvas.height = height;
 
-        // Scale metrics based on width
         const scale = width / CONFIG.canvas.baseWidth;
-        this.uiMetrics.topHeaderHeight = Math.floor(28 * scale);
-        this.uiMetrics.multiplierBarHeight = Math.floor(42 * scale);
-        this.uiMetrics.bottomHudHeight = Math.floor(54 * scale);
-        this.uiMetrics.spinRadius = Math.floor(36 * scale);
 
-        // Reserve space for header+bar at top and HUD at bottom
-        const reservedTop = this.uiMetrics.topHeaderHeight + this.uiMetrics.multiplierBarHeight + Math.floor(6 * scale);
-        const reservedBottom = this.uiMetrics.bottomHudHeight + Math.floor(10 * scale);
+        // Position reels in center
+        const reelAreaWidth = CONFIG.reels.count * 70 + (CONFIG.reels.count - 1) * 8;
+        const reelAreaHeight = CONFIG.reels.rows * 70 + (CONFIG.reels.rows - 1) * 8;
 
-        CONFIG.reels.symbolSize = Math.floor(80 * scale);
-        CONFIG.reels.spacing = Math.floor(10 * scale);
-        CONFIG.reels.offsetX = Math.floor(60 * scale);
-        CONFIG.reels.offsetY = reservedTop;
+        CONFIG.reels.symbolSize = Math.floor(70 * scale);
+        CONFIG.reels.spacing = Math.floor(8 * scale);
+        CONFIG.reels.offsetX = (width - (CONFIG.reels.symbolSize * CONFIG.reels.count + CONFIG.reels.spacing * (CONFIG.reels.count - 1))) / 2;
+        CONFIG.reels.offsetY = height * 0.25;
 
-        // Spin button position (bottom center)
-        this.uiMetrics.spinCenter = { x: width / 2, y: height - reservedBottom + this.uiMetrics.bottomHudHeight / 2 };
+        // Button positions
+        this.buttons.spin.x = width / 2;
+        this.buttons.spin.y = height - 100 * scale;
+        this.buttons.spin.radius = 50 * scale;
+
+        this.buttons.betMinus.x = width / 2 - 100 * scale;
+        this.buttons.betMinus.y = height - 200 * scale;
+        this.buttons.betMinus.width = 60 * scale;
+        this.buttons.betMinus.height = 50 * scale;
+
+        this.buttons.betPlus.x = width / 2 + 40 * scale;
+        this.buttons.betPlus.y = height - 200 * scale;
+        this.buttons.betPlus.width = 60 * scale;
+        this.buttons.betPlus.height = 50 * scale;
     }
 
     initializeUI() {
-        // Keyboard spin
-        document.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault();
-                this.spin();
-            }
-        });
-
-        // Canvas click/touch hit-detection
-        const handlePoint = (clientX, clientY) => {
+        // Canvas click/touch handler
+        const handleClick = (clientX, clientY) => {
             const rect = this.canvas.getBoundingClientRect();
             const x = clientX - rect.left;
             const y = clientY - rect.top;
             this.handleCanvasClick(x, y);
         };
 
-        this.canvas.addEventListener('click', (e) => handlePoint(e.clientX, e.clientY));
+        this.canvas.addEventListener('click', (e) => handleClick(e.clientX, e.clientY));
         this.canvas.addEventListener('touchend', (e) => {
-            const touch = e.changedTouches[0];
-            if (touch) handlePoint(touch.clientX, touch.clientY);
             e.preventDefault();
+            const touch = e.changedTouches[0];
+            if (touch) handleClick(touch.clientX, touch.clientY);
         });
 
-        this.updateUI();
-    }
-
-    updateUI() {
-        // Compute spin availability for in-canvas button
-        this.state.canSpin = !this.state.isSpinning &&
-            (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                this.spin();
+            }
+        });
     }
 
     handleCanvasClick(x, y) {
-        const { x: cx, y: cy } = this.uiMetrics.spinCenter;
-        const r = this.uiMetrics.spinRadius;
-        const dx = x - cx;
-        const dy = y - cy;
-        const inside = dx * dx + dy * dy <= r * r;
-        if (inside) {
+        // Check spin button (circle)
+        const spinBtn = this.buttons.spin;
+        const dx = x - spinBtn.x;
+        const dy = y - spinBtn.y;
+        if (dx * dx + dy * dy <= spinBtn.radius * spinBtn.radius) {
             this.spin();
+            return;
+        }
+
+        // Check bet minus button
+        const minusBtn = this.buttons.betMinus;
+        if (x >= minusBtn.x && x <= minusBtn.x + minusBtn.width &&
+            y >= minusBtn.y && y <= minusBtn.y + minusBtn.height) {
+            this.decreaseBet();
+            return;
+        }
+
+        // Check bet plus button
+        const plusBtn = this.buttons.betPlus;
+        if (x >= plusBtn.x && x <= plusBtn.x + plusBtn.width &&
+            y >= plusBtn.y && y <= plusBtn.y + plusBtn.height) {
+            this.increaseBet();
+            return;
+        }
+    }
+
+    increaseBet() {
+        if (!this.state.isSpinning && this.state.bet < CONFIG.game.maxBet) {
+            this.state.bet += CONFIG.game.betStep;
+            this.render();
+        }
+    }
+
+    decreaseBet() {
+        if (!this.state.isSpinning && this.state.bet > CONFIG.game.minBet) {
+            this.state.bet -= CONFIG.game.betStep;
+            this.render();
         }
     }
 
@@ -285,7 +268,6 @@ class SlotMachine {
             this.state.freeSpins--;
         } else {
             if (this.state.credits < this.state.bet) {
-                alert('Not enough credits!');
                 return;
             }
             this.state.credits -= this.state.bet;
@@ -295,13 +277,12 @@ class SlotMachine {
 
         this.state.isSpinning = true;
         this.state.currentWin = 0;
-        this.updateUI();
 
         await this.animateSpin();
         await this.checkWinsAndCascade();
 
         this.state.isSpinning = false;
-        this.updateUI();
+        this.render();
     }
 
     async animateSpin() {
@@ -324,14 +305,12 @@ class SlotMachine {
                     this.render();
                     requestAnimationFrame(animate);
                 } else {
-                    // Finalize symbols
                     for (let col = 0; col < CONFIG.reels.count; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
                             this.state.grid[col][row] = this.state.getRandomSymbol();
                         }
                     }
 
-                    // Random golden symbols on middle reels 2-4
                     this.state.goldenSymbols.clear();
                     for (let col = 1; col <= 3; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
@@ -520,84 +499,54 @@ class SlotMachine {
     }
 
     // ==========================================
-    // RENDERING
+    // RENDERING - EVERYTHING IN CANVAS
     // ==========================================
     render(highlightWins = null) {
         const ctx = this.ctx;
-
-        // Background
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Top header and multiplier bar
-        this.drawTopHeader();
-        this.drawMultiplierBar();
-
-        // Reels area
-        this.drawReels(highlightWins);
-
-        // Win banner and free-spins info
-        this.drawWinBanner();
-        this.drawFreeSpinsInfo();
-
-        // Bottom HUD and Spin button
-        this.drawBottomHUD();
-        this.drawSpinButton();
-    }
-
-    drawTopHeader() {
-        const ctx = this.ctx;
         const w = this.canvas.width;
-        const h = this.uiMetrics.topHeaderHeight;
+        const h = this.canvas.height;
 
-        // Wooden header bar
+        // Canvas background gradient
         const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, '#8b4a1a');
-        grad.addColorStop(1, '#5e2e10');
+        grad.addColorStop(0, '#1a1a2e');
+        grad.addColorStop(0.5, '#16213e');
+        grad.addColorStop(1, '#0f3460');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
 
-        ctx.fillStyle = '#f7e3b5';
-        ctx.font = `${Math.floor(h * 0.55)}px Georgia`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('1024 路中奖组合', w / 2, h / 2);
+        // Draw game title
+        this.drawTitle();
+
+        // Draw reels
+        this.drawReels(highlightWins);
+
+        // Draw info displays (credits, bet, win)
+        this.drawInfoDisplays();
+
+        // Draw bet controls
+        this.drawBetControls();
+
+        // Draw spin button
+        this.drawSpinButton();
+
+        // Draw free spins info if active
+        if (this.state.freeSpins > 0) {
+            this.drawFreeSpinsInfo();
+        }
     }
 
-    drawMultiplierBar() {
+    drawTitle() {
         const ctx = this.ctx;
         const w = this.canvas.width;
-        const y = this.uiMetrics.topHeaderHeight + Math.floor(this.uiMetrics.multiplierBarHeight * 0.05);
-        const h = this.uiMetrics.multiplierBarHeight;
 
-        // Red bar
-        const grad = ctx.createLinearGradient(0, y, 0, y + h);
-        grad.addColorStop(0, '#c93b1f');
-        grad.addColorStop(1, '#8d2413');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, y, w, h);
-
-        const multipliers = this.state.inFreeSpinMode
-            ? [2, 4, 6, 10]
-            : [1, 2, 3, 5];
-
-        const idx = Math.min(this.state.consecutiveWins, multipliers.length - 1);
-        const segmentW = w / multipliers.length;
-
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 32px Arial';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (let i = 0; i < multipliers.length; i++) {
-            const cx = segmentW * i + segmentW / 2;
-            // Highlight current
-            if (i === idx) {
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.35)';
-                ctx.fillRect(segmentW * i, y, segmentW, h);
-            }
-            ctx.fillStyle = '#f9d9a8';
-            ctx.font = `${Math.floor(h * 0.55)}px Georgia`;
-            const label = `x${multipliers[i]}`;
-            ctx.fillText(label, cx, y + h / 2);
-        }
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('麻将胡了', w / 2, 20);
+        ctx.shadowBlur = 0;
     }
 
     drawReels(highlightWins) {
@@ -621,36 +570,31 @@ class SlotMachine {
                 const isHighlighted = highlightSet.has(`${col},${row}`);
                 const isGolden = this.state.goldenSymbols.has(`${col},${row}`);
 
-                ctx.fillStyle = isHighlighted ? ASSETS.highlightColor : ASSETS.reelColor;
-                ctx.strokeStyle = isGolden ? ASSETS.goldenColor : ASSETS.reelBorderColor;
+                // Reel background
+                ctx.fillStyle = isHighlighted ? '#FFD700' : '#FFFFFF';
+                ctx.strokeStyle = isGolden ? '#FFD700' : '#2C3E50';
                 ctx.lineWidth = isGolden ? 4 : 2;
 
                 ctx.fillRect(x, y, symbolSize, symbolSize);
                 ctx.strokeRect(x, y, symbolSize, symbolSize);
 
                 const symbol = this.state.grid[col][row];
-                this.drawSymbol(ctx, symbol, x, y, symbolSize, isGolden);
+                this.drawSymbol(ctx, symbol, x, y, symbolSize);
             }
         }
     }
 
-    drawSymbol(ctx, symbolKey, x, y, size, isGolden) {
+    drawSymbol(ctx, symbolKey, x, y, size) {
         const symbol = ASSETS.symbols[symbolKey];
         if (!symbol) return;
 
-        // tile background
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(x + 6, y + 6, size - 12, size - 12);
-
-        // Draw PNG image
         const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
         if (img && img.complete && img.naturalHeight !== 0) {
-            const padding = Math.floor(size * 0.18);
+            const padding = Math.floor(size * 0.15);
             const w = size - padding * 2;
             const h = size - padding * 2;
             ctx.drawImage(img, x + padding, y + padding, w, h);
         } else {
-            // Show loading indicator if image not ready
             ctx.fillStyle = '#CCCCCC';
             ctx.font = `${Math.floor(size * 0.3)}px Arial`;
             ctx.textAlign = 'center';
@@ -659,122 +603,134 @@ class SlotMachine {
         }
     }
 
-    drawFreeSpinsInfo() {
-        if (this.state.freeSpins <= 0) return;
+    drawInfoDisplays() {
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
+        const y = h - 280;
 
-        const areaH = Math.floor(this.uiMetrics.bottomHudHeight * 1.4);
-        const y = h - areaH - this.uiMetrics.bottomHudHeight - Math.floor(8 * (w / CONFIG.canvas.baseWidth));
-        ctx.fillStyle = 'rgba(91, 30, 18, 0.65)';
-        ctx.fillRect(0, y, w, areaH);
+        // Background panel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, y, w, 80);
 
-        ctx.fillStyle = '#ffd04d';
-        ctx.textAlign = 'left';
+        const labels = ['CREDITS', 'BET', 'WIN'];
+        const values = [this.state.credits, this.state.bet, this.state.currentWin];
+        const segmentWidth = w / 3;
+
         ctx.textBaseline = 'middle';
-        ctx.font = `${Math.floor(areaH * 0.5)}px Georgia`;
-        ctx.fillText('剩余免费旋转次数：', Math.floor(w * 0.05), y + areaH / 2);
+        for (let i = 0; i < 3; i++) {
+            const x = segmentWidth * i + segmentWidth / 2;
 
-        ctx.textAlign = 'right';
-        ctx.font = `${Math.floor(areaH * 0.9)}px Georgia`;
-        ctx.fillStyle = '#ffb300';
-        ctx.fillText(`${this.state.freeSpins}`, Math.floor(w * 0.95), y + areaH / 2);
+            // Label
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(labels[i], x, y + 25);
+
+            // Value
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(values[i], x, y + 55);
+        }
     }
 
-    drawBottomHUD() {
+    drawBetControls() {
         const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const hudH = this.uiMetrics.bottomHudHeight;
-        const y = h - hudH;
+        const minusBtn = this.buttons.betMinus;
+        const plusBtn = this.buttons.betPlus;
 
-        // HUD background
-        const grad = ctx.createLinearGradient(0, y, 0, h);
-        grad.addColorStop(0, '#2b2f4b');
-        grad.addColorStop(1, '#1c203a');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, y, w, hudH);
+        // Bet Minus Button
+        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
+        ctx.fillRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
 
-        const segments = [
-            { label: '余额', value: this.state.credits },
-            { label: '下注', value: this.state.bet },
-            { label: '赢取', value: this.state.currentWin }
-        ];
-        const segW = w / segments.length;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('-', minusBtn.x + minusBtn.width / 2, minusBtn.y + minusBtn.height / 2);
 
-        for (let i = 0; i < segments.length; i++) {
-            const x = segW * i;
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#cfd8dc';
-            ctx.font = `${Math.floor(hudH * 0.35)}px Arial`;
-            ctx.fillText(segments[i].label, x + segW / 2, y + hudH * 0.35);
+        // Bet Plus Button
+        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
+        ctx.fillRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `${Math.floor(hudH * 0.42)}px Arial`;
-            const v = typeof segments[i].value === 'number'
-                ? segments[i].value.toFixed(2)
-                : String(segments[i].value);
-            ctx.fillText(v, x + segW / 2, y + hudH * 0.75);
-        }
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', plusBtn.x + plusBtn.width / 2, plusBtn.y + plusBtn.height / 2);
     }
 
     drawSpinButton() {
         const ctx = this.ctx;
-        const { x, y } = this.uiMetrics.spinCenter;
-        const r = this.uiMetrics.spinRadius;
+        const btn = this.buttons.spin;
 
-        // Outer glow to suggest clickability
+        const canSpin = !this.state.isSpinning &&
+            (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
+
+        // Outer glow
         ctx.beginPath();
-        ctx.arc(x, y, r + 8, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(245, 127, 23, 0.25)';
+        ctx.arc(btn.x, btn.y, btn.radius + 5, 0, Math.PI * 2);
+        ctx.fillStyle = canSpin ? 'rgba(255, 215, 0, 0.5)' : 'rgba(100, 100, 100, 0.5)';
         ctx.fill();
 
-        // Button fill
-        const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.3, x, y, r);
-        grad.addColorStop(0, '#ffd54f');
-        grad.addColorStop(0.6, '#ffb300');
-        grad.addColorStop(1, '#f57f17');
+        // Button circle
+        const grad = ctx.createRadialGradient(btn.x, btn.y, 0, btn.x, btn.y, btn.radius);
+        if (canSpin) {
+            grad.addColorStop(0, '#FFD700');
+            grad.addColorStop(1, '#FFA500');
+        } else {
+            grad.addColorStop(0, '#888');
+            grad.addColorStop(1, '#555');
+        }
+
         ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
         // Label
-        ctx.fillStyle = '#3b2f0b';
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = `${Math.floor(r * 0.9)}px 700 Arial`;
-        ctx.fillText('▶', x, y + 1);
-
-        // Disabled overlay
-        if (!this.state.canSpin) {
-            ctx.fillStyle = 'rgba(0,0,0,0.35)';
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        ctx.fillText('SPIN', btn.x, btn.y);
     }
 
-    // Utility: rounded rect path
-    drawRoundedRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
+    drawFreeSpinsInfo() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        const boxWidth = 250;
+        const boxHeight = 60;
+        const x = (w - boxWidth) / 2;
+        const y = h * 0.15;
+
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.95)';
+        ctx.fillRect(x, y, boxWidth, boxHeight);
+        ctx.strokeStyle = '#FF4500';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`FREE SPINS: ${this.state.freeSpins}`, w / 2, y + boxHeight / 2);
     }
 }
 
 // ==========================================
-// BOOTSTRAP (images preload, no loading overlay)
+// BOOTSTRAP
 // ==========================================
 window.addEventListener('load', () => {
     const splash = document.getElementById('splashScreen');
@@ -789,8 +745,8 @@ window.addEventListener('load', () => {
 
         gameContainer.style.display = 'block';
 
-        // Preload images silently
-        await loadSymbolImages();
+        // Preload all images including background
+        await loadAllAssets();
 
         // Start the game
         new SlotMachine('slotCanvas');
@@ -798,23 +754,29 @@ window.addEventListener('load', () => {
 });
 
 // ==========================================
-// IMAGE PRELOAD
+// ASSET LOADING
 // ==========================================
-async function loadSymbolImages() {
+async function loadAllAssets() {
+    // Load symbol images
     const paths = ASSETS.imagePaths || {};
     ASSETS.loadedImages = {};
     const entries = Object.entries(paths);
 
-    await Promise.all(entries.map(([key, src]) => new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
+    await Promise.all(entries.map(([key, src]) =>
+        loadImage(src).then(img => {
             ASSETS.loadedImages[key] = img;
-            resolve();
-        };
+        })
+    ));
+}
+
+function loadImage(src) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
         img.onerror = () => {
             console.error(`Failed to load image: ${src}`);
-            resolve(); // Continue even if one image fails
+            resolve(null);
         };
         img.src = src;
-    })));
+    });
 }
