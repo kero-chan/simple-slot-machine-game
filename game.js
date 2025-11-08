@@ -655,7 +655,7 @@ async function loadSymbolImages(loadingManager) {
 
     loadingManager.updateProgress(20, 'Loading tile images...');
 
-    await Promise.all(entries.map(([key, src]) => new Promise((resolve, reject) => {
+    await Promise.all(entries.map(([key, src]) => new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             ASSETS.loadedImages[key] = img;
@@ -669,7 +669,7 @@ async function loadSymbolImages(loadingManager) {
             loadedCount++;
             const progress = 20 + Math.floor((loadedCount / totalImages) * 60);
             loadingManager.updateProgress(progress, `Loading tile images... (${loadedCount}/${totalImages})`);
-            reject(new Error(`Failed to load ${src}`));
+            resolve(); // Continue loading even if one image fails
         };
         img.src = src;
     })));
