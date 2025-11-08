@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { CONFIG } from '../config/constants'
-import startBgUrl from '../assets/start_game_bg.jpg'  // derive aspect from the same image used by splash
+import { CONFIG } from '../../config/constants'
+import startBgUrl from '../../assets/start_game_bg.jpg'
 
 export function useCanvas(canvasRef) {
   const canvas = ref(null)
@@ -18,7 +18,7 @@ export function useCanvas(canvasRef) {
     start: { x: 0, y: 0, width: 0, height: 0 }
   })
 
-  // Load start image once to get the exact aspect ratio used on splash
+  // Load start image once to get the exact aspect ratio
   const ensureAspectLoaded = () => {
     if (targetAspect.value) return
     const img = new Image()
@@ -43,7 +43,7 @@ export function useCanvas(canvasRef) {
     const height = vh
     const width = Math.min(vw, Math.round(height * aspect))
 
-    // Match splash sizing: full height, width by aspect; center via container
+    // Full height, width by aspect
     canvas.value.style.width = `${width}px`
     canvas.value.style.height = `${height}px`
     canvas.value.width = width
@@ -78,7 +78,7 @@ export function useCanvas(canvasRef) {
     buttons.value.betPlus.width = Math.floor(60 * scale.value)
     buttons.value.betPlus.height = Math.floor(50 * scale.value)
 
-    // In-splash start button placement (bottom center)
+    // Start screen button placement (bottom center)
     const sbWidth = Math.floor(280 * scale.value)
     const sbHeight = Math.floor(64 * scale.value)
     buttons.value.start.x = Math.floor((width - sbWidth) / 2)

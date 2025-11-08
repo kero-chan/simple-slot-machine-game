@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { createEmptyGrid } from '../utils/gameHelpers'
+import { createEmptyGrid } from '../../utils/gameHelpers'
 
 export function useGridState() {
   const grid = ref(createEmptyGrid())

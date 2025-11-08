@@ -1,5 +1,5 @@
-import { ASSETS } from '../config/assets'
-import { CONFIG } from '../config/constants'
+import { ASSETS } from '../../config/assets'
+import { CONFIG } from '../../config/constants'
 
 export function useRenderer(canvasState, gameState, gridState) {
     const render = () => {
@@ -8,13 +8,13 @@ export function useRenderer(canvasState, gameState, gridState) {
         const w = canvasState.canvasWidth.value
         const h = canvasState.canvasHeight.value
 
-        // Splash branch
-        if (gameState.showSplash.value) {
-            drawSplash(ctx, w, h, canvasState)
+        // Start screen branch
+        if (gameState.showStartScreen.value) {
+            drawStartScreen(ctx, w, h, canvasState)
             return
         }
 
-        // Canvas background gradient
+        // Play screen - canvas background gradient
         const grad = ctx.createLinearGradient(0, 0, 0, h)
         grad.addColorStop(0, '#1a1a2e')
         grad.addColorStop(0.5, '#16213e')
@@ -217,7 +217,7 @@ export function useRenderer(canvasState, gameState, gridState) {
         ctx.fillText(`FREE SPINS: ${gameState.freeSpins.value}`, w / 2, y + boxHeight / 2)
     }
 
-    const drawSplash = (ctx, w, h, canvasState) => {
+    const drawStartScreen = (ctx, w, h, canvasState) => {
         // Background image scaled to canvas
         const img = ASSETS.loadedImages.start_background
         if (img && img.complete && img.naturalHeight !== 0) {
