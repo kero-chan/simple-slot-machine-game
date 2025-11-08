@@ -12,7 +12,7 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Splash Screen (uses your image) */
+/* Splash Screen (use your image) */
 .splash-screen {
     position: fixed;
     inset: 0;
@@ -24,7 +24,7 @@ body {
     transition: opacity 0.5s ease-out;
     overflow: hidden;
 
-    background-image: url('./assets/splash.jpg');
+    background-image: url('assets/splash.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
