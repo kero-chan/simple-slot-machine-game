@@ -65,16 +65,16 @@ export function useCanvas(canvasRef) {
 
     // Button positions
     buttons.value.spin.x = Math.floor(width / 2)
-    buttons.value.spin.y = height - Math.floor(100 * scale.value)
-    buttons.value.spin.radius = Math.floor(50 * scale.value)
+    buttons.value.spin.y = height - Math.floor(160 * scale.value)
+    buttons.value.spin.radius = Math.floor(110 * scale.value)
 
     buttons.value.betMinus.x = Math.floor(width / 2 - 100 * scale.value)
-    buttons.value.betMinus.y = height - Math.floor(200 * scale.value)
+    buttons.value.betMinus.y = height - Math.floor(240 * scale.value)
     buttons.value.betMinus.width = Math.floor(60 * scale.value)
     buttons.value.betMinus.height = Math.floor(50 * scale.value)
 
     buttons.value.betPlus.x = Math.floor(width / 2 + 40 * scale.value)
-    buttons.value.betPlus.y = height - Math.floor(200 * scale.value)
+    buttons.value.betPlus.y = height - Math.floor(240 * scale.value)
     buttons.value.betPlus.width = Math.floor(60 * scale.value)
     buttons.value.betPlus.height = Math.floor(50 * scale.value)
 
