@@ -64,16 +64,16 @@ const ASSETS = {
     highlightColor: '#FFD700',
     goldenColor: '#FFD700',
     imagePaths: {
-        wild: 'assets/pg-mahjong-ways-13.png',
-        scatter: 'assets/pg-mahjong-ways-12.png',
-        dragon_red: 'assets/pg-mahjong-ways-11.png',
-        dragon_green: 'assets/pg-mahjong-ways-10.png',
-        dragon_white: 'assets/pg-mahjong-ways-9.png',
-        wind_east: 'assets/pg-mahjong-ways-8.png',
-        wind_south: 'assets/pg-mahjong-ways-7.png',
-        bamboo: 'assets/pg-mahjong-ways-6.png',
-        character: 'assets/pg-mahjong-ways-5.png',
-        dot: 'assets/pg-mahjong-ways-4.png'
+        wild: 'assets/wild.png',
+        scatter: 'assets/scatter.png',
+        dragon_red: 'assets/dragon_red.png',
+        dragon_green: 'assets/dragon_green.png',
+        dragon_white: 'assets/dragon_white.png',
+        wind_east: 'assets/wind_east.png',
+        wind_south: 'assets/wind_south.png',
+        bamboo: 'assets/bamboo.png',
+        character: 'assets/character.png',
+        dot: 'assets/dot.png'
     },
     loadedImages: {}
 };
@@ -588,22 +588,21 @@ class SlotMachine {
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(x + 6, y + 6, size - 12, size - 12);
 
-        // prefer PNG image if loaded
+        // Draw PNG image
         const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
-        if (img) {
+        if (img && img.complete && img.naturalHeight !== 0) {
             const padding = Math.floor(size * 0.18);
             const w = size - padding * 2;
             const h = size - padding * 2;
             ctx.drawImage(img, x + padding, y + padding, w, h);
-            return;
+        } else {
+            // Show loading indicator if image not ready
+            ctx.fillStyle = '#CCCCCC';
+            ctx.font = `${Math.floor(size * 0.3)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('...', x + size / 2, y + size / 2);
         }
-
-        // emoji fallback
-        ctx.fillStyle = isGolden ? '#B8860B' : symbol.color;
-        ctx.font = `${Math.floor(size * 0.5)}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(symbol.emoji, x + size / 2, y + size / 2);
     }
 
     drawMultiplier() {
@@ -631,24 +630,53 @@ window.addEventListener('load', () => {
 
     gameContainer.style.display = 'none';
 
-    startBtn.addEventListener('click', () => {
+    startBtn.addEventListener('click', async () => {
         splash.classList.add('fade-out');
         setTimeout(() => { splash.style.display = 'none'; }, 500);
 
         gameContainer.style.display = 'block';
+
+        // Show loading screen and load images
+        const loadingManager = new LoadingManager();
+        await loadSymbolImages(loadingManager);
+
+        // Initialize game after images are loaded
         new SlotMachine('slotCanvas');
     });
 });
 
-// Preload symbol images
-async function loadSymbolImages() {
+// Preload symbol images with progress tracking
+async function loadSymbolImages(loadingManager) {
     const paths = ASSETS.imagePaths || {};
     ASSETS.loadedImages = {};
     const entries = Object.entries(paths);
+    const totalImages = entries.length;
+    let loadedCount = 0;
+
+    loadingManager.updateProgress(20, 'Loading tile images...');
+
     await Promise.all(entries.map(([key, src]) => new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = () => { ASSETS.loadedImages[key] = img; resolve(); };
-        img.onerror = (e) => { console.warn(`Image failed: ${src}`); resolve(); }; // fall back to emoji on failure
+        img.onload = () => {
+            ASSETS.loadedImages[key] = img;
+            loadedCount++;
+            const progress = 20 + Math.floor((loadedCount / totalImages) * 60);
+            loadingManager.updateProgress(progress, `Loading tile images... (${loadedCount}/${totalImages})`);
+            resolve();
+        };
+        img.onerror = (e) => {
+            console.error(`Failed to load image: ${src}`);
+            loadedCount++;
+            const progress = 20 + Math.floor((loadedCount / totalImages) * 60);
+            loadingManager.updateProgress(progress, `Loading tile images... (${loadedCount}/${totalImages})`);
+            reject(new Error(`Failed to load ${src}`));
+        };
         img.src = src;
     })));
+
+    loadingManager.updateProgress(80, 'Preparing game...');
+    await loadingManager.delay(300);
+    loadingManager.updateProgress(100, 'Ready!');
+    await loadingManager.delay(500);
+    loadingManager.hide();
 }
