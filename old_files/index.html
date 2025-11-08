@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Mahjong Slot Machine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Splash Screen -->
+        <div v-if="showSplash" class="splash-screen">
+            <div class="splash-content">
+                <div class="splash-tiles">
+                    <div class="tile"><img src="assets/dragon_green.png" alt="Green Dragon"></div>
+                    <div class="tile"><img src="assets/wild.png" alt="Wild"></div>
+                    <div class="tile"><img src="assets/bamboo.png" alt="Bamboo"></div>
+                    <div class="tile"><img src="assets/wind_east.png" alt="East Wind"></div>
+                    <div class="tile"><img src="assets/wind_south.png" alt="South Wind"></div>
+                </div>
+                <h1 class="splash-title">麻将胡了</h1>
+                <div class="splash-subtitle">MAHJONG WAYS</div>
+                <div class="splash-tagline">连消百搭 + 递增倍数 好玩又好赢！</div>
+                <button @click="startGame" class="start-button">开始</button>
+                <div class="splash-footer">
+                    <div class="certs">MGA · BMM · RTP</div>
+                    <div class="copyright">PGSOFT.COM 2025 ©</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Container -->
+        <div v-show="!showSplash" class="game-container">
+            <canvas
+                ref="canvas"
+                @click="handleCanvasClick"
+                @touchend.prevent="handleCanvasTouch">
+            </canvas>
+        </div>
+    </div>
+
+    <!-- Vue 3 from CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
