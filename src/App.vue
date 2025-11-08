@@ -1,20 +1,11 @@
 <template>
   <div id="app">
-    <SplashScreen v-if="showSplash" @start="startGame" />
-    <GameCanvas v-else />
+    <GameCanvas />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import SplashScreen from './components/SplashScreen.vue'
 import GameCanvas from './components/GameCanvas.vue'
-
-const showSplash = ref(true)
-
-const startGame = () => {
-  showSplash.value = false
-}
 </script>
 
 <style>
@@ -24,7 +15,8 @@ const startGame = () => {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   overflow: hidden;

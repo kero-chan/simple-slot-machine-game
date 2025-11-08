@@ -12,16 +12,17 @@ export const ASSETS = {
     dot: { emoji: '⚫', name: 'Dot', color: '#868E96' }
   },
   imagePaths: {
-    wild: '/wild.png',
-    scatter: '/scatter.png',
-    dragon_red: '/dragon_red.png',
-    dragon_green: '/dragon_green.png',
-    dragon_white: '/dragon_white.png',
-    wind_east: '/wind_east.png',
-    wind_south: '/wind_south.png',
-    bamboo: '/bamboo.png',
-    character: '/character.png',
-    dot: '/dot.png'
+    wild: new URL('../assets/wild.png', import.meta.url).href,
+    scatter: new URL('../assets/scatter.png', import.meta.url).href,
+    dragon_red: new URL('../assets/dragon_red.png', import.meta.url).href,
+    dragon_green: new URL('../assets/dragon_green.png', import.meta.url).href,
+    dragon_white: new URL('../assets/dragon_white.png', import.meta.url).href,
+    wind_east: new URL('../assets/wind_east.png', import.meta.url).href,
+    wind_south: new URL('../assets/wind_south.png', import.meta.url).href,
+    bamboo: new URL('../assets/bamboo.png', import.meta.url).href,
+    character: new URL('../assets/character.png', import.meta.url).href,
+    dot: new URL('../assets/dot.png', import.meta.url).href,
+    start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href
   },
   loadedImages: {}
 }
