@@ -30,7 +30,8 @@ const ASSETS = {
         character: 'assets/character.png',
         dot: 'assets/dot.png'
     },
-    loadedImages: {}
+    loadedImages: {},
+    backgroundImage: null
 };
 
 // ==========================================
@@ -39,17 +40,17 @@ const ASSETS = {
 const CONFIG = {
     canvas: {
         baseWidth: 600,
-        baseHeight: 400,
+        baseHeight: 800,
         width: 600,
-        height: 400
+        height: 800
     },
     reels: {
         count: 5,
         rows: 3,
-        symbolSize: 80,
-        spacing: 10,
-        offsetX: 60,
-        offsetY: 50
+        symbolSize: 70,
+        spacing: 8,
+        offsetX: 0,
+        offsetY: 0
     },
     paytable: {
         wild: { 3: 15, 4: 60, 5: 100 },
@@ -134,13 +135,12 @@ class SlotMachine {
         this.ctx = this.canvas.getContext('2d');
         this.state = new GameState();
 
-        // HTML UI elements
-        this.creditsDisplay = document.getElementById('credits');
-        this.betDisplay = document.getElementById('bet');
-        this.winDisplay = document.getElementById('win');
-        this.spinBtn = document.getElementById('spinBtn');
-        this.increaseBetBtn = document.getElementById('increaseBet');
-        this.decreaseBetBtn = document.getElementById('decreaseBet');
+        // UI button hit areas
+        this.buttons = {
+            spin: { x: 0, y: 0, width: 0, height: 0, radius: 50 },
+            betPlus: { x: 0, y: 0, width: 60, height: 50 },
+            betMinus: { x: 0, y: 0, width: 60, height: 50 }
+        };
 
         this.setupCanvas();
         this.initializeUI();
@@ -155,11 +155,13 @@ class SlotMachine {
     setupCanvas() {
         const container = this.canvas.parentElement;
         const containerWidth = container.clientWidth;
-        const maxWidth = Math.min(containerWidth - 40, CONFIG.canvas.baseWidth);
+        const containerHeight = window.innerHeight;
 
+        // Use full available space
+        const maxWidth = Math.min(containerWidth, 600);
         const aspectRatio = CONFIG.canvas.baseHeight / CONFIG.canvas.baseWidth;
         const width = maxWidth;
-        const height = width * aspectRatio;
+        const height = Math.min(width * aspectRatio, containerHeight - 20);
 
         this.canvas.width = width;
         this.canvas.height = height;
@@ -167,58 +169,97 @@ class SlotMachine {
         CONFIG.canvas.width = width;
         CONFIG.canvas.height = height;
 
-        // Scale metrics based on width
         const scale = width / CONFIG.canvas.baseWidth;
 
-        CONFIG.reels.symbolSize = Math.floor(80 * scale);
-        CONFIG.reels.spacing = Math.floor(10 * scale);
-        CONFIG.reels.offsetX = Math.floor(60 * scale);
-        CONFIG.reels.offsetY = Math.floor(50 * scale);
+        // Position reels in center
+        const reelAreaWidth = CONFIG.reels.count * 70 + (CONFIG.reels.count - 1) * 8;
+        const reelAreaHeight = CONFIG.reels.rows * 70 + (CONFIG.reels.rows - 1) * 8;
+
+        CONFIG.reels.symbolSize = Math.floor(70 * scale);
+        CONFIG.reels.spacing = Math.floor(8 * scale);
+        CONFIG.reels.offsetX = (width - (CONFIG.reels.symbolSize * CONFIG.reels.count + CONFIG.reels.spacing * (CONFIG.reels.count - 1))) / 2;
+        CONFIG.reels.offsetY = height * 0.25;
+
+        // Button positions
+        this.buttons.spin.x = width / 2;
+        this.buttons.spin.y = height - 100 * scale;
+        this.buttons.spin.radius = 50 * scale;
+
+        this.buttons.betMinus.x = width / 2 - 100 * scale;
+        this.buttons.betMinus.y = height - 200 * scale;
+        this.buttons.betMinus.width = 60 * scale;
+        this.buttons.betMinus.height = 50 * scale;
+
+        this.buttons.betPlus.x = width / 2 + 40 * scale;
+        this.buttons.betPlus.y = height - 200 * scale;
+        this.buttons.betPlus.width = 60 * scale;
+        this.buttons.betPlus.height = 50 * scale;
     }
 
     initializeUI() {
-        // Spin button click
-        this.spinBtn.addEventListener('click', () => this.spin());
+        // Canvas click/touch handler
+        const handleClick = (clientX, clientY) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            this.handleCanvasClick(x, y);
+        };
 
-        // Bet controls
-        this.increaseBetBtn.addEventListener('click', () => {
-            if (this.state.bet < CONFIG.game.maxBet && !this.state.isSpinning) {
-                this.state.bet += CONFIG.game.betStep;
-                this.updateUI();
-            }
+        this.canvas.addEventListener('click', (e) => handleClick(e.clientX, e.clientY));
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            if (touch) handleClick(touch.clientX, touch.clientY);
         });
 
-        this.decreaseBetBtn.addEventListener('click', () => {
-            if (this.state.bet > CONFIG.game.minBet && !this.state.isSpinning) {
-                this.state.bet -= CONFIG.game.betStep;
-                this.updateUI();
-            }
-        });
-
-        // Keyboard spin
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
             if (e.key === ' ' || e.key === 'Enter') {
                 e.preventDefault();
                 this.spin();
             }
         });
-
-        this.updateUI();
     }
 
-    updateUI() {
-        // Update HTML displays
-        this.creditsDisplay.textContent = this.state.credits;
-        this.betDisplay.textContent = this.state.bet;
-        this.winDisplay.textContent = this.state.currentWin;
+    handleCanvasClick(x, y) {
+        // Check spin button (circle)
+        const spinBtn = this.buttons.spin;
+        const dx = x - spinBtn.x;
+        const dy = y - spinBtn.y;
+        if (dx * dx + dy * dy <= spinBtn.radius * spinBtn.radius) {
+            this.spin();
+            return;
+        }
 
-        // Update button states
-        const canSpin = !this.state.isSpinning &&
-            (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
+        // Check bet minus button
+        const minusBtn = this.buttons.betMinus;
+        if (x >= minusBtn.x && x <= minusBtn.x + minusBtn.width &&
+            y >= minusBtn.y && y <= minusBtn.y + minusBtn.height) {
+            this.decreaseBet();
+            return;
+        }
 
-        this.spinBtn.disabled = !canSpin;
-        this.increaseBetBtn.disabled = this.state.isSpinning || this.state.bet >= CONFIG.game.maxBet;
-        this.decreaseBetBtn.disabled = this.state.isSpinning || this.state.bet <= CONFIG.game.minBet;
+        // Check bet plus button
+        const plusBtn = this.buttons.betPlus;
+        if (x >= plusBtn.x && x <= plusBtn.x + plusBtn.width &&
+            y >= plusBtn.y && y <= plusBtn.y + plusBtn.height) {
+            this.increaseBet();
+            return;
+        }
+    }
+
+    increaseBet() {
+        if (!this.state.isSpinning && this.state.bet < CONFIG.game.maxBet) {
+            this.state.bet += CONFIG.game.betStep;
+            this.render();
+        }
+    }
+
+    decreaseBet() {
+        if (!this.state.isSpinning && this.state.bet > CONFIG.game.minBet) {
+            this.state.bet -= CONFIG.game.betStep;
+            this.render();
+        }
     }
 
     async spin() {
@@ -228,7 +269,6 @@ class SlotMachine {
             this.state.freeSpins--;
         } else {
             if (this.state.credits < this.state.bet) {
-                alert('Not enough credits!');
                 return;
             }
             this.state.credits -= this.state.bet;
@@ -238,13 +278,12 @@ class SlotMachine {
 
         this.state.isSpinning = true;
         this.state.currentWin = 0;
-        this.updateUI();
 
         await this.animateSpin();
         await this.checkWinsAndCascade();
 
         this.state.isSpinning = false;
-        this.updateUI();
+        this.render();
     }
 
     async animateSpin() {
@@ -267,14 +306,12 @@ class SlotMachine {
                     this.render();
                     requestAnimationFrame(animate);
                 } else {
-                    // Finalize symbols
                     for (let col = 0; col < CONFIG.reels.count; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
                             this.state.grid[col][row] = this.state.getRandomSymbol();
                         }
                     }
 
-                    // Random golden symbols on middle reels 2-4
                     this.state.goldenSymbols.clear();
                     for (let col = 1; col <= 3; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
@@ -463,22 +500,62 @@ class SlotMachine {
     }
 
     // ==========================================
-    // RENDERING - CANVAS ONLY SHOWS REELS
+    // RENDERING - EVERYTHING IN CANVAS
     // ==========================================
     render(highlightWins = null) {
         const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
 
-        // Background
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Draw background image (splash.jpg)
+        if (ASSETS.backgroundImage) {
+            ctx.drawImage(ASSETS.backgroundImage, 0, 0, w, h);
+        } else {
+            // Fallback gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#ff6b35');
+            grad.addColorStop(1, '#f7931e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+        }
 
-        // Only draw reels - no UI elements
+        // Semi-transparent overlay for readability
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw game title
+        this.drawTitle();
+
+        // Draw reels
         this.drawReels(highlightWins);
 
-        // Show free spins info if active
+        // Draw info displays (credits, bet, win)
+        this.drawInfoDisplays();
+
+        // Draw bet controls
+        this.drawBetControls();
+
+        // Draw spin button
+        this.drawSpinButton();
+
+        // Draw free spins info if active
         if (this.state.freeSpins > 0) {
             this.drawFreeSpinsInfo();
         }
+    }
+
+    drawTitle() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('麻将胡了', w / 2, 20);
+        ctx.shadowBlur = 0;
     }
 
     drawReels(highlightWins) {
@@ -502,36 +579,31 @@ class SlotMachine {
                 const isHighlighted = highlightSet.has(`${col},${row}`);
                 const isGolden = this.state.goldenSymbols.has(`${col},${row}`);
 
-                ctx.fillStyle = isHighlighted ? ASSETS.highlightColor : ASSETS.reelColor;
-                ctx.strokeStyle = isGolden ? ASSETS.goldenColor : ASSETS.reelBorderColor;
+                // Reel background
+                ctx.fillStyle = isHighlighted ? '#FFD700' : '#FFFFFF';
+                ctx.strokeStyle = isGolden ? '#FFD700' : '#2C3E50';
                 ctx.lineWidth = isGolden ? 4 : 2;
 
                 ctx.fillRect(x, y, symbolSize, symbolSize);
                 ctx.strokeRect(x, y, symbolSize, symbolSize);
 
                 const symbol = this.state.grid[col][row];
-                this.drawSymbol(ctx, symbol, x, y, symbolSize, isGolden);
+                this.drawSymbol(ctx, symbol, x, y, symbolSize);
             }
         }
     }
 
-    drawSymbol(ctx, symbolKey, x, y, size, isGolden) {
+    drawSymbol(ctx, symbolKey, x, y, size) {
         const symbol = ASSETS.symbols[symbolKey];
         if (!symbol) return;
 
-        // tile background
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(x + 6, y + 6, size - 12, size - 12);
-
-        // Draw PNG image
         const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
         if (img && img.complete && img.naturalHeight !== 0) {
-            const padding = Math.floor(size * 0.18);
+            const padding = Math.floor(size * 0.15);
             const w = size - padding * 2;
             const h = size - padding * 2;
             ctx.drawImage(img, x + padding, y + padding, w, h);
         } else {
-            // Show loading indicator if image not ready
             ctx.fillStyle = '#CCCCCC';
             ctx.font = `${Math.floor(size * 0.3)}px Arial`;
             ctx.textAlign = 'center';
@@ -540,27 +612,134 @@ class SlotMachine {
         }
     }
 
+    drawInfoDisplays() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const y = h - 280;
+
+        // Background panel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, y, w, 80);
+
+        const labels = ['CREDITS', 'BET', 'WIN'];
+        const values = [this.state.credits, this.state.bet, this.state.currentWin];
+        const segmentWidth = w / 3;
+
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < 3; i++) {
+            const x = segmentWidth * i + segmentWidth / 2;
+
+            // Label
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(labels[i], x, y + 25);
+
+            // Value
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(values[i], x, y + 55);
+        }
+    }
+
+    drawBetControls() {
+        const ctx = this.ctx;
+        const minusBtn = this.buttons.betMinus;
+        const plusBtn = this.buttons.betPlus;
+
+        // Bet Minus Button
+        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
+        ctx.fillRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('-', minusBtn.x + minusBtn.width / 2, minusBtn.y + minusBtn.height / 2);
+
+        // Bet Plus Button
+        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
+        ctx.fillRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', plusBtn.x + plusBtn.width / 2, plusBtn.y + plusBtn.height / 2);
+    }
+
+    drawSpinButton() {
+        const ctx = this.ctx;
+        const btn = this.buttons.spin;
+
+        const canSpin = !this.state.isSpinning &&
+            (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
+
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(btn.x, btn.y, btn.radius + 5, 0, Math.PI * 2);
+        ctx.fillStyle = canSpin ? 'rgba(255, 215, 0, 0.5)' : 'rgba(100, 100, 100, 0.5)';
+        ctx.fill();
+
+        // Button circle
+        const grad = ctx.createRadialGradient(btn.x, btn.y, 0, btn.x, btn.y, btn.radius);
+        if (canSpin) {
+            grad.addColorStop(0, '#FFD700');
+            grad.addColorStop(1, '#FFA500');
+        } else {
+            grad.addColorStop(0, '#888');
+            grad.addColorStop(1, '#555');
+        }
+
+        ctx.beginPath();
+        ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SPIN', btn.x, btn.y);
+    }
+
     drawFreeSpinsInfo() {
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
 
-        const areaH = 40;
-        const y = 10;
+        const boxWidth = 250;
+        const boxHeight = 60;
+        const x = (w - boxWidth) / 2;
+        const y = h * 0.15;
 
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
-        ctx.fillRect(10, y, w - 20, areaH);
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.95)';
+        ctx.fillRect(x, y, boxWidth, boxHeight);
+        ctx.strokeStyle = '#FF4500';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
 
-        ctx.fillStyle = '#1a1a2e';
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = 'bold 20px Arial';
-        ctx.fillText(`FREE SPINS: ${this.state.freeSpins}`, w / 2, y + areaH / 2);
+        ctx.fillText(`FREE SPINS: ${this.state.freeSpins}`, w / 2, y + boxHeight / 2);
     }
 }
 
 // ==========================================
-// BOOTSTRAP (images preload, no loading overlay)
+// BOOTSTRAP
 // ==========================================
 window.addEventListener('load', () => {
     const splash = document.getElementById('splashScreen');
@@ -575,8 +754,8 @@ window.addEventListener('load', () => {
 
         gameContainer.style.display = 'block';
 
-        // Preload images silently
-        await loadSymbolImages();
+        // Preload all images including background
+        await loadAllAssets();
 
         // Start the game
         new SlotMachine('slotCanvas');
@@ -584,23 +763,32 @@ window.addEventListener('load', () => {
 });
 
 // ==========================================
-// IMAGE PRELOAD
+// ASSET LOADING
 // ==========================================
-async function loadSymbolImages() {
+async function loadAllAssets() {
+    // Load background image
+    ASSETS.backgroundImage = await loadImage('assets/splash.jpg');
+
+    // Load symbol images
     const paths = ASSETS.imagePaths || {};
     ASSETS.loadedImages = {};
     const entries = Object.entries(paths);
 
-    await Promise.all(entries.map(([key, src]) => new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
+    await Promise.all(entries.map(([key, src]) =>
+        loadImage(src).then(img => {
             ASSETS.loadedImages[key] = img;
-            resolve();
-        };
+        })
+    ));
+}
+
+function loadImage(src) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
         img.onerror = () => {
             console.error(`Failed to load image: ${src}`);
-            resolve(); // Continue even if one image fails
+            resolve(null);
         };
         img.src = src;
-    })));
+    });
 }
