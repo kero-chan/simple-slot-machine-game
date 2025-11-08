@@ -30,8 +30,7 @@ const ASSETS = {
         character: 'assets/character.png',
         dot: 'assets/dot.png'
     },
-    loadedImages: {},
-    backgroundImage: null
+    loadedImages: {}
 };
 
 // ==========================================
@@ -507,20 +506,12 @@ class SlotMachine {
         const w = this.canvas.width;
         const h = this.canvas.height;
 
-        // Draw background image (splash.jpg)
-        if (ASSETS.backgroundImage) {
-            ctx.drawImage(ASSETS.backgroundImage, 0, 0, w, h);
-        } else {
-            // Fallback gradient
-            const grad = ctx.createLinearGradient(0, 0, 0, h);
-            grad.addColorStop(0, '#ff6b35');
-            grad.addColorStop(1, '#f7931e');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, w, h);
-        }
-
-        // Semi-transparent overlay for readability
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        // Canvas background gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#1a1a2e');
+        grad.addColorStop(0.5, '#16213e');
+        grad.addColorStop(1, '#0f3460');
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
 
         // Draw game title
@@ -766,9 +757,6 @@ window.addEventListener('load', () => {
 // ASSET LOADING
 // ==========================================
 async function loadAllAssets() {
-    // Load background image
-    ASSETS.backgroundImage = await loadImage('assets/splash.jpg');
-
     // Load symbol images
     const paths = ASSETS.imagePaths || {};
     ASSETS.loadedImages = {};
