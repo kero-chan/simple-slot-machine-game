@@ -1,5 +1,5 @@
-import { CONFIG } from '../config/constants'
-import { getRandomSymbol } from '../utils/gameHelpers'
+import { CONFIG } from '../../config/constants'
+import { getRandomSymbol } from '../../utils/gameHelpers'
 
 export function useGameLogic(gameState, gridState, render) {
   const findWinningCombinations = () => {

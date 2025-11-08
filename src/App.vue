@@ -1,11 +1,44 @@
 <template>
   <div id="app">
-    <GameCanvas />
+    <canvas
+      ref="canvasRef"
+      :style="canvasStyle"
+      @click="handleCanvasClick"
+      @touchend.prevent="handleCanvasTouch"
+    />
   </div>
 </template>
 
 <script setup>
-import GameCanvas from './components/GameCanvas.vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useSlotMachine } from './composables/useSlotMachine'
+import bgUrl from './assets/background.jpg'
+
+const canvasRef = ref(null)
+
+const canvasStyle = {
+  display: 'block',
+  touchAction: 'none'
+}
+
+const {
+  init,
+  handleResize,
+  handleCanvasClick,
+  handleCanvasTouch,
+  handleKeydown
+} = useSlotMachine(canvasRef)
+
+onMounted(() => {
+  init()
+  window.addEventListener('resize', handleResize)
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style>
@@ -26,5 +59,12 @@ body {
 #app {
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('./assets/background.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 </style>

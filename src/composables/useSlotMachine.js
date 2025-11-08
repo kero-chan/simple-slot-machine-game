@@ -1,9 +1,9 @@
 import { watch, nextTick } from 'vue'
-import { useGameState } from './useGameState'
-import { useGridState } from './useGridState'
-import { useCanvas } from './useCanvas'
-import { useRenderer } from './useRenderer'
-import { useGameLogic } from './useGameLogic'
+import { useGameState } from './slotMachine/useGameState'
+import { useGridState } from './slotMachine/useGridState'
+import { useCanvas } from './slotMachine/useCanvas'
+import { useRenderer } from './slotMachine/useRenderer'
+import { useGameLogic } from './slotMachine/useGameLogic'
 import { loadAllAssets } from '../utils/imageLoader'
 
 export function useSlotMachine(canvasRef) {
@@ -38,15 +38,15 @@ export function useSlotMachine(canvasRef) {
   }
 
   const start = () => {
-    if (gameState.showSplash.value) {
-      gameState.showSplash.value = false
+    if (gameState.showStartScreen.value) {
+      gameState.showStartScreen.value = false
       canvasState.setupCanvas()
       render()
     }
   }
 
   const processClick = (x, y) => {
-    if (gameState.showSplash.value) {
+    if (gameState.showStartScreen.value) {
       const sb = canvasState.buttons.value.start
       const hit = x >= sb.x && x <= sb.x + sb.width &&
                   y >= sb.y && y <= sb.y + sb.height
@@ -97,7 +97,7 @@ export function useSlotMachine(canvasRef) {
   const handleKeydown = (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault()
-      if (gameState.showSplash.value) start()
+      if (gameState.showStartScreen.value) start()
       else gameLogic.spin()
     }
   }
@@ -115,7 +115,6 @@ export function useSlotMachine(canvasRef) {
     spin: gameLogic.spin,
     increaseBet: gameLogic.increaseBet,
     decreaseBet: gameLogic.decreaseBet,
-    // expose start for external triggers if needed
     start
   }
 }

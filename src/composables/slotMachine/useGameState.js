@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { CONFIG } from '../config/constants'
+import { CONFIG } from '../../config/constants'
 
 export function useGameState() {
     const credits = ref(CONFIG.game.initialCredits)
@@ -9,8 +9,8 @@ export function useGameState() {
     const consecutiveWins = ref(0)
     const freeSpins = ref(0)
     const inFreeSpinMode = ref(false)
-    // Single-canvas splash flag
-    const showSplash = ref(true)
+    // Control which screen to show
+    const showStartScreen = ref(true)
 
     const currentMultiplier = computed(() => {
         const multipliers = inFreeSpinMode.value
@@ -35,7 +35,6 @@ export function useGameState() {
         inFreeSpinMode,
         currentMultiplier,
         canSpin,
-        // Single-canvas splash control
-        showSplash
+        showStartScreen
     }
 }
