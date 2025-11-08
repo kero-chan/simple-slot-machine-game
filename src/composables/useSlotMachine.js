@@ -10,7 +10,7 @@ export function useSlotMachine(canvasRef) {
   const gameState = useGameState()
   const gridState = useGridState()
   const canvasState = useCanvas(canvasRef)
-  const { render } = useRenderer(canvasState, gameState, gridState)
+  const { render, spinBtn, startAnimation, stopAnimation } = useRenderer(canvasState, gameState, gridState)
   const gameLogic = useGameLogic(gameState, gridState, render)
 
   const init = async () => {
@@ -20,9 +20,12 @@ export function useSlotMachine(canvasRef) {
       render()
 
       await loadAllAssets()
-      render()
 
-      // Reactive re-renders
+      // Start animation loop for spin button
+      startAnimation()
+
+      // Reactive re-renders are no longer needed as the animation loop handles continuous rendering
+      // But we keep them for now in case we want to optimize later
       watch(() => gridState.grid.value, render, { deep: true })
       watch(() => gameState.credits.value, render)
       watch(() => gameState.bet.value, render)
@@ -56,10 +59,7 @@ export function useSlotMachine(canvasRef) {
       return
     }
 
-    const spinBtn = canvasState.buttons.value.spin
-    const dx = x - spinBtn.x
-    const dy = y - spinBtn.y
-    if (dx * dx + dy * dy <= spinBtn.radius * spinBtn.radius) {
+    if (spinBtn.isPointInside(x, y)) {
       gameLogic.spin()
       return
     }
@@ -117,6 +117,7 @@ export function useSlotMachine(canvasRef) {
     spin: gameLogic.spin,
     increaseBet: gameLogic.increaseBet,
     decreaseBet: gameLogic.decreaseBet,
-    start
+    start,
+    stopAnimation
   }
 }
