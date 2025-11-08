@@ -24,7 +24,7 @@ body {
     transition: opacity 0.5s ease-out;
     overflow: hidden;
 
-    background-image: url('assets/splash.jpg');
+    background-image: url('assets/background.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -96,14 +96,14 @@ font-size: 34px; border: 3px solid #3b3b3b;
 .splash-footer { font-size: 12px; opacity: 0.85; }
 .splash-footer .certs { margin-bottom: 4px; }
 
-/* Game container - splash.jpg background with centered canvas */
+/* Game container - background.jpg background with centered canvas */
 .game-container {
     position: fixed;
     inset: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-image: url('assets/splash.jpg');
+    background-image: url('assets/background.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
