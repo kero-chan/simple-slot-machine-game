@@ -1,3 +1,5 @@
+const { createApp, ref, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue;
+
 // ==========================================
 // ASSET CONFIGURATION
 // ==========================================
@@ -14,10 +16,6 @@ const ASSETS = {
         character: { emoji: '㊥', name: 'Character', color: '#FF6B9D' },
         dot: { emoji: '⚫', name: 'Dot', color: '#868E96' }
     },
-    reelColor: '#FFFFFF',
-    reelBorderColor: '#2C3E50',
-    highlightColor: '#FFD700',
-    goldenColor: '#FFD700',
     imagePaths: {
         wild: 'assets/wild.png',
         scatter: 'assets/scatter.png',
@@ -39,17 +37,13 @@ const ASSETS = {
 const CONFIG = {
     canvas: {
         baseWidth: 600,
-        baseHeight: 800,
-        width: 600,
-        height: 800
+        baseHeight: 800
     },
     reels: {
         count: 5,
         rows: 3,
         symbolSize: 70,
-        spacing: 8,
-        offsetX: 0,
-        offsetY: 0
+        spacing: 8
     },
     paytable: {
         wild: { 3: 15, 4: 60, 5: 100 },
@@ -67,8 +61,7 @@ const CONFIG = {
     freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
     animation: {
         spinDuration: 2000,
-        cascadeDuration: 500,
-        symbolFallSpeed: 10
+        cascadeDuration: 500
     },
     game: {
         initialCredits: 1000,
@@ -81,303 +74,405 @@ const CONFIG = {
 };
 
 // ==========================================
-// GAME STATE
+// UTILITY FUNCTIONS
 // ==========================================
-class GameState {
-    constructor() {
-        this.credits = CONFIG.game.initialCredits;
-        this.bet = CONFIG.game.minBet;
-        this.currentWin = 0;
-        this.isSpinning = false;
-        this.consecutiveWins = 0;
-        this.freeSpins = 0;
-        this.inFreeSpinMode = false;
-        this.grid = this.createEmptyGrid();
-        this.goldenSymbols = new Set();
-        this.animationFrame = null;
-        this.cascading = false;
-    }
+function loadImage(src) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            resolve(null);
+        };
+        img.src = src;
+    });
+}
 
-    createEmptyGrid() {
-        const grid = [];
-        for (let col = 0; col < CONFIG.reels.count; col++) {
-            grid[col] = [];
-            for (let row = 0; row < CONFIG.reels.rows; row++) {
-                grid[col][row] = this.getRandomSymbol();
-            }
+async function loadAllAssets() {
+    const paths = ASSETS.imagePaths;
+    ASSETS.loadedImages = {};
+    const entries = Object.entries(paths);
+
+    await Promise.all(entries.map(([key, src]) =>
+        loadImage(src).then(img => {
+            ASSETS.loadedImages[key] = img;
+        })
+    ));
+}
+
+function getRandomSymbol() {
+    const symbols = Object.keys(ASSETS.symbols);
+    const regularSymbols = symbols.filter(s => s !== 'scatter' && s !== 'wild');
+    const rand = Math.random();
+    if (rand < 0.05) return 'wild';
+    if (rand < 0.10) return 'scatter';
+    return regularSymbols[Math.floor(Math.random() * regularSymbols.length)];
+}
+
+function createEmptyGrid() {
+    const grid = [];
+    for (let col = 0; col < CONFIG.reels.count; col++) {
+        grid[col] = [];
+        for (let row = 0; row < CONFIG.reels.rows; row++) {
+            grid[col][row] = getRandomSymbol();
         }
-        return grid;
     }
-
-    getRandomSymbol() {
-        const symbols = Object.keys(ASSETS.symbols);
-        const regularSymbols = symbols.filter(s => s !== 'scatter' && s !== 'wild');
-        const rand = Math.random();
-        if (rand < 0.05) return 'wild';
-        if (rand < 0.10) return 'scatter';
-        return regularSymbols[Math.floor(Math.random() * regularSymbols.length)];
-    }
-
-    getCurrentMultiplier() {
-        const multipliers = this.inFreeSpinMode ? CONFIG.freeSpinMultipliers : CONFIG.multipliers;
-        const index = Math.min(this.consecutiveWins, multipliers.length - 1);
-        return multipliers[index];
-    }
+    return grid;
 }
 
 // ==========================================
-// GAME ENGINE
+// COMPOSABLES
 // ==========================================
-class SlotMachine {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.state = new GameState();
 
-        // UI button hit areas
-        this.buttons = {
-            spin: { x: 0, y: 0, width: 0, height: 0, radius: 50 },
-            betPlus: { x: 0, y: 0, width: 60, height: 50 },
-            betMinus: { x: 0, y: 0, width: 60, height: 50 }
-        };
+// Game State Composable
+function useGameState() {
+    const credits = ref(CONFIG.game.initialCredits);
+    const bet = ref(CONFIG.game.minBet);
+    const currentWin = ref(0);
+    const isSpinning = ref(false);
+    const consecutiveWins = ref(0);
+    const freeSpins = ref(0);
+    const inFreeSpinMode = ref(false);
 
-        this.setupCanvas();
-        this.initializeUI();
-        this.render();
+    const currentMultiplier = computed(() => {
+        const multipliers = inFreeSpinMode.value
+            ? CONFIG.freeSpinMultipliers
+            : CONFIG.multipliers;
+        const index = Math.min(consecutiveWins.value, multipliers.length - 1);
+        return multipliers[index];
+    });
 
-        window.addEventListener('resize', () => {
-            this.setupCanvas();
-            this.render();
-        });
-    }
+    const canSpin = computed(() => {
+        return !isSpinning.value &&
+               (credits.value >= bet.value || freeSpins.value > 0);
+    });
 
-    setupCanvas() {
-        const container = this.canvas.parentElement;
+    return {
+        credits,
+        bet,
+        currentWin,
+        isSpinning,
+        consecutiveWins,
+        freeSpins,
+        inFreeSpinMode,
+        currentMultiplier,
+        canSpin
+    };
+}
+
+// Grid State Composable
+function useGridState() {
+    const grid = ref(createEmptyGrid());
+    const goldenSymbols = ref(new Set());
+    const highlightWins = ref(null);
+
+    return {
+        grid,
+        goldenSymbols,
+        highlightWins
+    };
+}
+
+// Canvas Composable
+function useCanvas(canvasRef) {
+    const canvas = ref(null);
+    const ctx = ref(null);
+    const canvasWidth = ref(0);
+    const canvasHeight = ref(0);
+    const scale = ref(1);
+    const reelOffset = ref({ x: 0, y: 0 });
+
+    const buttons = ref({
+        spin: { x: 0, y: 0, radius: 50 },
+        betPlus: { x: 0, y: 0, width: 60, height: 50 },
+        betMinus: { x: 0, y: 0, width: 60, height: 50 }
+    });
+
+    const setupCanvas = () => {
+        if (!canvasRef.value) return;
+
+        canvas.value = canvasRef.value;
+        ctx.value = canvas.value.getContext('2d');
+
+        const container = canvas.value.parentElement;
         const containerWidth = container.clientWidth;
         const containerHeight = window.innerHeight;
 
-        // Use full available space
         const maxWidth = Math.min(containerWidth, 600);
         const aspectRatio = CONFIG.canvas.baseHeight / CONFIG.canvas.baseWidth;
         const width = maxWidth;
         const height = Math.min(width * aspectRatio, containerHeight - 20);
 
-        this.canvas.width = width;
-        this.canvas.height = height;
+        canvas.value.width = width;
+        canvas.value.height = height;
+        canvasWidth.value = width;
+        canvasHeight.value = height;
 
-        CONFIG.canvas.width = width;
-        CONFIG.canvas.height = height;
+        scale.value = width / CONFIG.canvas.baseWidth;
 
-        const scale = width / CONFIG.canvas.baseWidth;
+        // Calculate reel positioning
+        const symbolSize = Math.floor(CONFIG.reels.symbolSize * scale.value);
+        const spacing = Math.floor(CONFIG.reels.spacing * scale.value);
+        const reelAreaWidth = symbolSize * CONFIG.reels.count + spacing * (CONFIG.reels.count - 1);
 
-        // Position reels in center
-        const reelAreaWidth = CONFIG.reels.count * 70 + (CONFIG.reels.count - 1) * 8;
-        const reelAreaHeight = CONFIG.reels.rows * 70 + (CONFIG.reels.rows - 1) * 8;
-
-        CONFIG.reels.symbolSize = Math.floor(70 * scale);
-        CONFIG.reels.spacing = Math.floor(8 * scale);
-        CONFIG.reels.offsetX = (width - (CONFIG.reels.symbolSize * CONFIG.reels.count + CONFIG.reels.spacing * (CONFIG.reels.count - 1))) / 2;
-        CONFIG.reels.offsetY = height * 0.25;
+        reelOffset.value.x = (width - reelAreaWidth) / 2;
+        reelOffset.value.y = height * 0.25;
 
         // Button positions
-        this.buttons.spin.x = width / 2;
-        this.buttons.spin.y = height - 100 * scale;
-        this.buttons.spin.radius = 50 * scale;
+        buttons.value.spin.x = width / 2;
+        buttons.value.spin.y = height - 100 * scale.value;
+        buttons.value.spin.radius = 50 * scale.value;
 
-        this.buttons.betMinus.x = width / 2 - 100 * scale;
-        this.buttons.betMinus.y = height - 200 * scale;
-        this.buttons.betMinus.width = 60 * scale;
-        this.buttons.betMinus.height = 50 * scale;
+        buttons.value.betMinus.x = width / 2 - 100 * scale.value;
+        buttons.value.betMinus.y = height - 200 * scale.value;
+        buttons.value.betMinus.width = 60 * scale.value;
+        buttons.value.betMinus.height = 50 * scale.value;
 
-        this.buttons.betPlus.x = width / 2 + 40 * scale;
-        this.buttons.betPlus.y = height - 200 * scale;
-        this.buttons.betPlus.width = 60 * scale;
-        this.buttons.betPlus.height = 50 * scale;
-    }
+        buttons.value.betPlus.x = width / 2 + 40 * scale.value;
+        buttons.value.betPlus.y = height - 200 * scale.value;
+        buttons.value.betPlus.width = 60 * scale.value;
+        buttons.value.betPlus.height = 50 * scale.value;
+    };
 
-    initializeUI() {
-        // Canvas click/touch handler
-        const handleClick = (clientX, clientY) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
-            this.handleCanvasClick(x, y);
-        };
+    return {
+        canvas,
+        ctx,
+        canvasWidth,
+        canvasHeight,
+        scale,
+        reelOffset,
+        buttons,
+        setupCanvas
+    };
+}
 
-        this.canvas.addEventListener('click', (e) => handleClick(e.clientX, e.clientY));
-        this.canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            const touch = e.changedTouches[0];
-            if (touch) handleClick(touch.clientX, touch.clientY);
-        });
+// Rendering Composable
+function useRenderer(canvasState, gameState, gridState) {
+    const render = () => {
+        if (!canvasState.ctx.value) return;
 
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault();
-                this.spin();
+        const ctx = canvasState.ctx.value;
+        const w = canvasState.canvasWidth.value;
+        const h = canvasState.canvasHeight.value;
+
+        // Canvas background gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#1a1a2e');
+        grad.addColorStop(0.5, '#16213e');
+        grad.addColorStop(1, '#0f3460');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw components
+        drawTitle(ctx, w, canvasState.scale.value);
+        drawReels(ctx, canvasState, gridState);
+        drawInfoDisplays(ctx, canvasState, gameState);
+        drawBetControls(ctx, canvasState, gameState);
+        drawSpinButton(ctx, canvasState, gameState);
+
+        if (gameState.freeSpins.value > 0) {
+            drawFreeSpinsInfo(ctx, canvasState, gameState);
+        }
+    };
+
+    const drawTitle = (ctx, w, scale) => {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${Math.floor(32 * scale)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('麻将胡了', w / 2, 20 * scale);
+        ctx.shadowBlur = 0;
+    };
+
+    const drawReels = (ctx, canvasState, gridState) => {
+        const symbolSize = Math.floor(CONFIG.reels.symbolSize * canvasState.scale.value);
+        const spacing = Math.floor(CONFIG.reels.spacing * canvasState.scale.value);
+
+        const highlightSet = new Set();
+        if (gridState.highlightWins.value) {
+            gridState.highlightWins.value.forEach(win => {
+                win.positions.forEach(([col, row]) => {
+                    highlightSet.add(`${col},${row}`);
+                });
+            });
+        }
+
+        for (let col = 0; col < CONFIG.reels.count; col++) {
+            for (let row = 0; row < CONFIG.reels.rows; row++) {
+                const x = canvasState.reelOffset.value.x + col * (symbolSize + spacing);
+                const y = canvasState.reelOffset.value.y + row * (symbolSize + spacing);
+
+                const isHighlighted = highlightSet.has(`${col},${row}`);
+                const isGolden = gridState.goldenSymbols.value.has(`${col},${row}`);
+
+                // Reel background
+                ctx.fillStyle = isHighlighted ? '#FFD700' : '#FFFFFF';
+                ctx.strokeStyle = isGolden ? '#FFD700' : '#2C3E50';
+                ctx.lineWidth = isGolden ? 4 : 2;
+
+                ctx.fillRect(x, y, symbolSize, symbolSize);
+                ctx.strokeRect(x, y, symbolSize, symbolSize);
+
+                const symbol = gridState.grid.value[col][row];
+                drawSymbol(ctx, symbol, x, y, symbolSize);
             }
-        });
-    }
-
-    handleCanvasClick(x, y) {
-        // Check spin button (circle)
-        const spinBtn = this.buttons.spin;
-        const dx = x - spinBtn.x;
-        const dy = y - spinBtn.y;
-        if (dx * dx + dy * dy <= spinBtn.radius * spinBtn.radius) {
-            this.spin();
-            return;
         }
+    };
 
-        // Check bet minus button
-        const minusBtn = this.buttons.betMinus;
-        if (x >= minusBtn.x && x <= minusBtn.x + minusBtn.width &&
-            y >= minusBtn.y && y <= minusBtn.y + minusBtn.height) {
-            this.decreaseBet();
-            return;
-        }
+    const drawSymbol = (ctx, symbolKey, x, y, size) => {
+        const symbol = ASSETS.symbols[symbolKey];
+        if (!symbol) return;
 
-        // Check bet plus button
-        const plusBtn = this.buttons.betPlus;
-        if (x >= plusBtn.x && x <= plusBtn.x + plusBtn.width &&
-            y >= plusBtn.y && y <= plusBtn.y + plusBtn.height) {
-            this.increaseBet();
-            return;
-        }
-    }
-
-    increaseBet() {
-        if (!this.state.isSpinning && this.state.bet < CONFIG.game.maxBet) {
-            this.state.bet += CONFIG.game.betStep;
-            this.render();
-        }
-    }
-
-    decreaseBet() {
-        if (!this.state.isSpinning && this.state.bet > CONFIG.game.minBet) {
-            this.state.bet -= CONFIG.game.betStep;
-            this.render();
-        }
-    }
-
-    async spin() {
-        if (this.state.isSpinning) return;
-
-        if (this.state.freeSpins > 0) {
-            this.state.freeSpins--;
+        const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
+        if (img && img.complete && img.naturalHeight !== 0) {
+            const padding = Math.floor(size * 0.15);
+            const w = size - padding * 2;
+            const h = size - padding * 2;
+            ctx.drawImage(img, x + padding, y + padding, w, h);
         } else {
-            if (this.state.credits < this.state.bet) {
-                return;
-            }
-            this.state.credits -= this.state.bet;
-            this.state.consecutiveWins = 0;
-            this.state.inFreeSpinMode = false;
+            ctx.fillStyle = '#CCCCCC';
+            ctx.font = `${Math.floor(size * 0.3)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('...', x + size / 2, y + size / 2);
         }
+    };
 
-        this.state.isSpinning = true;
-        this.state.currentWin = 0;
+    const drawInfoDisplays = (ctx, canvasState, gameState) => {
+        const w = canvasState.canvasWidth.value;
+        const h = canvasState.canvasHeight.value;
+        const y = h - 280 * canvasState.scale.value;
 
-        await this.animateSpin();
-        await this.checkWinsAndCascade();
+        // Background panel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, y, w, 80 * canvasState.scale.value);
 
-        this.state.isSpinning = false;
-        this.render();
-    }
+        const labels = ['CREDITS', 'BET', 'WIN'];
+        const values = [gameState.credits.value, gameState.bet.value, gameState.currentWin.value];
+        const segmentWidth = w / 3;
 
-    async animateSpin() {
-        const startTime = Date.now();
-        const duration = CONFIG.animation.spinDuration;
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < 3; i++) {
+            const x = segmentWidth * i + segmentWidth / 2;
 
-        return new Promise(resolve => {
-            const animate = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
+            // Label
+            ctx.fillStyle = '#FFD700';
+            ctx.font = `bold ${Math.floor(16 * canvasState.scale.value)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(labels[i], x, y + 25 * canvasState.scale.value);
 
-                if (progress < 1) {
-                    for (let col = 0; col < CONFIG.reels.count; col++) {
-                        for (let row = 0; row < CONFIG.reels.rows; row++) {
-                            if (Math.random() > 0.7) {
-                                this.state.grid[col][row] = this.state.getRandomSymbol();
-                            }
-                        }
-                    }
-                    this.render();
-                    requestAnimationFrame(animate);
-                } else {
-                    for (let col = 0; col < CONFIG.reels.count; col++) {
-                        for (let row = 0; row < CONFIG.reels.rows; row++) {
-                            this.state.grid[col][row] = this.state.getRandomSymbol();
-                        }
-                    }
-
-                    this.state.goldenSymbols.clear();
-                    for (let col = 1; col <= 3; col++) {
-                        for (let row = 0; row < CONFIG.reels.rows; row++) {
-                            if (Math.random() < 0.2 &&
-                                this.state.grid[col][row] !== 'wild' &&
-                                this.state.grid[col][row] !== 'scatter') {
-                                this.state.goldenSymbols.add(`${col},${row}`);
-                            }
-                        }
-                    }
-                    this.render();
-                    resolve();
-                }
-            };
-            animate();
-        });
-    }
-
-    async checkWinsAndCascade() {
-        let totalWin = 0;
-        let hasWins = true;
-
-        while (hasWins) {
-            const wins = this.findWinningCombinations();
-            if (wins.length === 0) {
-                hasWins = false;
-                break;
-            }
-
-            const winAmount = this.calculateWinAmount(wins);
-            const multiplier = this.state.getCurrentMultiplier();
-            const multipliedWin = winAmount * multiplier * this.state.bet;
-
-            totalWin += multipliedWin;
-            this.state.consecutiveWins++;
-
-            await this.highlightWins(wins);
-            this.convertGoldenToWilds(wins);
-
-            const scatterCount = this.countScatters();
-            if (scatterCount >= 3) {
-                this.state.freeSpins += CONFIG.game.freeSpinsPerScatter +
-                                        (scatterCount - 3) * CONFIG.game.bonusScattersPerSpin;
-                this.state.inFreeSpinMode = true;
-            }
-
-            await this.cascadeSymbols(wins);
+            // Value
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `bold ${Math.floor(24 * canvasState.scale.value)}px Arial`;
+            ctx.fillText(values[i], x, y + 55 * canvasState.scale.value);
         }
+    };
 
-        if (totalWin > 0) {
-            this.state.currentWin = totalWin;
-            this.state.credits += totalWin;
+    const drawBetControls = (ctx, canvasState, gameState) => {
+        const minusBtn = canvasState.buttons.value.betMinus;
+        const plusBtn = canvasState.buttons.value.betPlus;
+
+        // Bet Minus Button
+        ctx.fillStyle = gameState.isSpinning.value ? '#666' : '#4CAF50';
+        ctx.fillRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.floor(30 * canvasState.scale.value)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('-', minusBtn.x + minusBtn.width / 2, minusBtn.y + minusBtn.height / 2);
+
+        // Bet Plus Button
+        ctx.fillStyle = gameState.isSpinning.value ? '#666' : '#4CAF50';
+        ctx.fillRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.floor(30 * canvasState.scale.value)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', plusBtn.x + plusBtn.width / 2, plusBtn.y + plusBtn.height / 2);
+    };
+
+    const drawSpinButton = (ctx, canvasState, gameState) => {
+        const btn = canvasState.buttons.value.spin;
+
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(btn.x, btn.y, btn.radius + 5, 0, Math.PI * 2);
+        ctx.fillStyle = gameState.canSpin.value ? 'rgba(255, 215, 0, 0.5)' : 'rgba(100, 100, 100, 0.5)';
+        ctx.fill();
+
+        // Button circle
+        const grad = ctx.createRadialGradient(btn.x, btn.y, 0, btn.x, btn.y, btn.radius);
+        if (gameState.canSpin.value) {
+            grad.addColorStop(0, '#FFD700');
+            grad.addColorStop(1, '#FFA500');
         } else {
-            this.state.consecutiveWins = 0;
+            grad.addColorStop(0, '#888');
+            grad.addColorStop(1, '#555');
         }
-    }
 
-    findWinningCombinations() {
+        ctx.beginPath();
+        ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${Math.floor(24 * canvasState.scale.value)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('SPIN', btn.x, btn.y);
+    };
+
+    const drawFreeSpinsInfo = (ctx, canvasState, gameState) => {
+        const w = canvasState.canvasWidth.value;
+        const h = canvasState.canvasHeight.value;
+
+        const boxWidth = 250 * canvasState.scale.value;
+        const boxHeight = 60 * canvasState.scale.value;
+        const x = (w - boxWidth) / 2;
+        const y = h * 0.15;
+
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.95)';
+        ctx.fillRect(x, y, boxWidth, boxHeight);
+        ctx.strokeStyle = '#FF4500';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${Math.floor(20 * canvasState.scale.value)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`FREE SPINS: ${gameState.freeSpins.value}`, w / 2, y + boxHeight / 2);
+    };
+
+    return { render };
+}
+
+// Game Logic Composable
+function useGameLogic(gameState, gridState, render) {
+    const findWinningCombinations = () => {
         const wins = [];
 
         for (let row = 0; row < CONFIG.reels.rows; row++) {
-            let currentSymbol = this.state.grid[0][row];
+            let currentSymbol = gridState.grid.value[0][row];
             let count = 1;
             let positions = [[0, row]];
 
             for (let col = 1; col < CONFIG.reels.count; col++) {
-                const symbol = this.state.grid[col][row];
+                const symbol = gridState.grid.value[col][row];
 
                 if (symbol === currentSymbol || symbol === 'wild' || currentSymbol === 'wild') {
                     count++;
@@ -396,28 +491,78 @@ class SlotMachine {
         }
 
         return wins;
-    }
+    };
 
-    countScatters() {
+    const countScatters = () => {
         let count = 0;
         for (let col = 0; col < CONFIG.reels.count; col++) {
             for (let row = 0; row < CONFIG.reels.rows; row++) {
-                if (this.state.grid[col][row] === 'scatter') count++;
+                if (gridState.grid.value[col][row] === 'scatter') count++;
             }
         }
         return count;
-    }
+    };
 
-    calculateWinAmount(wins) {
+    const calculateWinAmount = (wins) => {
         let total = 0;
         for (const win of wins) {
             const paytable = CONFIG.paytable[win.symbol];
-            if (paytable && paytable[win.count]) total += paytable[win.count];
+            if (paytable && paytable[win.count]) {
+                total += paytable[win.count];
+            }
         }
         return total;
-    }
+    };
 
-    async highlightWins(wins) {
+    const animateSpin = () => {
+        const startTime = Date.now();
+        const duration = CONFIG.animation.spinDuration;
+
+        return new Promise(resolve => {
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                if (progress < 1) {
+                    // Randomize symbols during spin
+                    for (let col = 0; col < CONFIG.reels.count; col++) {
+                        for (let row = 0; row < CONFIG.reels.rows; row++) {
+                            if (Math.random() > 0.7) {
+                                gridState.grid.value[col][row] = getRandomSymbol();
+                            }
+                        }
+                    }
+                    gridState.grid.value = [...gridState.grid.value]; // Trigger reactivity
+                    requestAnimationFrame(animate);
+                } else {
+                    // Final grid
+                    for (let col = 0; col < CONFIG.reels.count; col++) {
+                        for (let row = 0; row < CONFIG.reels.rows; row++) {
+                            gridState.grid.value[col][row] = getRandomSymbol();
+                        }
+                    }
+
+                    // Add golden symbols
+                    gridState.goldenSymbols.value.clear();
+                    for (let col = 1; col <= 3; col++) {
+                        for (let row = 0; row < CONFIG.reels.rows; row++) {
+                            if (Math.random() < 0.2 &&
+                                gridState.grid.value[col][row] !== 'wild' &&
+                                gridState.grid.value[col][row] !== 'scatter') {
+                                gridState.goldenSymbols.value.add(`${col},${row}`);
+                            }
+                        }
+                    }
+
+                    gridState.grid.value = [...gridState.grid.value]; // Trigger reactivity
+                    resolve();
+                }
+            };
+            animate();
+        });
+    };
+
+    const highlightWinsAnimation = (wins) => {
         const duration = 500;
         const startTime = Date.now();
 
@@ -425,18 +570,18 @@ class SlotMachine {
             const animate = () => {
                 const elapsed = Date.now() - startTime;
                 if (elapsed < duration) {
-                    this.render(wins);
+                    gridState.highlightWins.value = wins;
                     requestAnimationFrame(animate);
                 } else {
-                    this.render();
+                    gridState.highlightWins.value = null;
                     resolve();
                 }
             };
             animate();
         });
-    }
+    };
 
-    convertGoldenToWilds(wins) {
+    const convertGoldenToWilds = (wins) => {
         const winPositions = new Set();
         wins.forEach(win => {
             win.positions.forEach(([col, row]) => {
@@ -445,15 +590,17 @@ class SlotMachine {
         });
 
         winPositions.forEach(pos => {
-            if (this.state.goldenSymbols.has(pos)) {
+            if (gridState.goldenSymbols.value.has(pos)) {
                 const [col, row] = pos.split(',').map(Number);
-                this.state.grid[col][row] = 'wild';
-                this.state.goldenSymbols.delete(pos);
+                gridState.grid.value[col][row] = 'wild';
+                gridState.goldenSymbols.value.delete(pos);
             }
         });
-    }
 
-    async cascadeSymbols(wins) {
+        gridState.grid.value = [...gridState.grid.value]; // Trigger reactivity
+    };
+
+    const cascadeSymbols = async (wins) => {
         const toRemove = new Set();
         wins.forEach(win => {
             win.positions.forEach(([col, row]) => {
@@ -470,16 +617,17 @@ class SlotMachine {
             for (let i = removed.length - 1; i >= 0; i--) {
                 const rowToRemove = removed[i];
                 for (let row = rowToRemove; row > 0; row--) {
-                    this.state.grid[col][row] = this.state.grid[col][row - 1];
+                    gridState.grid.value[col][row] = gridState.grid.value[col][row - 1];
                 }
-                this.state.grid[col][0] = this.state.getRandomSymbol();
+                gridState.grid.value[col][0] = getRandomSymbol();
             }
         }
 
-        await this.animateCascade();
-    }
+        gridState.grid.value = [...gridState.grid.value]; // Trigger reactivity
+        await animateCascade();
+    };
 
-    async animateCascade() {
+    const animateCascade = () => {
         const duration = CONFIG.animation.cascadeDuration;
         const startTime = Date.now();
 
@@ -487,296 +635,214 @@ class SlotMachine {
             const animate = () => {
                 const elapsed = Date.now() - startTime;
                 if (elapsed < duration) {
-                    this.render();
+                    render();
                     requestAnimationFrame(animate);
                 } else {
-                    this.render();
+                    render();
                     resolve();
                 }
             };
             animate();
         });
-    }
+    };
 
-    // ==========================================
-    // RENDERING - EVERYTHING IN CANVAS
-    // ==========================================
-    render(highlightWins = null) {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+    const checkWinsAndCascade = async () => {
+        let totalWin = 0;
+        let hasWins = true;
 
-        // Canvas background gradient
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, '#1a1a2e');
-        grad.addColorStop(0.5, '#16213e');
-        grad.addColorStop(1, '#0f3460');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
-
-        // Draw game title
-        this.drawTitle();
-
-        // Draw reels
-        this.drawReels(highlightWins);
-
-        // Draw info displays (credits, bet, win)
-        this.drawInfoDisplays();
-
-        // Draw bet controls
-        this.drawBetControls();
-
-        // Draw spin button
-        this.drawSpinButton();
-
-        // Draw free spins info if active
-        if (this.state.freeSpins > 0) {
-            this.drawFreeSpinsInfo();
-        }
-    }
-
-    drawTitle() {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 32px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 10;
-        ctx.fillText('麻将胡了', w / 2, 20);
-        ctx.shadowBlur = 0;
-    }
-
-    drawReels(highlightWins) {
-        const ctx = this.ctx;
-        const { symbolSize, spacing, offsetX, offsetY } = CONFIG.reels;
-
-        const highlightSet = new Set();
-        if (highlightWins) {
-            highlightWins.forEach(win => {
-                win.positions.forEach(([col, row]) => {
-                    highlightSet.add(`${col},${row}`);
-                });
-            });
-        }
-
-        for (let col = 0; col < CONFIG.reels.count; col++) {
-            for (let row = 0; row < CONFIG.reels.rows; row++) {
-                const x = offsetX + col * (symbolSize + spacing);
-                const y = offsetY + row * (symbolSize + spacing);
-
-                const isHighlighted = highlightSet.has(`${col},${row}`);
-                const isGolden = this.state.goldenSymbols.has(`${col},${row}`);
-
-                // Reel background
-                ctx.fillStyle = isHighlighted ? '#FFD700' : '#FFFFFF';
-                ctx.strokeStyle = isGolden ? '#FFD700' : '#2C3E50';
-                ctx.lineWidth = isGolden ? 4 : 2;
-
-                ctx.fillRect(x, y, symbolSize, symbolSize);
-                ctx.strokeRect(x, y, symbolSize, symbolSize);
-
-                const symbol = this.state.grid[col][row];
-                this.drawSymbol(ctx, symbol, x, y, symbolSize);
+        while (hasWins) {
+            const wins = findWinningCombinations();
+            if (wins.length === 0) {
+                hasWins = false;
+                break;
             }
+
+            const winAmount = calculateWinAmount(wins);
+            const multipliedWin = winAmount * gameState.currentMultiplier.value * gameState.bet.value;
+
+            totalWin += multipliedWin;
+            gameState.consecutiveWins.value++;
+
+            await highlightWinsAnimation(wins);
+            convertGoldenToWilds(wins);
+
+            const scatterCount = countScatters();
+            if (scatterCount >= 3) {
+                gameState.freeSpins.value += CONFIG.game.freeSpinsPerScatter +
+                                 (scatterCount - 3) * CONFIG.game.bonusScattersPerSpin;
+                gameState.inFreeSpinMode.value = true;
+            }
+
+            await cascadeSymbols(wins);
         }
-    }
 
-    drawSymbol(ctx, symbolKey, x, y, size) {
-        const symbol = ASSETS.symbols[symbolKey];
-        if (!symbol) return;
-
-        const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
-        if (img && img.complete && img.naturalHeight !== 0) {
-            const padding = Math.floor(size * 0.15);
-            const w = size - padding * 2;
-            const h = size - padding * 2;
-            ctx.drawImage(img, x + padding, y + padding, w, h);
+        if (totalWin > 0) {
+            gameState.currentWin.value = totalWin;
+            gameState.credits.value += totalWin;
         } else {
-            ctx.fillStyle = '#CCCCCC';
-            ctx.font = `${Math.floor(size * 0.3)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('...', x + size / 2, y + size / 2);
+            gameState.consecutiveWins.value = 0;
         }
-    }
+    };
 
-    drawInfoDisplays() {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const y = h - 280;
+    const spin = async () => {
+        if (gameState.isSpinning.value) return;
 
-        // Background panel
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, y, w, 80);
-
-        const labels = ['CREDITS', 'BET', 'WIN'];
-        const values = [this.state.credits, this.state.bet, this.state.currentWin];
-        const segmentWidth = w / 3;
-
-        ctx.textBaseline = 'middle';
-        for (let i = 0; i < 3; i++) {
-            const x = segmentWidth * i + segmentWidth / 2;
-
-            // Label
-            ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(labels[i], x, y + 25);
-
-            // Value
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText(values[i], x, y + 55);
-        }
-    }
-
-    drawBetControls() {
-        const ctx = this.ctx;
-        const minusBtn = this.buttons.betMinus;
-        const plusBtn = this.buttons.betPlus;
-
-        // Bet Minus Button
-        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
-        ctx.fillRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(minusBtn.x, minusBtn.y, minusBtn.width, minusBtn.height);
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 30px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('-', minusBtn.x + minusBtn.width / 2, minusBtn.y + minusBtn.height / 2);
-
-        // Bet Plus Button
-        ctx.fillStyle = this.state.isSpinning ? '#666' : '#4CAF50';
-        ctx.fillRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(plusBtn.x, plusBtn.y, plusBtn.width, plusBtn.height);
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 30px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('+', plusBtn.x + plusBtn.width / 2, plusBtn.y + plusBtn.height / 2);
-    }
-
-    drawSpinButton() {
-        const ctx = this.ctx;
-        const btn = this.buttons.spin;
-
-        const canSpin = !this.state.isSpinning &&
-            (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
-
-        // Outer glow
-        ctx.beginPath();
-        ctx.arc(btn.x, btn.y, btn.radius + 5, 0, Math.PI * 2);
-        ctx.fillStyle = canSpin ? 'rgba(255, 215, 0, 0.5)' : 'rgba(100, 100, 100, 0.5)';
-        ctx.fill();
-
-        // Button circle
-        const grad = ctx.createRadialGradient(btn.x, btn.y, 0, btn.x, btn.y, btn.radius);
-        if (canSpin) {
-            grad.addColorStop(0, '#FFD700');
-            grad.addColorStop(1, '#FFA500');
+        if (gameState.freeSpins.value > 0) {
+            gameState.freeSpins.value--;
         } else {
-            grad.addColorStop(0, '#888');
-            grad.addColorStop(1, '#555');
+            if (gameState.credits.value < gameState.bet.value) {
+                return;
+            }
+            gameState.credits.value -= gameState.bet.value;
+            gameState.consecutiveWins.value = 0;
+            gameState.inFreeSpinMode.value = false;
         }
 
-        ctx.beginPath();
-        ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        gameState.isSpinning.value = true;
+        gameState.currentWin.value = 0;
 
-        // Label
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('SPIN', btn.x, btn.y);
-    }
+        await animateSpin();
+        await checkWinsAndCascade();
 
-    drawFreeSpinsInfo() {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        gameState.isSpinning.value = false;
+    };
 
-        const boxWidth = 250;
-        const boxHeight = 60;
-        const x = (w - boxWidth) / 2;
-        const y = h * 0.15;
+    const increaseBet = () => {
+        if (!gameState.isSpinning.value && gameState.bet.value < CONFIG.game.maxBet) {
+            gameState.bet.value += CONFIG.game.betStep;
+        }
+    };
 
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.95)';
-        ctx.fillRect(x, y, boxWidth, boxHeight);
-        ctx.strokeStyle = '#FF4500';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x, y, boxWidth, boxHeight);
+    const decreaseBet = () => {
+        if (!gameState.isSpinning.value && gameState.bet.value > CONFIG.game.minBet) {
+            gameState.bet.value -= CONFIG.game.betStep;
+        }
+    };
 
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`FREE SPINS: ${this.state.freeSpins}`, w / 2, y + boxHeight / 2);
-    }
+    return {
+        spin,
+        increaseBet,
+        decreaseBet
+    };
 }
 
 // ==========================================
-// BOOTSTRAP
+// VUE APP
 // ==========================================
-window.addEventListener('load', () => {
-    const splash = document.getElementById('splashScreen');
-    const startBtn = document.getElementById('startBtn');
-    const gameContainer = document.querySelector('.game-container');
+createApp({
+    setup() {
+        // Refs
+        const showSplash = ref(true);
+        const canvasRef = ref(null);
 
-    gameContainer.style.display = 'none';
+        // Composables
+        const gameState = useGameState();
+        const gridState = useGridState();
+        const canvasState = useCanvas(canvasRef);
 
-    startBtn.addEventListener('click', async () => {
-        splash.classList.add('fade-out');
-        setTimeout(() => { splash.style.display = 'none'; }, 500);
+        // Renderer (needs to be created after canvas state)
+        const { render } = useRenderer(canvasState, gameState, gridState);
 
-        gameContainer.style.display = 'block';
+        // Game Logic
+        const gameLogic = useGameLogic(gameState, gridState, render);
 
-        // Preload all images including background
-        await loadAllAssets();
+        // Initialization
+        const startGame = async () => {
+            showSplash.value = false;
 
-        // Start the game
-        new SlotMachine('slotCanvas');
-    });
-});
+            await nextTick();
 
-// ==========================================
-// ASSET LOADING
-// ==========================================
-async function loadAllAssets() {
-    // Load symbol images
-    const paths = ASSETS.imagePaths || {};
-    ASSETS.loadedImages = {};
-    const entries = Object.entries(paths);
+            // Load assets
+            await loadAllAssets();
 
-    await Promise.all(entries.map(([key, src]) =>
-        loadImage(src).then(img => {
-            ASSETS.loadedImages[key] = img;
-        })
-    ));
-}
-
-function loadImage(src) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => {
-            console.error(`Failed to load image: ${src}`);
-            resolve(null);
+            // Setup canvas
+            canvasState.setupCanvas();
+            render();
         };
-        img.src = src;
-    });
-}
+
+        const handleResize = () => {
+            canvasState.setupCanvas();
+            render();
+        };
+
+        // Input handlers
+        const processClick = (x, y) => {
+            // Check spin button (circle)
+            const spinBtn = canvasState.buttons.value.spin;
+            const dx = x - spinBtn.x;
+            const dy = y - spinBtn.y;
+            if (dx * dx + dy * dy <= spinBtn.radius * spinBtn.radius) {
+                gameLogic.spin();
+                return;
+            }
+
+            // Check bet minus button
+            const minusBtn = canvasState.buttons.value.betMinus;
+            if (x >= minusBtn.x && x <= minusBtn.x + minusBtn.width &&
+                y >= minusBtn.y && y <= minusBtn.y + minusBtn.height) {
+                gameLogic.decreaseBet();
+                return;
+            }
+
+            // Check bet plus button
+            const plusBtn = canvasState.buttons.value.betPlus;
+            if (x >= plusBtn.x && x <= plusBtn.x + plusBtn.width &&
+                y >= plusBtn.y && y <= plusBtn.y + plusBtn.height) {
+                gameLogic.increaseBet();
+                return;
+            }
+        };
+
+        const handleCanvasClick = (e) => {
+            const rect = canvasState.canvas.value.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            processClick(x, y);
+        };
+
+        const handleCanvasTouch = (e) => {
+            const touch = e.changedTouches[0];
+            if (touch) {
+                const rect = canvasState.canvas.value.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                processClick(x, y);
+            }
+        };
+
+        // Watchers - trigger re-render when state changes
+        watch(() => gridState.grid.value, render, { deep: true });
+        watch(() => gameState.credits.value, render);
+        watch(() => gameState.bet.value, render);
+        watch(() => gameState.currentWin.value, render);
+        watch(() => gameState.freeSpins.value, render);
+        watch(() => gridState.highlightWins.value, render);
+
+        // Lifecycle
+        onMounted(() => {
+            window.addEventListener('resize', handleResize);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    gameLogic.spin();
+                }
+            });
+        });
+
+        onBeforeUnmount(() => {
+            window.removeEventListener('resize', handleResize);
+        });
+
+        return {
+            // State
+            showSplash,
+            canvasRef,
+
+            // Methods
+            startGame,
+            handleCanvasClick,
+            handleCanvasTouch
+        };
+    }
+}).mount('#app');
