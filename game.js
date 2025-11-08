@@ -1,4 +1,54 @@
 // ==========================================
+// LOADING SCREEN MANAGER
+// ==========================================
+
+class LoadingManager {
+    constructor() {
+        this.loadingScreen = document.getElementById('loadingScreen');
+        this.progressBar = document.getElementById('loadingProgress');
+        this.loadingText = document.getElementById('loadingText');
+        this.currentProgress = 0;
+    }
+
+    updateProgress(progress, message = '') {
+        this.currentProgress = Math.min(progress, 100);
+        this.progressBar.style.width = `${this.currentProgress}%`;
+
+        const displayMessage = message || `Loading... ${Math.round(this.currentProgress)}%`;
+        this.loadingText.textContent = displayMessage;
+    }
+
+    async simulateLoading() {
+        const steps = [
+            { progress: 20, message: 'Loading assets...', delay: 200 },
+            { progress: 40, message: 'Initializing game...', delay: 300 },
+            { progress: 60, message: 'Setting up canvas...', delay: 200 },
+            { progress: 80, message: 'Preparing symbols...', delay: 300 },
+            { progress: 100, message: 'Ready!', delay: 200 }
+        ];
+
+        for (const step of steps) {
+            await this.delay(step.delay);
+            this.updateProgress(step.progress, step.message);
+        }
+
+        await this.delay(500);
+        this.hide();
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    hide() {
+        this.loadingScreen.classList.add('fade-out');
+        setTimeout(() => {
+            this.loadingScreen.style.display = 'none';
+        }, 500);
+    }
+}
+
+// ==========================================
 // ASSET CONFIGURATION
 // Replace these with your own images later
 // ==========================================
@@ -679,6 +729,13 @@ class SlotMachine {
 // INITIALIZE GAME
 // ==========================================
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    // Initialize loading manager
+    const loadingManager = new LoadingManager();
+
+    // Simulate loading process
+    await loadingManager.simulateLoading();
+
+    // Initialize game after loading is complete
     const game = new SlotMachine('slotCanvas');
 });
