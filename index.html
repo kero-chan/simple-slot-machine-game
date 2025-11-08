@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Mahjong Slot Machine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎰 Slot Machine 🎰</h1>
+
+        <div class="canvas-wrapper">
+            <canvas id="slotCanvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="label">Credits:</span>
+                    <span class="value" id="credits">1000</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Bet:</span>
+                    <span class="value" id="bet">10</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Win:</span>
+                    <span class="value" id="win">0</span>
+                </div>
+            </div>
+
+            <div class="bet-controls">
+                <button id="decreaseBet" class="btn-bet">- Bet</button>
+                <button id="increaseBet" class="btn-bet">+ Bet</button>
+            </div>
+
+            <button id="spinBtn" class="spin-button">SPIN</button>
+
+            <div class="message" id="message"></div>
+        </div>
+
+        <div class="paytable">
+            <h3>Paytable</h3>
+            <div class="paytable-grid">
+                <div class="pay-row">
+                    <span>🍒 🍒 🍒</span>
+                    <span>×10</span>
+                </div>
+                <div class="pay-row">
+                    <span>🍋 🍋 🍋</span>
+                    <span>×15</span>
+                </div>
+                <div class="pay-row">
+                    <span>🍊 🍊 🍊</span>
+                    <span>×20</span>
+                </div>
+                <div class="pay-row">
+                    <span>🍇 🍇 🍇</span>
+                    <span>×25</span>
+                </div>
+                <div class="pay-row">
+                    <span>🔔 🔔 🔔</span>
+                    <span>×50</span>
+                </div>
+                <div class="pay-row">
+                    <span>💎 💎 💎</span>
+                    <span>×75</span>
+                </div>
+                <div class="pay-row">
+                    <span>7️⃣ 7️⃣ 7️⃣</span>
+                    <span>×100</span>
+                </div>
+                <div class="pay-row">
+                    <span>⭐ ⭐ ⭐</span>
+                    <span>×200</span>
+                </div>
+                <div class="pay-row special">
+                    <span>Any 2 matching</span>
+                    <span>×2</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
