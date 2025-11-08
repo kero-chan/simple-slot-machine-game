@@ -9,21 +9,29 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-logo">🎰</div>
-            <h2 class="loading-title">Mahjong Slot Machine</h2>
-            <div class="loading-bar-container">
-                <div class="loading-bar">
-                    <div id="loadingProgress" class="loading-progress"></div>
-                </div>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-content">
+            <div class="splash-tiles">
+                <!-- Use PNG tiles from assets -->
+                <div class="tile"><img src="assets/pg-mahjong-ways-4.png" alt="Mahjong Tile 4"></div>
+                <div class="tile"><img src="assets/pg-mahjong-ways-5.png" alt="Mahjong Tile 5"></div>
+                <div class="tile"><img src="assets/pg-mahjong-ways-6.png" alt="Mahjong Tile 6"></div>
+                <div class="tile"><img src="assets/pg-mahjong-ways-7.png" alt="Mahjong Tile 7"></div>
+                <div class="tile"><img src="assets/pg-mahjong-ways-8.png" alt="Mahjong Tile 8"></div>
             </div>
-            <div id="loadingText" class="loading-text">Loading... 0%</div>
+            <h1 class="splash-title">麻将胡了</h1>
+            <div class="splash-subtitle">MAHJONG WAYS</div>
+            <div class="splash-tagline">连消百搭 + 递增倍数 好玩又好赢！</div>
+            <button id="startBtn" class="start-button">开始</button>
+            <div class="splash-footer">
+                <div class="certs">MGA · BMM · RTP</div>
+                <div class="copyright">PGSOFT.COM 2025 ©</div>
+            </div>
         </div>
     </div>
 
-    <div class="game-container">
+    <div class="game-container" style="display:none;">
         <h1>🎰 Slot Machine 🎰</h1>
 
         <div class="canvas-wrapper">
@@ -59,42 +67,15 @@
         <div class="paytable">
             <h3>Paytable</h3>
             <div class="paytable-grid">
-                <div class="pay-row">
-                    <span>🍒 🍒 🍒</span>
-                    <span>×10</span>
-                </div>
-                <div class="pay-row">
-                    <span>🍋 🍋 🍋</span>
-                    <span>×15</span>
-                </div>
-                <div class="pay-row">
-                    <span>🍊 🍊 🍊</span>
-                    <span>×20</span>
-                </div>
-                <div class="pay-row">
-                    <span>🍇 🍇 🍇</span>
-                    <span>×25</span>
-                </div>
-                <div class="pay-row">
-                    <span>🔔 🔔 🔔</span>
-                    <span>×50</span>
-                </div>
-                <div class="pay-row">
-                    <span>💎 💎 💎</span>
-                    <span>×75</span>
-                </div>
-                <div class="pay-row">
-                    <span>7️⃣ 7️⃣ 7️⃣</span>
-                    <span>×100</span>
-                </div>
-                <div class="pay-row">
-                    <span>⭐ ⭐ ⭐</span>
-                    <span>×200</span>
-                </div>
-                <div class="pay-row special">
-                    <span>Any 2 matching</span>
-                    <span>×2</span>
-                </div>
+                <div class="pay-row"><span>🍒 🍒 🍒</span><span>×10</span></div>
+                <div class="pay-row"><span>🍋 🍋 🍋</span><span>×15</span></div>
+                <div class="pay-row"><span>🍊 🍊 🍊</span><span>×20</span></div>
+                <div class="pay-row"><span>🍇 🍇 🍇</span><span>×25</span></div>
+                <div class="pay-row"><span>🔔 🔔 🔔</span><span>×50</span></div>
+                <div class="pay-row"><span>💎 💎 💎</span><span>×75</span></div>
+                <div class="pay-row"><span>7️⃣ 7️⃣ 7️⃣</span><span>×100</span></div>
+                <div class="pay-row"><span>⭐ ⭐ ⭐</span><span>×200</span></div>
+                <div class="pay-row special"><span>Any 2 matching</span><span>×2</span></div>
             </div>
         </div>
     </div>

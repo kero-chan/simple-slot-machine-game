@@ -1,7 +1,3 @@
-// ==========================================
-// LOADING SCREEN MANAGER
-// ==========================================
-
 class LoadingManager {
     constructor() {
         this.loadingScreen = document.getElementById('loadingScreen');
@@ -47,19 +43,13 @@ class LoadingManager {
         }, 500);
     }
 }
-
 // ==========================================
 // ASSET CONFIGURATION
-// Replace these with your own images later
 // ==========================================
-
 const ASSETS = {
     symbols: {
-        // High value symbols
         wild: { emoji: '🀄', name: 'Wild', color: '#FFD700' },
         scatter: { emoji: '🎴', name: 'Scatter', color: '#FF4444' },
-
-        // Mahjong tile symbols (high to low value)
         dragon_red: { emoji: '🀆', name: 'Red Dragon', color: '#FF6B6B' },
         dragon_green: { emoji: '🀅', name: 'Green Dragon', color: '#51CF66' },
         dragon_white: { emoji: '🀄', name: 'White Dragon', color: '#E0E0E0' },
@@ -69,25 +59,28 @@ const ASSETS = {
         character: { emoji: '㊥', name: 'Character', color: '#FF6B9D' },
         dot: { emoji: '⚫', name: 'Dot', color: '#868E96' }
     },
-
-    // Background colors for reels
     reelColor: '#FFFFFF',
     reelBorderColor: '#2C3E50',
     highlightColor: '#FFD700',
     goldenColor: '#FFD700',
-
-    // You can replace these paths with actual image files
     imagePaths: {
-        // wild: 'assets/wild.png',
-        // scatter: 'assets/scatter.png',
-        // etc...
-    }
+        wild: 'assets/pg-mahjong-ways-13.png',
+        scatter: 'assets/pg-mahjong-ways-12.png',
+        dragon_red: 'assets/pg-mahjong-ways-11.png',
+        dragon_green: 'assets/pg-mahjong-ways-10.png',
+        dragon_white: 'assets/pg-mahjong-ways-9.png',
+        wind_east: 'assets/pg-mahjong-ways-8.png',
+        wind_south: 'assets/pg-mahjong-ways-7.png',
+        bamboo: 'assets/pg-mahjong-ways-6.png',
+        character: 'assets/pg-mahjong-ways-5.png',
+        dot: 'assets/pg-mahjong-ways-4.png'
+    },
+    loadedImages: {}
 };
 
 // ==========================================
 // GAME CONFIGURATION
 // ==========================================
-
 const CONFIG = {
     canvas: {
         baseWidth: 600,
@@ -95,7 +88,6 @@ const CONFIG = {
         width: 600,
         height: 400
     },
-
     reels: {
         count: 5,
         rows: 3,
@@ -104,8 +96,6 @@ const CONFIG = {
         offsetX: 60,
         offsetY: 50
     },
-
-    // Paytable configuration
     paytable: {
         wild: { 3: 15, 4: 60, 5: 100 },
         scatter: { 3: 10, 4: 40, 5: 80 },
@@ -118,21 +108,13 @@ const CONFIG = {
         character: { 3: 2, 4: 5, 5: 10 },
         dot: { 3: 2, 4: 5, 5: 10 }
     },
-
-    // Multipliers for consecutive wins
-    multipliers: [1, 2, 3, 5, 5, 5], // [1st win, 2nd, 3rd, 4th+]
-
-    // Free spins multipliers
+    multipliers: [1, 2, 3, 5, 5, 5],
     freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
-
-    // Animation settings
     animation: {
         spinDuration: 2000,
         cascadeDuration: 500,
         symbolFallSpeed: 10
     },
-
-    // Game settings
     game: {
         initialCredits: 1000,
         minBet: 5,
@@ -146,7 +128,6 @@ const CONFIG = {
 // ==========================================
 // GAME STATE
 // ==========================================
-
 class GameState {
     constructor() {
         this.credits = CONFIG.game.initialCredits;
@@ -156,14 +137,8 @@ class GameState {
         this.consecutiveWins = 0;
         this.freeSpins = 0;
         this.inFreeSpinMode = false;
-
-        // Grid holds the current symbols on screen
         this.grid = this.createEmptyGrid();
-
-        // Track golden symbols positions
         this.goldenSymbols = new Set();
-
-        // Animation state
         this.animationFrame = null;
         this.cascading = false;
     }
@@ -181,26 +156,15 @@ class GameState {
 
     getRandomSymbol() {
         const symbols = Object.keys(ASSETS.symbols);
-        // Remove scatter and wild from regular symbols (lower probability)
         const regularSymbols = symbols.filter(s => s !== 'scatter' && s !== 'wild');
-
         const rand = Math.random();
-
-        // 5% chance for wild
         if (rand < 0.05) return 'wild';
-
-        // 5% chance for scatter
         if (rand < 0.10) return 'scatter';
-
-        // Regular symbols
         return regularSymbols[Math.floor(Math.random() * regularSymbols.length)];
     }
 
     getCurrentMultiplier() {
-        const multipliers = this.inFreeSpinMode ?
-            CONFIG.freeSpinMultipliers :
-            CONFIG.multipliers;
-
+        const multipliers = this.inFreeSpinMode ? CONFIG.freeSpinMultipliers : CONFIG.multipliers;
         const index = Math.min(this.consecutiveWins, multipliers.length - 1);
         return multipliers[index];
     }
@@ -209,7 +173,6 @@ class GameState {
 // ==========================================
 // GAME ENGINE
 // ==========================================
-
 class SlotMachine {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -220,7 +183,6 @@ class SlotMachine {
         this.initializeUI();
         this.render();
 
-        // Handle window resize for responsive canvas
         window.addEventListener('resize', () => {
             this.setupCanvas();
             this.render();
@@ -228,25 +190,20 @@ class SlotMachine {
     }
 
     setupCanvas() {
-        // Calculate responsive canvas size
         const container = this.canvas.parentElement;
         const containerWidth = container.clientWidth;
         const maxWidth = Math.min(containerWidth - 40, CONFIG.canvas.baseWidth);
 
-        // Maintain aspect ratio
         const aspectRatio = CONFIG.canvas.baseHeight / CONFIG.canvas.baseWidth;
         const width = maxWidth;
         const height = width * aspectRatio;
 
-        // Set canvas size
         this.canvas.width = width;
         this.canvas.height = height;
 
-        // Update config for rendering calculations
         CONFIG.canvas.width = width;
         CONFIG.canvas.height = height;
 
-        // Scale symbol sizes proportionally
         const scale = width / CONFIG.canvas.baseWidth;
         CONFIG.reels.symbolSize = Math.floor(80 * scale);
         CONFIG.reels.spacing = Math.floor(10 * scale);
@@ -255,14 +212,11 @@ class SlotMachine {
     }
 
     initializeUI() {
-        // Update UI elements
         this.updateUI();
 
-        // Spin button - support both click and touch
         const spinBtn = document.getElementById('spinBtn');
         this.addTouchSupport(spinBtn, () => this.spin());
 
-        // Bet controls
         this.addTouchSupport(document.getElementById('increaseBet'), () => {
             if (this.state.bet < CONFIG.game.maxBet) {
                 this.state.bet += CONFIG.game.betStep;
@@ -277,7 +231,6 @@ class SlotMachine {
             }
         });
 
-        // Add keyboard support for desktop
         document.addEventListener('keydown', (e) => {
             if (e.key === ' ' || e.key === 'Enter') {
                 e.preventDefault();
@@ -309,7 +262,6 @@ class SlotMachine {
             touchHandled = false;
         });
 
-        // Also support mouse events for desktop
         element.addEventListener('click', (e) => {
             if (!touchHandled && !element.disabled) {
                 callback();
@@ -324,11 +276,9 @@ class SlotMachine {
 
         const spinBtn = document.getElementById('spinBtn');
         const canSpin = !this.state.isSpinning &&
-                       (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
-
+                        (this.state.credits >= this.state.bet || this.state.freeSpins > 0);
         spinBtn.disabled = !canSpin;
 
-        // Update message
         const message = document.getElementById('message');
         if (this.state.freeSpins > 0) {
             message.textContent = `Free Spins: ${this.state.freeSpins} | Multiplier: x${this.state.getCurrentMultiplier()}`;
@@ -345,7 +295,6 @@ class SlotMachine {
     }
 
     async spin() {
-        // Check if we can spin
         if (this.state.isSpinning) return;
 
         if (this.state.freeSpins > 0) {
@@ -364,10 +313,7 @@ class SlotMachine {
         this.state.currentWin = 0;
         this.updateUI();
 
-        // Animate spin
         await this.animateSpin();
-
-        // Check for wins and cascades
         await this.checkWinsAndCascade();
 
         this.state.isSpinning = false;
@@ -384,7 +330,6 @@ class SlotMachine {
                 const progress = Math.min(elapsed / duration, 1);
 
                 if (progress < 1) {
-                    // Randomize symbols during spin
                     for (let col = 0; col < CONFIG.reels.count; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
                             if (Math.random() > 0.7) {
@@ -392,18 +337,15 @@ class SlotMachine {
                             }
                         }
                     }
-
                     this.render();
                     requestAnimationFrame(animate);
                 } else {
-                    // Final symbols
                     for (let col = 0; col < CONFIG.reels.count; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
                             this.state.grid[col][row] = this.state.getRandomSymbol();
                         }
                     }
 
-                    // Mark some symbols as golden (only on reels 2, 3, 4)
                     this.state.goldenSymbols.clear();
                     for (let col = 1; col <= 3; col++) {
                         for (let row = 0; row < CONFIG.reels.rows; row++) {
@@ -414,12 +356,10 @@ class SlotMachine {
                             }
                         }
                     }
-
                     this.render();
                     resolve();
                 }
             };
-
             animate();
         });
     }
@@ -429,15 +369,12 @@ class SlotMachine {
         let hasWins = true;
 
         while (hasWins) {
-            // Check for winning combinations
             const wins = this.findWinningCombinations();
-
             if (wins.length === 0) {
                 hasWins = false;
                 break;
             }
 
-            // Calculate win amount
             const winAmount = this.calculateWinAmount(wins);
             const multiplier = this.state.getCurrentMultiplier();
             const multipliedWin = winAmount * multiplier * this.state.bet;
@@ -445,13 +382,9 @@ class SlotMachine {
             totalWin += multipliedWin;
             this.state.consecutiveWins++;
 
-            // Highlight winning symbols
             await this.highlightWins(wins);
-
-            // Convert golden symbols to wilds
             this.convertGoldenToWilds(wins);
 
-            // Check for scatter bonus
             const scatterCount = this.countScatters();
             if (scatterCount >= 3) {
                 this.state.freeSpins += CONFIG.game.freeSpinsPerScatter +
@@ -459,7 +392,6 @@ class SlotMachine {
                 this.state.inFreeSpinMode = true;
             }
 
-            // Remove winning symbols and cascade
             await this.cascadeSymbols(wins);
         }
 
@@ -474,7 +406,6 @@ class SlotMachine {
     findWinningCombinations() {
         const wins = [];
 
-        // Check each row for left-to-right combinations
         for (let row = 0; row < CONFIG.reels.rows; row++) {
             let currentSymbol = this.state.grid[0][row];
             let count = 1;
@@ -506,9 +437,7 @@ class SlotMachine {
         let count = 0;
         for (let col = 0; col < CONFIG.reels.count; col++) {
             for (let row = 0; row < CONFIG.reels.rows; row++) {
-                if (this.state.grid[col][row] === 'scatter') {
-                    count++;
-                }
+                if (this.state.grid[col][row] === 'scatter') count++;
             }
         }
         return count;
@@ -516,14 +445,10 @@ class SlotMachine {
 
     calculateWinAmount(wins) {
         let total = 0;
-
         for (const win of wins) {
             const paytable = CONFIG.paytable[win.symbol];
-            if (paytable && paytable[win.count]) {
-                total += paytable[win.count];
-            }
+            if (paytable && paytable[win.count]) total += paytable[win.count];
         }
-
         return total;
     }
 
@@ -534,7 +459,6 @@ class SlotMachine {
         return new Promise(resolve => {
             const animate = () => {
                 const elapsed = Date.now() - startTime;
-
                 if (elapsed < duration) {
                     this.render(wins);
                     requestAnimationFrame(animate);
@@ -543,13 +467,11 @@ class SlotMachine {
                     resolve();
                 }
             };
-
             animate();
         });
     }
 
     convertGoldenToWilds(wins) {
-        // Convert golden symbols that were part of a win to wilds
         const winPositions = new Set();
         wins.forEach(win => {
             win.positions.forEach(([col, row]) => {
@@ -567,7 +489,6 @@ class SlotMachine {
     }
 
     async cascadeSymbols(wins) {
-        // Collect positions to remove
         const toRemove = new Set();
         wins.forEach(win => {
             win.positions.forEach(([col, row]) => {
@@ -575,26 +496,17 @@ class SlotMachine {
             });
         });
 
-        // Remove symbols and drop new ones
         for (let col = 0; col < CONFIG.reels.count; col++) {
             const removed = [];
-
             for (let row = CONFIG.reels.rows - 1; row >= 0; row--) {
-                if (toRemove.has(`${col},${row}`)) {
-                    removed.push(row);
-                }
+                if (toRemove.has(`${col},${row}`)) removed.push(row);
             }
 
-            // Shift symbols down
             for (let i = removed.length - 1; i >= 0; i--) {
                 const rowToRemove = removed[i];
-
-                // Shift all symbols above down
                 for (let row = rowToRemove; row > 0; row--) {
                     this.state.grid[col][row] = this.state.grid[col][row - 1];
                 }
-
-                // Add new symbol at top
                 this.state.grid[col][0] = this.state.getRandomSymbol();
             }
         }
@@ -609,7 +521,6 @@ class SlotMachine {
         return new Promise(resolve => {
             const animate = () => {
                 const elapsed = Date.now() - startTime;
-
                 if (elapsed < duration) {
                     this.render();
                     requestAnimationFrame(animate);
@@ -618,7 +529,6 @@ class SlotMachine {
                     resolve();
                 }
             };
-
             animate();
         });
     }
@@ -626,18 +536,13 @@ class SlotMachine {
     // ==========================================
     // RENDERING
     // ==========================================
-
     render(highlightWins = null) {
         const ctx = this.ctx;
 
-        // Clear canvas
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw reels
         this.drawReels(highlightWins);
-
-        // Draw multiplier indicator
         this.drawMultiplier();
     }
 
@@ -645,7 +550,6 @@ class SlotMachine {
         const ctx = this.ctx;
         const { symbolSize, spacing, offsetX, offsetY } = CONFIG.reels;
 
-        // Create highlight set for faster lookup
         const highlightSet = new Set();
         if (highlightWins) {
             highlightWins.forEach(win => {
@@ -663,7 +567,6 @@ class SlotMachine {
                 const isHighlighted = highlightSet.has(`${col},${row}`);
                 const isGolden = this.state.goldenSymbols.has(`${col},${row}`);
 
-                // Draw symbol background
                 ctx.fillStyle = isHighlighted ? ASSETS.highlightColor : ASSETS.reelColor;
                 ctx.strokeStyle = isGolden ? ASSETS.goldenColor : ASSETS.reelBorderColor;
                 ctx.lineWidth = isGolden ? 4 : 2;
@@ -671,7 +574,6 @@ class SlotMachine {
                 ctx.fillRect(x, y, symbolSize, symbolSize);
                 ctx.strokeRect(x, y, symbolSize, symbolSize);
 
-                // Draw symbol
                 const symbol = this.state.grid[col][row];
                 this.drawSymbol(ctx, symbol, x, y, symbolSize, isGolden);
             }
@@ -682,60 +584,71 @@ class SlotMachine {
         const symbol = ASSETS.symbols[symbolKey];
         if (!symbol) return;
 
-        // Draw emoji
-        ctx.font = `${size * 0.6}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        // tile background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(x + 6, y + 6, size - 12, size - 12);
 
-        if (isGolden) {
-            // Add golden glow effect
-            ctx.shadowColor = ASSETS.goldenColor;
-            ctx.shadowBlur = 10;
+        // prefer PNG image if loaded
+        const img = ASSETS.loadedImages && ASSETS.loadedImages[symbolKey];
+        if (img) {
+            const padding = Math.floor(size * 0.18);
+            const w = size - padding * 2;
+            const h = size - padding * 2;
+            ctx.drawImage(img, x + padding, y + padding, w, h);
+            return;
         }
 
-        ctx.fillStyle = symbol.color;
+        // emoji fallback
+        ctx.fillStyle = isGolden ? '#B8860B' : symbol.color;
+        ctx.font = `${Math.floor(size * 0.5)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText(symbol.emoji, x + size / 2, y + size / 2);
-
-        ctx.shadowBlur = 0;
-
-        // Draw symbol name (smaller)
-        ctx.font = `${size * 0.12}px Arial`;
-        ctx.fillStyle = '#333';
-        ctx.fillText(symbol.name.substring(0, 4), x + size / 2, y + size - 8);
     }
 
     drawMultiplier() {
-        const ctx = this.ctx;
         const multiplier = this.state.getCurrentMultiplier();
+        const ctx = this.ctx;
 
-        if (multiplier > 1 || this.state.consecutiveWins > 0) {
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#FFD700';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
+        ctx.fillStyle = '#ffffffaa';
+        ctx.fillRect(10, 10, 120, 30);
 
-            const text = `x${multiplier}`;
-            const x = this.canvas.width / 2;
-            const y = 25;
-
-            ctx.strokeText(text, x, y);
-            ctx.fillText(text, x, y);
-        }
+        ctx.fillStyle = '#000';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Multiplier: x${multiplier}`, 18, 25);
     }
 }
 
 // ==========================================
-// INITIALIZE GAME
+// BOOTSTRAP
 // ==========================================
+window.addEventListener('load', () => {
+    const splash = document.getElementById('splashScreen');
+    const startBtn = document.getElementById('startBtn');
+    const gameContainer = document.querySelector('.game-container');
 
-window.addEventListener('load', async () => {
-    // Initialize loading manager
-    const loadingManager = new LoadingManager();
+    gameContainer.style.display = 'none';
 
-    // Simulate loading process
-    await loadingManager.simulateLoading();
+    startBtn.addEventListener('click', () => {
+        splash.classList.add('fade-out');
+        setTimeout(() => { splash.style.display = 'none'; }, 500);
 
-    // Initialize game after loading is complete
-    const game = new SlotMachine('slotCanvas');
+        gameContainer.style.display = 'block';
+        new SlotMachine('slotCanvas');
+    });
 });
+
+// Preload symbol images
+async function loadSymbolImages() {
+    const paths = ASSETS.imagePaths || {};
+    ASSETS.loadedImages = {};
+    const entries = Object.entries(paths);
+    await Promise.all(entries.map(([key, src]) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => { ASSETS.loadedImages[key] = img; resolve(); };
+        img.onerror = (e) => { console.warn(`Image failed: ${src}`); resolve(); }; // fall back to emoji on failure
+        img.src = src;
+    })));
+}
