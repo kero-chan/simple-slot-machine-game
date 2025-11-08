@@ -26,7 +26,8 @@ const {
   handleResize,
   handleCanvasClick,
   handleCanvasTouch,
-  handleKeydown
+  handleKeydown,
+  stopAnimation
 } = useSlotMachine(canvasRef)
 
 onMounted(() => {
@@ -36,6 +37,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopAnimation()
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('keydown', handleKeydown)
 })

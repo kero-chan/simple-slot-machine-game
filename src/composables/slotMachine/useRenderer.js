@@ -1,8 +1,12 @@
 import { ASSETS } from '../../config/assets'
 import { CONFIG } from '../../config/constants'
+import { useSpinBtn } from './useSpinBtn'
 
 export function useRenderer(canvasState, gameState, gridState) {
-    const render = () => {
+    const spinBtn = useSpinBtn(canvasState, gameState)
+    let animationFrameId = null
+
+    const renderFrame = (timestamp = 0) => {
         if (!canvasState.ctx.value) return
         const ctx = canvasState.ctx.value
         const w = canvasState.canvasWidth.value
@@ -11,6 +15,8 @@ export function useRenderer(canvasState, gameState, gridState) {
         // Start screen branch
         if (gameState.showStartScreen.value) {
             drawStartScreen(ctx, w, h, canvasState)
+            // Continue animation loop for start screen as well
+            animationFrameId = requestAnimationFrame(renderFrame)
             return
         }
 
@@ -27,10 +33,23 @@ export function useRenderer(canvasState, gameState, gridState) {
         drawReels(ctx, canvasState, gridState)
         drawInfoDisplays(ctx, canvasState, gameState)
         drawBetControls(ctx, canvasState, gameState)
-        drawSpinButton(ctx, canvasState, gameState)
+        spinBtn.draw(ctx, timestamp)
 
         if (gameState.freeSpins.value > 0) {
             drawFreeSpinsInfo(ctx, canvasState, gameState)
+        }
+
+        // Continue animation loop
+        animationFrameId = requestAnimationFrame(renderFrame)
+    }
+
+    const render = () => {
+        renderFrame(performance.now())
+    }
+
+    const startAnimation = () => {
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(renderFrame)
         }
     }
 
@@ -160,40 +179,6 @@ export function useRenderer(canvasState, gameState, gridState) {
         ctx.fillText('+', plusBtn.x + plusBtn.width / 2, plusBtn.y + plusBtn.height / 2)
     }
 
-    const drawSpinButton = (ctx, canvasState, gameState) => {
-        const btn = canvasState.buttons.value.spin
-
-        // Outer glow
-        ctx.beginPath()
-        ctx.arc(btn.x, btn.y, btn.radius + 5, 0, Math.PI * 2)
-        ctx.fillStyle = gameState.canSpin.value ? 'rgba(255, 215, 0, 0.5)' : 'rgba(100, 100, 100, 0.5)'
-        ctx.fill()
-
-        // Button circle
-        const grad = ctx.createRadialGradient(btn.x, btn.y, 0, btn.x, btn.y, btn.radius)
-        if (gameState.canSpin.value) {
-            grad.addColorStop(0, '#FFD700')
-            grad.addColorStop(1, '#FFA500')
-        } else {
-            grad.addColorStop(0, '#888')
-            grad.addColorStop(1, '#555')
-        }
-
-        ctx.beginPath()
-        ctx.arc(btn.x, btn.y, btn.radius, 0, Math.PI * 2)
-        ctx.fillStyle = grad
-        ctx.fill()
-        ctx.strokeStyle = '#fff'
-        ctx.lineWidth = 3
-        ctx.stroke()
-
-        // Label
-        ctx.fillStyle = '#000'
-        ctx.font = `bold ${Math.floor(24 * canvasState.scale.value)}px Arial`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('SPIN', btn.x, btn.y)
-    }
 
     const drawFreeSpinsInfo = (ctx, canvasState, gameState) => {
         const w = canvasState.canvasWidth.value
@@ -257,5 +242,12 @@ export function useRenderer(canvasState, gameState, gridState) {
         ctx.closePath()
     }
 
-    return { render }
+    const stopAnimation = () => {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId)
+            animationFrameId = null
+        }
+    }
+
+    return { render, spinBtn, startAnimation, stopAnimation }
 }

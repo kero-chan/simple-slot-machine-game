@@ -22,7 +22,8 @@ export const ASSETS = {
     bamboo: new URL('../assets/bamboo.png', import.meta.url).href,
     character: new URL('../assets/character.png', import.meta.url).href,
     dot: new URL('../assets/dot.png', import.meta.url).href,
-    start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href
+    start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href,
+    spin_btn: new URL('../assets/spin_btn.png', import.meta.url).href
   },
   loadedImages: {}
 }
