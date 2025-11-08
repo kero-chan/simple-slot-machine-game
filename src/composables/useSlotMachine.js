@@ -16,8 +16,10 @@ export function useSlotMachine(canvasRef) {
   const init = async () => {
     try {
       await nextTick()
-      await loadAllAssets()
       canvasState.setupCanvas()
+      render()
+
+      await loadAllAssets()
       render()
 
       // Reactive re-renders
