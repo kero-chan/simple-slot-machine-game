@@ -23,7 +23,9 @@ export const ASSETS = {
     character: new URL('../assets/character.png', import.meta.url).href,
     dot: new URL('../assets/dot.png', import.meta.url).href,
     start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href,
-    spin_btn: new URL('../assets/spin_btn.png', import.meta.url).href
+    // Spin button assets: frame background + gold arrow
+    spin_frame: new URL('../assets/slotMachine/spin_btn/frame.png', import.meta.url).href,
+    spin_arrow: new URL('../assets/slotMachine/spin_btn/arrow.png', import.meta.url).href
   },
   loadedImages: {}
 }
