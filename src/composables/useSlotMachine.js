@@ -76,18 +76,20 @@ export function useSlotMachine(canvasRef) {
   }
 
   const handleCanvasClick = (e) => {
-    if (!canvasState.app.value) return
-    const rect = canvasState.app.value.canvas.getBoundingClientRect()
+    const canvasEl = canvasState.canvas.value
+    if (!canvasEl) return
+    const rect = canvasEl.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     processClick(x, y)
   }
 
   const handleCanvasTouch = (e) => {
-    if (!canvasState.app.value) return
+    const canvasEl = canvasState.canvas.value
+    if (!canvasEl) return
     const touch = e.changedTouches[0]
     if (touch) {
-      const rect = canvasState.app.value.canvas.getBoundingClientRect()
+      const rect = canvasEl.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
       processClick(x, y)

@@ -1,10 +1,12 @@
 import { ref } from 'vue'
-import { Application } from 'pixi.js'
 import { CONFIG } from '../../config/constants'
 import startBgUrl from '../../assets/start_game_bg.jpg'
 
 export function useCanvas(canvasRef) {
-  const app = ref(null)
+  const canvas = ref(null)
+  const ctx = ref(null)
+  const ownedCanvas = ref(null)
+
   const canvasWidth = ref(0)
   const canvasHeight = ref(0)
   const scale = ref(1)
@@ -18,19 +20,39 @@ export function useCanvas(canvasRef) {
     start: { x: 0, y: 0, width: 0, height: 0 }
   })
 
-  // Load start image once to get the exact aspect ratio
+  // Load start image once to get aspect ratio (optional)
   const ensureAspectLoaded = () => {
     if (targetAspect.value) return
     const img = new Image()
     img.onload = () => {
       targetAspect.value = img.width / img.height
-      if (app.value) setupCanvas()
+      if (canvas.value) setupCanvas()
     }
     img.src = startBgUrl
   }
 
   const setupCanvas = async () => {
     if (!canvasRef.value) return
+
+    // Create or use an actual HTMLCanvasElement
+    const hostEl = canvasRef.value
+    let canvasEl
+    if (hostEl instanceof HTMLCanvasElement) {
+      canvasEl = hostEl
+    } else {
+      if (!ownedCanvas.value) {
+        ownedCanvas.value = document.createElement('canvas')
+        ownedCanvas.value.style.display = 'block'
+        ownedCanvas.value.style.touchAction = 'none'
+        // Replace any previous children to ensure clean rendering target
+        hostEl.innerHTML = ''
+        hostEl.appendChild(ownedCanvas.value)
+      }
+      canvasEl = ownedCanvas.value
+    }
+
+    canvas.value = canvasEl
+    ctx.value = canvasEl.getContext('2d')
 
     ensureAspectLoaded()
     const aspect = targetAspect.value ?? (CONFIG.canvas.baseWidth / CONFIG.canvas.baseHeight)
@@ -40,25 +62,15 @@ export function useCanvas(canvasRef) {
     const height = vh
     const width = Math.min(vw, Math.round(height * aspect))
 
-    // Create or resize PixiJS application
-    if (!app.value) {
-      app.value = new Application()
-      await app.value.init({
-        width,
-        height,
-        backgroundColor: 0x000000,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true
-      })
+    // Device pixel ratio setup
+    const dpr = window.devicePixelRatio || 1
+    canvasEl.width = Math.floor(width * dpr)
+    canvasEl.height = Math.floor(height * dpr)
+    canvasEl.style.width = `${width}px`
+    canvasEl.style.height = `${height}px`
 
-      // Append the canvas to the container
-      canvasRef.value.appendChild(app.value.canvas)
-      app.value.canvas.style.touchAction = 'none'
-    } else {
-      // Resize existing application
-      app.value.renderer.resize(width, height)
-    }
+    // Scale the context to match CSS pixels
+    ctx.value.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     canvasWidth.value = width
     canvasHeight.value = height
@@ -78,13 +90,10 @@ export function useCanvas(canvasRef) {
     // Button positions
     buttons.value.spin.x = Math.floor(width / 2)
     buttons.value.spin.y = height - Math.floor(160 * scale.value)
-
-    // Make spin button smaller
     buttons.value.spin.radius = Math.floor(85 * scale.value)
 
-    // Arrange minus/plus left/right of the spin, same vertical center
-    const controlSize = Math.floor(72 * scale.value) // ring diameter
-    const gap = Math.floor(36 * scale.value)         // space between spin edge and ring
+    const controlSize = Math.floor(72 * scale.value)
+    const gap = Math.floor(36 * scale.value)
 
     // Minus (left of spin)
     buttons.value.betMinus.width = controlSize
@@ -108,7 +117,8 @@ export function useCanvas(canvasRef) {
   }
 
   return {
-    app,
+    canvas,
+    ctx,
     canvasWidth,
     canvasHeight,
     scale,
