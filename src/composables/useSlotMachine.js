@@ -20,16 +20,7 @@ export function useSlotMachine(canvasRef) {
       render()
 
       await loadAllAssets()
-
-      // Start animation loop for spin button
       startAnimation()
-
-      // Remove redundant watchers to avoid double render churn
-      watch(() => gridState.grid.value, render, { deep: true })
-      watch(() => gameState.credits.value, render)
-      watch(() => gameState.bet.value, render)
-      watch(() => gameState.currentWin.value, render)
-      watch(() => gridState.highlightWins.value, render)
     } catch (err) {
       console.error('SlotMachine init failed:', err)
     }

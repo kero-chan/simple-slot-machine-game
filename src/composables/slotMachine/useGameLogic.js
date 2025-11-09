@@ -77,9 +77,11 @@ export function useGameLogic(gameState, gridState, render) {
     const totalRows = CONFIG.reels.rows
     const cols = CONFIG.reels.count
 
-    // Ease-out quint: faster start, smoother decelerate
     const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5)
-    const FREEZE_THRESHOLD = 0.86 // after this, stop rotating, just glide to rest
+    const FREEZE_THRESHOLD = 0.82   // begin alignment phase slightly earlier
+    const ALIGN_STEP_MAX = 0.35     // max tiles/frame during alignment
+    const MIN_ALIGN_STEP = 0.08     // minimum downward step to avoid stall
+    const EPS = 1e-3
 
     return new Promise(resolve => {
       const animate = () => {
@@ -98,38 +100,60 @@ export function useGameLogic(gameState, gridState, render) {
           const t = Math.max(0, Math.min(elapsed / baseDuration, 1))
           const ease = easeOutQuint(t)
 
-          // Slightly higher max velocity for faster spin, smoothed
-          const maxVel = 0.65 // tiles/frame
-          const targetVel = (1 - ease) * maxVel
-          const prevVel = gridState.spinVelocities.value[col] || 0
-          let smoothedVel = prevVel * 0.8 + targetVel * 0.2
+          if (t < FREEZE_THRESHOLD) {
+            // Spin phase: faster start → slower end
+            const maxVel = 0.65 // tiles/frame
+            const targetVel = (1 - ease) * maxVel
+            const prevVel = gridState.spinVelocities.value[col] || 0
+            const smoothedVel = prevVel * 0.8 + targetVel * 0.2
 
-          if (t >= FREEZE_THRESHOLD) {
-              // Freeze symbol rotation near stop; just ease remaining offset down
-              smoothedVel = 0
-              gridState.spinOffsets.value[col] *= 0.82 // smooth glide to 0
-          } else {
-              // Accumulate downward offset and rotate full-tile steps
-              gridState.spinVelocities.value[col] = smoothedVel
-              gridState.spinOffsets.value[col] += smoothedVel
-              while (gridState.spinOffsets.value[col] >= 1) {
-                  gridState.spinOffsets.value[col] -= 1
-                  for (let row = totalRows - 1; row > 0; row--) {
-                      gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
-                  }
-                  gridState.grid.value[col][0] = getRandomSymbol()
+            gridState.spinVelocities.value[col] = smoothedVel
+            gridState.spinOffsets.value[col] += smoothedVel
+
+            // Rotate down when we cross a tile boundary
+            while (gridState.spinOffsets.value[col] >= 1) {
+              gridState.spinOffsets.value[col] -= 1
+              for (let row = totalRows - 1; row > 0; row--) {
+                gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
               }
+              gridState.grid.value[col][0] = getRandomSymbol()
+            }
+
+            allStopped = false
+            continue
           }
 
-          if (t < 1 || gridState.spinOffsets.value[col] > 0.02) {
-            allStopped = false
-          } else {
-            gridState.spinVelocities.value[col] = 0
+          // Alignment phase: only move downward to the next boundary; never up
+          const offset = gridState.spinOffsets.value[col]
+          if (offset < EPS) {
             gridState.spinOffsets.value[col] = 0
+            gridState.spinVelocities.value[col] = 0
+            continue
+          }
+
+          const remaining = 1 - offset // tiles to reach next boundary
+          const step = Math.min(
+            remaining,
+            Math.max(MIN_ALIGN_STEP, ALIGN_STEP_MAX * (1 - ease))
+          )
+
+          gridState.spinOffsets.value[col] += step
+
+          if (gridState.spinOffsets.value[col] >= 1 - EPS) {
+            // Final rotate and snap to exact tile alignment
+            gridState.spinOffsets.value[col] = 0
+            for (let row = totalRows - 1; row > 0; row--) {
+              gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
+            }
+            gridState.grid.value[col][0] = getRandomSymbol()
+            gridState.spinVelocities.value[col] = 0
+          } else {
+            gridState.spinVelocities.value[col] = step
+            allStopped = false
           }
         }
 
-        // No deep copy each frame; the render loop is continuous
+        // Continuous render loop is already driving frames; no deep copies needed
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
