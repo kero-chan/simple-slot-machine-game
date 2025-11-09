@@ -1,4 +1,4 @@
-import { ASSETS } from '../../config/assets'
+import { ASSETS } from '../../../config/assets'
 
 export function useSpinBtn(canvasState, gameState) {
   // Rotation state for the arrow
@@ -91,24 +91,41 @@ export function useSpinBtn(canvasState, gameState) {
     const radius = btn.radius
     const diameter = radius * 2
 
-    // Clip to circular area and clear
+    // Glow behind
+    ctx.save()
+    const glowGrad = ctx.createRadialGradient(btn.x, btn.y, radius * 0.2, btn.x, btn.y, radius * 1.05)
+    glowGrad.addColorStop(0, 'rgba(0,255,180,0.25)')
+    glowGrad.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = glowGrad
+    ctx.beginPath()
+    ctx.arc(btn.x, btn.y, Math.floor(radius * 1.05), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+
+    // Drop shadow
+    ctx.save()
+    ctx.globalAlpha = 0.35
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.arc(btn.x, btn.y + Math.floor(6 * canvasState.scale.value), Math.floor(radius * 0.95), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+
+    // Clip circle and draw frame + arrow
     ctx.save()
     ctx.beginPath()
     ctx.arc(btn.x, btn.y, radius, 0, Math.PI * 2)
     ctx.clip()
     ctx.clearRect(btn.x - radius, btn.y - radius, diameter, diameter)
 
-    // 1) Frame: detect opaque bounds and cover-fit to fill the circle
     const srcRect = getActiveSrcRect(frameImg)
     drawSubImageCover(ctx, frameImg, srcRect, btn.x - diameter / 2, btn.y - diameter / 2, diameter, diameter)
 
-    // 2) Arrow: rotate and contain-fit inside the frame
+    ctx.translate(btn.x, btn.y)
+    ctx.rotate(angleRad)
     const arrowInsetRatio = 0.20
     const arrowW = diameter * (1 - arrowInsetRatio * 2)
     const arrowH = diameter * (1 - arrowInsetRatio * 2)
-
-    ctx.translate(btn.x, btn.y)
-    ctx.rotate(angleRad)
     drawImageContain(ctx, arrowImg, -arrowW / 2, -arrowH / 2, arrowW, arrowH)
 
     ctx.restore()

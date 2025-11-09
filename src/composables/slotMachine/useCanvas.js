@@ -66,17 +66,25 @@ export function useCanvas(canvasRef) {
     // Button positions
     buttons.value.spin.x = Math.floor(width / 2)
     buttons.value.spin.y = height - Math.floor(160 * scale.value)
-    buttons.value.spin.radius = Math.floor(110 * scale.value)
 
-    buttons.value.betMinus.x = Math.floor(width / 2 - 100 * scale.value)
-    buttons.value.betMinus.y = height - Math.floor(240 * scale.value)
-    buttons.value.betMinus.width = Math.floor(60 * scale.value)
-    buttons.value.betMinus.height = Math.floor(50 * scale.value)
+    // Make spin button smaller
+    buttons.value.spin.radius = Math.floor(85 * scale.value)
 
-    buttons.value.betPlus.x = Math.floor(width / 2 + 40 * scale.value)
-    buttons.value.betPlus.y = height - Math.floor(240 * scale.value)
-    buttons.value.betPlus.width = Math.floor(60 * scale.value)
-    buttons.value.betPlus.height = Math.floor(50 * scale.value)
+    // Arrange minus/plus left/right of the spin, same vertical center
+    const controlSize = Math.floor(72 * scale.value) // ring diameter
+    const gap = Math.floor(36 * scale.value)         // space between spin edge and ring
+
+    // Minus (left of spin)
+    buttons.value.betMinus.width = controlSize
+    buttons.value.betMinus.height = controlSize
+    buttons.value.betMinus.x = buttons.value.spin.x - buttons.value.spin.radius - gap - controlSize
+    buttons.value.betMinus.y = buttons.value.spin.y - Math.floor(controlSize / 2)
+
+    // Plus (right of spin)
+    buttons.value.betPlus.width = controlSize
+    buttons.value.betPlus.height = controlSize
+    buttons.value.betPlus.x = buttons.value.spin.x + buttons.value.spin.radius + gap
+    buttons.value.betPlus.y = buttons.value.spin.y - Math.floor(controlSize / 2)
 
     // Start screen button placement (bottom center)
     const sbWidth = Math.floor(280 * scale.value)
@@ -85,7 +93,7 @@ export function useCanvas(canvasRef) {
     buttons.value.start.y = height - Math.floor(24 * scale.value) - sbHeight
     buttons.value.start.width = sbWidth
     buttons.value.start.height = sbHeight
-  }
+}
 
   return {
     canvas,

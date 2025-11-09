@@ -10,7 +10,7 @@ export function useSlotMachine(canvasRef) {
   const gameState = useGameState()
   const gridState = useGridState()
   const canvasState = useCanvas(canvasRef)
-  const { render, spinBtn, startAnimation, stopAnimation } = useRenderer(canvasState, gameState, gridState)
+  const { render, startAnimation, stopAnimation } = useRenderer(canvasState, gameState, gridState)
   const gameLogic = useGameLogic(gameState, gridState, render)
 
   const init = async () => {
@@ -59,7 +59,12 @@ export function useSlotMachine(canvasRef) {
       return
     }
 
-    if (spinBtn.isPointInside(x, y)) {
+    // Spin button hit-test using circular geometry from canvasState
+    const spin = canvasState.buttons.value.spin
+    const dx = x - spin.x
+    const dy = y - spin.y
+    const insideSpin = dx * dx + dy * dy <= spin.radius * spin.radius
+    if (insideSpin) {
       gameLogic.spin()
       return
     }

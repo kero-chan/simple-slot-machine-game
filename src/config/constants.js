@@ -5,7 +5,7 @@ export const CONFIG = {
   },
   reels: {
     count: 5,
-    rows: 3,
+    rows: 6,
     symbolSize: 70,
     spacing: 8
   },
