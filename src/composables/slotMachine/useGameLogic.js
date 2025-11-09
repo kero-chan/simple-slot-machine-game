@@ -201,7 +201,6 @@ export function useGameLogic(gameState, gridState, render) {
     return new Promise(resolve => {
       const loop = () => {
         const elapsed = Date.now() - startTime
-        render()
         if (elapsed < DISAPPEAR_MS) {
           requestAnimationFrame(loop)
         } else {
@@ -266,8 +265,8 @@ export function useGameLogic(gameState, gridState, render) {
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
+        // Removed duplicate render(); main renderer is already active
         if (elapsed < duration) {
-          render()
           requestAnimationFrame(animate)
         } else {
           render()
