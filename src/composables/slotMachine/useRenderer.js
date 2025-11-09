@@ -120,6 +120,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             if ((resized || footer?.container.children.length === 0) && footer) {
                 footer.build(footerRect)
             }
+            // Update footer every frame for arrow rotation
+            if (footer?.update) footer.update(timestamp)
         }
     }
 

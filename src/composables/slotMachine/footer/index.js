@@ -1,4 +1,5 @@
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
+import { ASSETS } from '../../../config/assets'
 
 export function useFooter(gameState) {
   const container = new Container()
@@ -12,57 +13,70 @@ export function useFooter(gameState) {
     handlers = { ...handlers, ...h }
   }
 
+  // Keep references for animation and interactions
+  let frameSprite = null
+  let arrowSprite = null
+  let minusBtn = null
+  let plusBtn = null
+  let lastTs = 0
+
   function build(rect) {
     container.removeChildren()
     const { x, y, w, h } = rect
 
-    // Footer bar
+    // Transparent footer: skip brown bar
     const bar = new Graphics()
     bar.rect(x, y, w, h)
     bar.fill(0x8a4b28)
     container.addChild(bar)
 
+    // Transparent footer: no brown bar, center spin button
     const centerX = x + Math.floor(w / 2)
     const centerY = y + Math.floor(h / 2)
+    const btnSize = Math.max(64, Math.floor(Math.min(h * 0.9, w * 0.28)))
+    const arrowSize = Math.floor(btnSize * 0.68)
 
-    // Spin button
-    const spinRadius = Math.max(32, Math.floor(Math.min(h * 0.35, w * 0.12)))
-    const spinBtn = new Graphics()
-    spinBtn.circle(centerX, centerY, spinRadius)
-    const canSpin = !!gameState.canSpin?.value
-    spinBtn.fill(canSpin ? 0xff4d4f : 0x9e9e9e)
-    spinBtn.stroke({ color: 0xb02a2a, width: 4 })
-    spinBtn.eventMode = 'static'
-    spinBtn.cursor = canSpin ? 'pointer' : 'not-allowed'
-    spinBtn.on('pointerdown', () => {
+    // Frame sprite
+    const frameSrc = ASSETS.loadedImages?.spin_frame || ASSETS.imagePaths?.spin_frame
+    const frameTex = frameSrc ? (frameSrc instanceof Texture ? frameSrc : Texture.from(frameSrc)) : null
+    frameSprite = frameTex ? new Sprite(frameTex) : new Graphics().circle(0, 0, Math.floor(btnSize / 2)).fill(0x00aa66)
+    frameSprite.anchor?.set?.(0.5)
+    frameSprite.x = centerX
+    frameSprite.y = centerY
+    frameSprite.width = btnSize
+    frameSprite.height = btnSize
+    frameSprite.eventMode = 'static'
+    frameSprite.cursor = gameState.canSpin?.value ? 'pointer' : 'not-allowed'
+    frameSprite.on?.('pointerdown', () => {
       if (gameState.showStartScreen?.value) return
       if (gameState.isSpinning?.value) return
       if (!gameState.canSpin?.value) return
       handlers.spin && handlers.spin()
     })
-    container.addChild(spinBtn)
+    container.addChild(frameSprite)
 
-    const spinText = new Text('SPIN', {
-      fill: 0xffffff,
-      fontSize: Math.floor(spinRadius * 0.6),
-      fontWeight: 'bold'
-    })
-    spinText.anchor.set(0.5)
-    spinText.x = centerX
-    spinText.y = centerY
-    container.addChild(spinText)
+    // Arrow sprite (rotates)
+    const arrowSrc = ASSETS.loadedImages?.spin_arrow || ASSETS.imagePaths?.spin_arrow
+    const arrowTex = arrowSrc ? (arrowSrc instanceof Texture ? arrowSrc : Texture.from(arrowSrc)) : null
+    arrowSprite = arrowTex ? new Sprite(arrowTex) : new Graphics().poly([0, -20, 12, 10, -12, 10]).fill(0xffd54f)
+    arrowSprite.anchor?.set?.(0.5)
+    arrowSprite.x = centerX
+    arrowSprite.y = centerY
+    arrowSprite.width = arrowSize
+    arrowSprite.height = arrowSize
+    container.addChild(arrowSprite)
 
-    // Bet controls
-    const ctrlW = Math.floor(spinRadius * 1.2)
-    const ctrlH = Math.floor(spinRadius * 0.8)
-    const gap = Math.floor(spinRadius * 0.6)
+    // Bet controls (keep existing layout)
+    const ctrlW = Math.floor(btnSize * 0.6)
+    const ctrlH = Math.floor(btnSize * 0.42)
+    const gap = Math.floor(btnSize * 0.5)
 
     // Minus (left)
-    const minusX = centerX - spinRadius - gap - ctrlW
+    const minusX = centerX - Math.floor(btnSize / 2) - gap - ctrlW
     const minusY = centerY - Math.floor(ctrlH / 2)
-    const minusBtn = new Graphics()
+    minusBtn = new Graphics()
     minusBtn.roundRect(minusX, minusY, ctrlW, ctrlH, Math.floor(ctrlH / 3))
-    minusBtn.fill(0xb2784f)
+    minusBtn.fill(0x3b6d48) // greenish to match reels
     minusBtn.eventMode = 'static'
     minusBtn.cursor = 'pointer'
     minusBtn.on('pointerdown', () => {
@@ -82,11 +96,11 @@ export function useFooter(gameState) {
     container.addChild(minusText)
 
     // Plus (right)
-    const plusX = centerX + spinRadius + gap
+    const plusX = centerX + Math.floor(btnSize / 2) + gap
     const plusY = centerY - Math.floor(ctrlH / 2)
-    const plusBtn = new Graphics()
+    plusBtn = new Graphics()
     plusBtn.roundRect(plusX, plusY, ctrlW, ctrlH, Math.floor(ctrlH / 3))
-    plusBtn.fill(0xb2784f)
+    plusBtn.fill(0x3b6d48)
     plusBtn.eventMode = 'static'
     plusBtn.cursor = 'pointer'
     plusBtn.on('pointerdown', () => {
@@ -106,5 +120,21 @@ export function useFooter(gameState) {
     container.addChild(plusText)
   }
 
-  return { container, build, setHandlers }
+  // Animate arrow rotation and button states
+  function update(timestamp = 0) {
+    const canSpin = !!gameState.canSpin?.value
+    if (frameSprite) {
+      frameSprite.alpha = canSpin ? 1 : 0.5
+      frameSprite.cursor = canSpin ? 'pointer' : 'not-allowed'
+    }
+    if (arrowSprite) {
+      const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0
+      lastTs = timestamp
+      const spinning = !!gameState.isSpinning?.value
+      const speed = spinning ? (Math.PI * 2.5) : (Math.PI * 0.8) // rad/sec
+      arrowSprite.rotation += speed * dt
+    }
+  }
+
+  return { container, build, setHandlers, update }
 }
