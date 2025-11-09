@@ -33,7 +33,11 @@ export function useFooter(gameState) {
     // Transparent footer: no brown bar, center spin button
     const centerX = x + Math.floor(w / 2)
     const centerY = y + Math.floor(h / 2)
-    const btnSize = Math.max(64, Math.floor(Math.min(h * 0.9, w * 0.28)))
+
+    const BTN_SCALE_W = 0.42
+    const BTN_SCALE_H = 0.95
+    const btnSize = Math.floor(Math.min(h * BTN_SCALE_H, w * BTN_SCALE_W))
+
     const arrowSize = Math.floor(btnSize * 0.68)
 
     // Frame sprite
@@ -55,16 +59,30 @@ export function useFooter(gameState) {
     })
     container.addChild(frameSprite)
 
-    // Arrow sprite (rotates)
-    const arrowSrc = ASSETS.loadedImages?.spin_arrow || ASSETS.imagePaths?.spin_arrow
-    const arrowTex = arrowSrc ? (arrowSrc instanceof Texture ? arrowSrc : Texture.from(arrowSrc)) : null
-    arrowSprite = arrowTex ? new Sprite(arrowTex) : new Graphics().poly([0, -20, 12, 10, -12, 10]).fill(0xffd54f)
-    arrowSprite.anchor?.set?.(0.5)
-    arrowSprite.x = centerX
-    arrowSprite.y = centerY
-    arrowSprite.width = arrowSize
-    arrowSprite.height = arrowSize
-    container.addChild(arrowSprite)
+    // Gold arrow sprite (uses arrow.png), fit strictly inside the frame
+    {
+        const src = ASSETS.loadedImages?.spin_arrow || ASSETS.imagePaths?.spin_arrow
+        const tex = src ? (src instanceof Texture ? src : Texture.from(src)) : null
+        arrowSprite = new Sprite(tex)
+        arrowSprite.anchor.set(0.5)
+        arrowSprite.x = centerX
+        arrowSprite.y = centerY
+
+        // Smaller inner diameter so the arrow stays inside the green circle
+        const ARROW_SCALE = 0.48
+        const innerDiameter = Math.floor(btnSize * ARROW_SCALE)
+        arrowSprite.width = innerDiameter
+        arrowSprite.height = innerDiameter
+        container.addChild(arrowSprite)
+
+        // Circular mask slightly inset to avoid touching the ring while rotating
+        const MASK_INSET_PX = 2
+        const arrowMask = new Graphics()
+        arrowMask.circle(centerX, centerY, Math.max(0, Math.floor(innerDiameter / 2) - MASK_INSET_PX))
+        arrowMask.fill(0xffffff)
+        container.addChild(arrowMask)
+        arrowSprite.mask = arrowMask
+    }
 
     // Bet controls (keep existing layout)
     const ctrlW = Math.floor(btnSize * 0.6)
