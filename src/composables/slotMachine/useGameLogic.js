@@ -7,10 +7,7 @@ export function useGameLogic(gameState, gridState, render) {
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
 
-  const showAlert = (text) => {
-    if (typeof window !== 'undefined' && window.alert) {
-      console.log(text)
-    }
+  const showAlert = () => {
   }
 
   const findWinningCombinations = () => {
@@ -266,13 +263,13 @@ export function useGameLogic(gameState, gridState, render) {
 
       const waysWinAmount = calculateWinAmount(wins)
       const multipliedWays = waysWinAmount * gameState.currentMultiplier.value * gameState.bet.value
+
       totalWin += multipliedWays
       gameState.consecutiveWins.value++
 
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)
 
-      // Scatter payout only (no free spins)
       if (!scattersAwarded) {
         const scatterCount = countScatters()
         if (scatterCount >= 3) {
@@ -280,6 +277,8 @@ export function useGameLogic(gameState, gridState, render) {
           const scatterBase = scatterPaytable[scatterCount] || 0
           const scatterWin = scatterBase * gameState.currentMultiplier.value * gameState.bet.value
           totalWin += scatterWin
+
+          // showAlert(`Scatter! ${scatterCount} scatters. +${scatterWin} credits.`)
         }
         scattersAwarded = true
       }

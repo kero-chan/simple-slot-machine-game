@@ -20,6 +20,7 @@ export function useSlotMachine(canvasRef) {
       render()
 
       await loadAllAssets()
+
       startAnimation()
     } catch (err) {
       console.error('SlotMachine init failed:', err)

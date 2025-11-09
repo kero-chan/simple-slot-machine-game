@@ -33,16 +33,14 @@ export function drawReels(ctx, mainRect, gridState, gameState) {
       const x = m.originX + col * (m.symbolSize + m.spacingX)
       const baseY = m.originY + row * (m.symbolSize + m.spacingY)
       const y = baseY + offsetTiles * m.symbolSize
+      const symbol = gridState.grid.value[col][row] // or visualSymbolAt if you adopted reel strips
 
-      const symbol = visualSymbolAt(col, row)
-
-      // Motion blur while moving down; trail extends upward
+      // Slightly lighter blur to reduce draw work as reels slow
       if (gameState.isSpinning.value && velocityPx > 2) {
         ctx.save()
-        const blurSteps = Math.min(Math.floor(velocityPx / 2), 12)
+        const blurSteps = Math.min(Math.floor(velocityPx / 3), 10) // cap at 10
         for (let i = blurSteps; i >= 1; i--) {
-          const alpha = 0.13 * (1 - i / (blurSteps + 1))
-          ctx.globalAlpha = alpha
+          ctx.globalAlpha = 0.12 * (1 - i / (blurSteps + 1))
           const trailY = y - (i * velocityPx * 0.18)
           drawSymbol(ctx, symbol, x, trailY, m.symbolSize)
         }
