@@ -39,18 +39,14 @@ export function useRenderer(canvasState, gameState, gridState) {
         // Header fixed to 15% of canvas; footer gets the remainder
         const headerH = Math.round(h * 0.15)
         const headerRect = { x: 0, y: 0, w, h: headerH }
-
         const mainRect = { x: 0, y: headerRect.h, w, h: mainH }
-
         const footerH = Math.max(0, h - headerRect.h - mainRect.h)
         const footerRect = { x: 0, y: headerRect.h + mainRect.h, w, h: footerH }
 
-        // Draw order remains: main → header → footer
-        mainFrame.draw(ctx, w, h, mainRect)
+        mainFrame.draw(ctx, w, h, mainRect, timestamp)
         header.draw(ctx, headerRect)
         footer.draw(ctx, footerRect, timestamp)
 
-        // Removed Free Spins overlay
         animationFrameId = requestAnimationFrame(renderFrame)
     }
 

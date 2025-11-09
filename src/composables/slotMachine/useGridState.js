@@ -11,6 +11,7 @@ export function useGridState() {
 
   const reelStrips = ref(createReelStrips(CONFIG.reels.count, CONFIG.reels.rows + 20))
   const reelTopIndex = ref(Array(CONFIG.reels.count).fill(0))
+  const highlightAnim = ref({ start: 0, duration: 0 })
 
   return {
     grid,
@@ -19,6 +20,7 @@ export function useGridState() {
     spinOffsets,
     spinVelocities,
     reelStrips,
-    reelTopIndex
+    reelTopIndex,
+    highlightAnim
   }
 }

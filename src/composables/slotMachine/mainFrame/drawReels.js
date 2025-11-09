@@ -1,28 +1,24 @@
 import { computeGridMetrics } from './metrics'
-import { drawSymbol } from './drawSymbol'
+import { Tile } from './drawTile'
 
-export function drawReels(ctx, mainRect, gridState, gameState) {
+// Cache Tile instances by col,row
+const tilesCache = new Map()
+let lastTimestamp = 0
+
+export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
   const m = computeGridMetrics(mainRect)
 
-  const highlightSet = new Set()
-  if (gridState.highlightWins.value) {
-    gridState.highlightWins.value.forEach(win => {
-      win.positions.forEach(([col, row]) => {
-        highlightSet.add(`${col},${row}`)
-      })
-    })
-  }
+  const animInfo = (gridState.highlightAnim?.value) || { start: 0, duration: 0 }
+  const nowTs = typeof timestamp === 'number' ? timestamp : performance.now()
+  const elapsed = Math.max(0, nowTs - animInfo.start)
+  const total = animInfo.duration || 800
+  const t = Math.min(elapsed / total, 1)
+  const fadeIn = Math.min(t / 0.3, 1)
+  const fadeOut = Math.max(0, 1 - Math.max(0, (t - 0.5)) / 0.5)
+  const baseAlpha = Math.min(1, fadeIn) * Math.max(0, fadeOut)
 
-  const visualSymbolAt = (col, row) => {
-    const spinning = gameState.isSpinning.value || (gridState.spinOffsets?.value?.[col] ?? 0) > 0
-    if (spinning) {
-      const strip = gridState.reelStrips.value[col]
-      const top = gridState.reelTopIndex.value[col]
-      const idx = (top + row) % strip.length
-      return strip[idx]
-    }
-    return gridState.grid.value[col][row]
-  }
+  const deltaSec = lastTimestamp ? Math.min(0.05, Math.max(0.001, (nowTs - lastTimestamp) / 1000)) : 0.016
+  lastTimestamp = nowTs
 
   for (let col = 0; col < m.cols; col++) {
     const offsetTiles = (gridState.spinOffsets?.value?.[col] ?? 0)
@@ -33,21 +29,38 @@ export function drawReels(ctx, mainRect, gridState, gameState) {
       const x = m.originX + col * (m.symbolSize + m.spacingX)
       const baseY = m.originY + row * (m.symbolSize + m.spacingY)
       const y = baseY + offsetTiles * m.symbolSize
-      const symbol = gridState.grid.value[col][row] // or visualSymbolAt if you adopted reel strips
 
-      // Slightly lighter blur to reduce draw work as reels slow
-      if (gameState.isSpinning.value && velocityPx > 2) {
-        ctx.save()
-        const blurSteps = Math.min(Math.floor(velocityPx / 3), 10) // cap at 10
-        for (let i = blurSteps; i >= 1; i--) {
-          ctx.globalAlpha = 0.12 * (1 - i / (blurSteps + 1))
-          const trailY = y - (i * velocityPx * 0.18)
-          drawSymbol(ctx, symbol, x, trailY, m.symbolSize)
-        }
-        ctx.restore()
+      const spinning = gameState.isSpinning.value || offsetTiles > 0
+      const symbol = spinning
+        ? (() => {
+            const strip = gridState.reelStrips.value[col]
+            const top = gridState.reelTopIndex.value[col]
+            const idx = (top + row) % strip.length
+            return strip[idx]
+          })()
+        : gridState.grid.value[col][row]
+
+      const isWinning = gridState.highlightWins.value
+        ? gridState.highlightWins.value.some(win =>
+            win.positions.some(([c, r]) => c === col && r === row)
+          )
+        : false
+
+      const key = `${col},${row}`
+      let tile = tilesCache.get(key)
+      if (!tile) {
+        tile = new Tile(x, y, m.symbolSize, symbol)
+        tilesCache.set(key, tile)
+      } else {
+        tile.setPosition(x, y)
+        tile.setSize(m.symbolSize)
+        tile.setSymbol(symbol)
       }
 
-      drawSymbol(ctx, symbol, x, y, m.symbolSize)
+      tile.setVelocityPx(velocityPx)
+      tile.setWinning(isWinning)
+      tile.update(deltaSec)
+      tile.draw(ctx, nowTs, baseAlpha)
     }
   }
 }

@@ -166,8 +166,9 @@ export function useGameLogic(gameState, gridState, render) {
   }
 
   const highlightWinsAnimation = (wins) => {
-    const duration = 500
+    const duration = 800 // ms (0.3s in + 0.5s out)
     const startTime = Date.now()
+    gridState.highlightAnim.value = { start: startTime, duration }
 
     return new Promise(resolve => {
       const animate = () => {
@@ -177,6 +178,7 @@ export function useGameLogic(gameState, gridState, render) {
           requestAnimationFrame(animate)
         } else {
           gridState.highlightWins.value = null
+          gridState.highlightAnim.value = { start: 0, duration: 0 }
           resolve()
         }
       }
