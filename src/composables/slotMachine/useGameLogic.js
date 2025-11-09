@@ -186,6 +186,33 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
+  // Insert a short disappear phase for winning tiles
+  const animateDisappear = (wins) => {
+    const DISAPPEAR_MS = 300
+    const startTime = Date.now()
+    const positions = new Set()
+    wins.forEach(win => {
+      win.positions.forEach(([col, row]) => positions.add(`${col},${row}`))
+    })
+    gridState.disappearPositions.value = positions
+
+    return new Promise(resolve => {
+      const loop = () => {
+        const elapsed = Date.now() - startTime
+        render()
+        if (elapsed < DISAPPEAR_MS) {
+          requestAnimationFrame(loop)
+        } else {
+          // Clear flags before cascade
+          gridState.disappearPositions.value = new Set()
+          render()
+          resolve()
+        }
+      }
+      loop()
+    })
+  }
+
   const convertGoldenToWilds = (wins) => {
     const winPositions = new Set()
     wins.forEach(win => {
@@ -272,18 +299,8 @@ export function useGameLogic(gameState, gridState, render) {
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)
 
-      if (!scattersAwarded) {
-        const scatterCount = countScatters()
-        if (scatterCount >= 3) {
-          const scatterPaytable = CONFIG.paytable.scatter || {}
-          const scatterBase = scatterPaytable[scatterCount] || 0
-          const scatterWin = scatterBase * gameState.currentMultiplier.value * gameState.bet.value
-          totalWin += scatterWin
-
-          // showAlert(`Scatter! ${scatterCount} scatters. +${scatterWin} credits.`)
-        }
-        scattersAwarded = true
-      }
+      // NEW: run disappear phase before cascading
+      await animateDisappear(wins)
 
       await cascadeSymbols(wins)
     }

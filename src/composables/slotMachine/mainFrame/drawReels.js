@@ -9,8 +9,6 @@ export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
   const m = computeGridMetrics(mainRect)
 
   const nowTs = typeof timestamp === 'number' ? timestamp : performance.now()
-
-  // Always full highlight strength; do not gate effects by highlightAnim
   const baseAlpha = 1
 
   const deltaSec = lastTimestamp
@@ -53,6 +51,13 @@ export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
         tile.setPosition(x, y)
         tile.setSize(m.symbolSize)
         tile.setSymbol(symbol)
+      }
+
+      // Trigger disappear if flagged
+      const shouldDisappear =
+        gridState.disappearPositions?.value?.has(`${col},${row}`) ?? false
+      if (shouldDisappear && !tile.isDisappearing) {
+        tile.startDisappear()
       }
 
       tile.setVelocityPx(velocityPx)

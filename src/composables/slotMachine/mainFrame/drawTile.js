@@ -151,6 +151,11 @@ export class Tile {
 
     // motion state
     this.velocityPx = 0
+
+    // Disappear animation state
+    this.isDisappearing = false
+    this.disappearProgress = 0
+    this.disappearStartTime = 0
   }
 
   setPosition(x, y) { this.x = x; this.y = y }
@@ -162,7 +167,25 @@ export class Tile {
     this.isWinning = isWinning
   }
 
+  startDisappear() {
+    if (this.isDisappearing) return
+    this.isDisappearing = true
+    this.disappearProgress = 0
+    this.disappearStartTime = performance.now()
+  }
+
+  isDisappearComplete() {
+    return this.isDisappearing && this.disappearProgress >= 1
+  }
+
   update(deltaSec) {
+    // Disappear phase updates first
+    if (this.isDisappearing) {
+      const DISAPPEAR_DURATION = 0.3 // seconds
+      this.disappearProgress = Math.min(1, this.disappearProgress + deltaSec / DISAPPEAR_DURATION)
+      return
+    }
+
     if (this.isWinning) {
       this.highlightIntensity = Math.min(1, this.highlightIntensity + deltaSec * 2) // gentle ramp
       this.pulsePhase += deltaSec * PULSE_SPEED * (Math.PI * 2)
@@ -227,5 +250,36 @@ export class Tile {
       const sparkleCount = this.symbol === 'wild' ? 8 : 4
       drawSparkles(ctx, this.x, this.y, this.size, sparkleCount, Math.min(1, alpha * 0.5), timestamp)
     }
+  }
+
+  drawDisappearing(ctx, timestamp) {
+    const progress = this.disappearProgress
+    const eased = progress * progress // ease-in
+
+    const alpha = 1.0 - eased
+    const scale = 1.0 - (eased * 0.15)
+    const blur = eased * 4
+
+    const cx = this.x + this.size / 2
+    const cy = this.y + this.size / 2
+
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.scale(scale, scale)
+    ctx.translate(-cx, -cy)
+
+    ctx.globalAlpha = alpha
+    if (blur > 0 && typeof ctx.filter === 'string') {
+      ctx.filter = `blur(${blur}px)`
+    }
+
+    // Keep the soft glow for the first half
+    if (progress < 0.5) {
+      const remaining = 1 - progress * 2
+      drawRadialGlow(ctx, this.x, this.y, this.size, Math.max(0, remaining))
+    }
+
+    drawSymbol(ctx, this.symbol, this.x, this.y, this.size)
+    ctx.restore()
   }
 }
