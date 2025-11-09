@@ -125,12 +125,14 @@ export class Tile {
     this.size = size
     this.symbol = symbol
 
+    // highlight and animation state
     this.isWinning = false
     this.highlightIntensity = 0
     this.pulsePhase = Math.random() * Math.PI * 2
     this.glowRadius = 15
     this.particles = []
 
+    // motion state
     this.velocityPx = 0
   }
 
@@ -172,6 +174,7 @@ export class Tile {
       this.highlightIntensity = Math.max(0, this.highlightIntensity - deltaSec * 5)
     }
 
+    // particles update
     this.particles.forEach(p => {
       p.x += p.vx
       p.y += p.vy
@@ -220,17 +223,18 @@ export class Tile {
   }
 
   draw(ctx, timestamp, effectAlpha) {
+    // motion blur behind
     this.drawMotionBlur(ctx)
 
     const centerX = this.x + this.size / 2
     const centerY = this.y + this.size / 2
     const combinedAlpha = Math.min(1, (effectAlpha ?? 1) * this.highlightIntensity)
 
+    // pulse scale
     const phase = (timestamp / 1000) * (Math.PI * 2 * 0.5)
-    const baseScale = 1.0
     const pulseScale = this.isWinning
-      ? baseScale + Math.sin(phase) * 0.08 * this.highlightIntensity
-      : baseScale
+      ? 1.0 + Math.sin(phase) * 0.08 * this.highlightIntensity
+      : 1.0
 
     ctx.save()
     ctx.translate(centerX, centerY)
@@ -238,10 +242,8 @@ export class Tile {
     ctx.translate(-centerX, -centerY)
 
     if (combinedAlpha > 0) {
-      // reuse helpers defined in this module
-      // glow
+      // glow behind tile
       const blur = 15 + 15 * combinedAlpha
-      // drawRadialGlow(ctx, x, y, size, alpha, blur)
       drawRadialGlow(ctx, this.x, this.y, this.size, combinedAlpha, blur)
     }
 
