@@ -17,9 +17,10 @@ export function useReels(gameState, gridState) {
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
-    const BOTTOM_PARTIAL = 0.15
-    const PAD_X = 0
-    const PAD_Y = 0
+    // const BOTTOM_PARTIAL = 0.15
+    // const PAD_X = 0
+    // const PAD_Y = 0
+    const BLEED = 3
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
@@ -91,8 +92,9 @@ export function useReels(gameState, gridState) {
                 let sp = spriteCache.get(key)
 
                 // Edge-to-edge
-                const w = tileSize
-                const h = tileSize
+                // Slight overscan to eliminate gaps from transparent edges
+                const w = tileSize + BLEED * 2
+                const h = tileSize + BLEED * 2
 
                 if (!sp) {
                     sp = new Sprite(tex)
@@ -127,8 +129,8 @@ export function useReels(gameState, gridState) {
                 }
 
                 // Keep fractional Y to prevent rounding from shaving the bottom partial
-                sp.x = xCell
-                sp.y = yCell
+                sp.x = Math.round(xCell) - BLEED
+                sp.y = yCell - BLEED
 
                 if (!sp.parent) container.addChild(sp)
                 usedKeys.add(key)
