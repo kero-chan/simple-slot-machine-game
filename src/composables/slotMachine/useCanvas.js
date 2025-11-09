@@ -1,10 +1,10 @@
 import { ref } from 'vue'
+import { Application } from 'pixi.js'
 import { CONFIG } from '../../config/constants'
 import startBgUrl from '../../assets/start_game_bg.jpg'
 
 export function useCanvas(canvasRef) {
-  const canvas = ref(null)
-  const ctx = ref(null)
+  const app = ref(null)
   const canvasWidth = ref(0)
   const canvasHeight = ref(0)
   const scale = ref(1)
@@ -24,16 +24,13 @@ export function useCanvas(canvasRef) {
     const img = new Image()
     img.onload = () => {
       targetAspect.value = img.width / img.height
-      if (canvas.value) setupCanvas()
+      if (app.value) setupCanvas()
     }
     img.src = startBgUrl
   }
 
-  const setupCanvas = () => {
+  const setupCanvas = async () => {
     if (!canvasRef.value) return
-
-    canvas.value = canvasRef.value
-    ctx.value = canvas.value.getContext('2d')
 
     ensureAspectLoaded()
     const aspect = targetAspect.value ?? (CONFIG.canvas.baseWidth / CONFIG.canvas.baseHeight)
@@ -43,11 +40,26 @@ export function useCanvas(canvasRef) {
     const height = vh
     const width = Math.min(vw, Math.round(height * aspect))
 
-    // Full height, width by aspect
-    canvas.value.style.width = `${width}px`
-    canvas.value.style.height = `${height}px`
-    canvas.value.width = width
-    canvas.value.height = height
+    // Create or resize PixiJS application
+    if (!app.value) {
+      app.value = new Application()
+      await app.value.init({
+        width,
+        height,
+        backgroundColor: 0x000000,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true
+      })
+
+      // Append the canvas to the container
+      canvasRef.value.appendChild(app.value.canvas)
+      app.value.canvas.style.touchAction = 'none'
+    } else {
+      // Resize existing application
+      app.value.renderer.resize(width, height)
+    }
+
     canvasWidth.value = width
     canvasHeight.value = height
 
@@ -93,11 +105,10 @@ export function useCanvas(canvasRef) {
     buttons.value.start.y = height - Math.floor(24 * scale.value) - sbHeight
     buttons.value.start.width = sbWidth
     buttons.value.start.height = sbHeight
-}
+  }
 
   return {
-    canvas,
-    ctx,
+    app,
     canvasWidth,
     canvasHeight,
     scale,

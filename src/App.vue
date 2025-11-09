@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <canvas
+    <div
       ref="canvasRef"
       :style="canvasStyle"
       @click="handleCanvasClick"

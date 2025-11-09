@@ -1,27 +1,67 @@
+import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
 import { ASSETS } from '../../config/assets'
 import { useHeader } from './useHeader'
 import { useFooter } from './footer'
 import { useMainFrame } from './mainFrame'
 
 export function useRenderer(canvasState, gameState, gridState) {
-    const header = useHeader(canvasState, gameState)
-    const footer = useFooter(canvasState, gameState)
-    const mainFrame = useMainFrame(canvasState, gameState, gridState)
+    const app = canvasState.app
+    let header = null
+    let footer = null
+    let mainFrame = null
+    let startScreenContainer = null
 
-    let animationFrameId = null
+    // Main containers
+    let headerContainer = null
+    let mainFrameContainer = null
+    let footerContainer = null
 
-    const renderFrame = (timestamp = 0) => {
-        if (!canvasState.ctx.value) return
+    const init = () => {
+        if (!app.value) return
 
-        const ctx = canvasState.ctx.value
+        // Create main containers
+        headerContainer = new Container()
+        mainFrameContainer = new Container()
+        footerContainer = new Container()
+
+        app.value.stage.addChild(headerContainer)
+        app.value.stage.addChild(mainFrameContainer)
+        app.value.stage.addChild(footerContainer)
+
+        // Initialize sub-renderers
+        header = useHeader(canvasState, gameState, headerContainer)
+        footer = useFooter(canvasState, gameState, footerContainer)
+        mainFrame = useMainFrame(canvasState, gameState, gridState, mainFrameContainer)
+
+        // Setup ticker
+        app.value.ticker.add(renderFrame)
+    }
+
+    const renderFrame = () => {
+        if (!app.value) return
+
         const w = canvasState.canvasWidth.value
         const h = canvasState.canvasHeight.value
 
         // Start screen branch
         if (gameState.showStartScreen.value) {
-            drawStartScreen(ctx, w, h, canvasState)
-            animationFrameId = requestAnimationFrame(renderFrame)
+            // Hide game containers
+            if (headerContainer) headerContainer.visible = false
+            if (mainFrameContainer) mainFrameContainer.visible = false
+            if (footerContainer) footerContainer.visible = false
+
+            drawStartScreen(w, h)
             return
+        }
+
+        // Show game containers
+        if (headerContainer) headerContainer.visible = true
+        if (mainFrameContainer) mainFrameContainer.visible = true
+        if (footerContainer) footerContainer.visible = true
+
+        // Hide start screen
+        if (startScreenContainer) {
+            startScreenContainer.visible = false
         }
 
         // Layout derived from tile width and fixed header (15% of canvas height)
@@ -43,73 +83,98 @@ export function useRenderer(canvasState, gameState, gridState) {
         const footerH = Math.max(0, h - headerRect.h - mainRect.h)
         const footerRect = { x: 0, y: headerRect.h + mainRect.h, w, h: footerH }
 
-        mainFrame.draw(ctx, w, h, mainRect, timestamp)
-        header.draw(ctx, headerRect)
-        footer.draw(ctx, footerRect, timestamp)
+        // Position containers
+        headerContainer.position.set(headerRect.x, headerRect.y)
+        mainFrameContainer.position.set(mainRect.x, mainRect.y)
+        footerContainer.position.set(footerRect.x, footerRect.y)
 
-        animationFrameId = requestAnimationFrame(renderFrame)
+        // Update sub-renderers
+        if (mainFrame) mainFrame.draw(w, h, mainRect)
+        if (header) header.draw(headerRect)
+        if (footer) footer.draw(footerRect)
     }
 
-    const render = () => {
-        renderFrame(performance.now())
+    const drawStartScreen = (w, h) => {
+        if (!app.value) return
+
+        // Create or update start screen container
+        if (!startScreenContainer) {
+            startScreenContainer = new Container()
+            app.value.stage.addChild(startScreenContainer)
+
+            // Background
+            const bgTexture = ASSETS.loadedImages.start_background
+            if (bgTexture) {
+                const bgSprite = new Sprite(bgTexture)
+                bgSprite.width = w
+                bgSprite.height = h
+                startScreenContainer.addChild(bgSprite)
+            } else {
+                // Fallback gradient background
+                const bg = new Graphics()
+                bg.rect(0, 0, w, h)
+                bg.fill({ color: 0x7a1a1a })
+                startScreenContainer.addChild(bg)
+            }
+
+            // Start button
+            const sb = canvasState.buttons.value.start
+            const buttonContainer = new Container()
+            buttonContainer.position.set(sb.x, sb.y)
+
+            const button = new Graphics()
+            const radius = Math.floor(sb.height / 2)
+            button.roundRect(0, 0, sb.width, sb.height, radius)
+            button.fill({ color: 0xff4d4f })
+            button.stroke({ color: 0xb02a2a, width: 4 })
+
+            const buttonText = new Text({
+                text: '开始',
+                style: {
+                    fontFamily: 'Arial',
+                    fontSize: Math.floor(sb.height * 0.45),
+                    fontWeight: 'bold',
+                    fill: 0xffffff,
+                    align: 'center'
+                }
+            })
+            buttonText.anchor.set(0.5)
+            buttonText.position.set(sb.width / 2, sb.height / 2)
+
+            buttonContainer.addChild(button)
+            buttonContainer.addChild(buttonText)
+            startScreenContainer.addChild(buttonContainer)
+        } else {
+            startScreenContainer.visible = true
+
+            // Update background size if needed
+            const bgSprite = startScreenContainer.children[0]
+            if (bgSprite && bgSprite instanceof Sprite) {
+                bgSprite.width = w
+                bgSprite.height = h
+            }
+
+            // Update button position
+            const sb = canvasState.buttons.value.start
+            const buttonContainer = startScreenContainer.children[1]
+            if (buttonContainer) {
+                buttonContainer.position.set(sb.x, sb.y)
+            }
+        }
     }
 
     return {
-        render,
+        init,
+        render: renderFrame,
         startAnimation: () => {
-            if (!animationFrameId) {
-                animationFrameId = requestAnimationFrame(renderFrame)
+            if (app.value) {
+                app.value.ticker.start()
             }
         },
         stopAnimation: () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId)
-                animationFrameId = null
+            if (app.value) {
+                app.value.ticker.stop()
             }
         }
     }
 }
-
-// ----- Start screen rendering -----
-const drawStartScreen = (ctx, w, h, canvasState) => {
-    const img = ASSETS.loadedImages.start_background
-    if (img && img.complete && img.naturalHeight !== 0) {
-        ctx.drawImage(img, 0, 0, w, h)
-    } else {
-        const grad = ctx.createLinearGradient(0, 0, 0, h)
-        grad.addColorStop(0, '#7a1a1a')
-        grad.addColorStop(1, '#3a0f0f')
-        ctx.fillStyle = grad
-        ctx.fillRect(0, 0, w, h)
-    }
-
-    // Start button (bottom-center)
-    const sb = canvasState.buttons.value.start
-    ctx.save()
-    ctx.fillStyle = '#ff4d4f'
-    ctx.strokeStyle = '#b02a2a'
-    ctx.lineWidth = 4
-    roundRect(ctx, sb.x, sb.y, sb.width, sb.height, Math.floor(sb.height / 2))
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#fff'
-    ctx.font = `bold ${Math.floor(sb.height * 0.45)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('开始', sb.x + sb.width / 2, sb.y + sb.height / 2)
-    ctx.restore()
-}
-
-// Rounded rect path helper used by start screen
-const roundRect = (ctx, x, y, w, h, r) => {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.arcTo(x + w, y, x + w, y + h, r)
-    ctx.arcTo(x + w, y + h, x, y + h, r)
-    ctx.arcTo(x, y + h, x, y, r)
-    ctx.arcTo(x, y, x + w, y, r)
-    ctx.closePath()
-}
-
-// ----- Free spins overlay -----
-// Removed drawFreeSpinsInfo(ctx, canvasState, gameState)

@@ -1,3 +1,4 @@
+import { Container } from 'pixi.js'
 import { computeGridMetrics } from './metrics'
 import { Tile } from './drawTile'
 
@@ -8,6 +9,9 @@ let lastTimestamp = 0
 // Pending disappear marks to be applied on next draw
 const pendingDisappearPositions = new Set()
 
+// Container for all tiles
+let reelsContainer = null
+
 // Expose a helper to mark tiles for disappearance using col,row pairs
 export function markTilesToDisappear(positions) {
   for (const [col, row] of positions) {
@@ -15,10 +19,16 @@ export function markTilesToDisappear(positions) {
   }
 }
 
-export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
+export function drawReels(container, mainRect, gridState, gameState) {
   const m = computeGridMetrics(mainRect)
 
-  const nowTs = typeof timestamp === 'number' ? timestamp : performance.now()
+  // Create reels container if needed
+  if (!reelsContainer) {
+    reelsContainer = new Container()
+    container.addChild(reelsContainer)
+  }
+
+  const nowTs = performance.now()
   const baseAlpha = 1
 
   const deltaSec = lastTimestamp
@@ -57,6 +67,7 @@ export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
       if (!tile) {
         tile = new Tile(x, y, m.symbolSize, symbol)
         tilesCache.set(key, tile)
+        reelsContainer.addChild(tile.container)
       } else {
         tile.setPosition(x, y)
         tile.setSize(m.symbolSize)
@@ -79,7 +90,7 @@ export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
         tile.disappearProgress = 0
       }
 
-      tile.draw(ctx, nowTs, baseAlpha)
+      tile.draw(nowTs, baseAlpha)
     }
   }
 }

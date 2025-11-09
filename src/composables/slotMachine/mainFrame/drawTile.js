@@ -1,141 +1,11 @@
-import { drawSymbol } from './drawSymbol'
+import { Container, Graphics, Sprite } from 'pixi.js'
+import { createSymbolSprite, updateSymbolSprite } from './drawSymbol'
 
 // Tuning constants
 const PULSE_SPEED = 0.25 // Hz, slower to avoid flash
 const PULSE_SCALE_AMPLITUDE = 0.02 // 2% scale
-const BORDER_COLOR = 'rgba(255, 235, 120, 1)'  // brighter border
-const BORDER_LINE_WIDTH = 3                    // slightly thicker
-
-function drawRadialGlow(ctx, x, y, size, alpha) {
-  const cx = x + size / 2
-  const cy = y + size / 2
-
-  // Solid gold background
-  ctx.save()
-  ctx.globalAlpha = Math.min(1, alpha * 0.95)           // stronger opacity
-  ctx.fillStyle = '#FFD700'
-  const padding = size * 0.06                            // less padding → more coverage
-  ctx.fillRect(x + padding, y + padding, size - padding * 2, size - padding * 2)
-  ctx.restore()
-
-  // Soft gradient depth
-  ctx.save()
-  ctx.globalAlpha = Math.min(1, alpha * 0.7)            // stronger gradient
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.7) // slightly larger radius
-  gradient.addColorStop(0, 'rgba(255, 255, 200, 0.95)') // brighter center
-  gradient.addColorStop(0.5, 'rgba(255, 215, 0, 0.45)')
-  gradient.addColorStop(1, 'rgba(255, 180, 0, 0)')
-  ctx.fillStyle = gradient
-  ctx.fillRect(x, y, size, size)
-  ctx.restore()
-
-  // Subtle outer glow
-  ctx.save()
-  ctx.shadowColor = `rgba(255, 200, 0, ${alpha * 0.7})`
-  ctx.shadowBlur = 12                                    // slightly higher blur
-  ctx.fillStyle = `rgba(255, 215, 0, ${alpha * 0.3})`    // stronger outer fill
-  ctx.fillRect(x, y, size, size)
-  ctx.restore()
-}
-
-function drawBorders(ctx, x, y, size, alpha) {
-  ctx.save()
-  ctx.globalAlpha = Math.min(1, alpha * 0.9)             // stronger visibility
-  ctx.strokeStyle = BORDER_COLOR
-  ctx.lineWidth = BORDER_LINE_WIDTH
-  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2)
-  ctx.restore()
-}
-
-function drawSparkles(ctx, x, y, size, count, alpha, timestamp) {
-  const cx = x + size / 2
-  const cy = y + size / 2
-  const phase = timestamp * 0.002
-  ctx.save()
-  ctx.globalAlpha = Math.min(1, alpha * 0.6)             // slightly more visible
-
-  const maxCount = Math.min(count, 6)
-  for (let i = 0; i < maxCount; i++) {
-    const angle = (i / maxCount) * Math.PI * 2 + phase
-    const r = size * (0.3 + 0.2 * Math.sin(phase + i))
-    const px = cx + Math.cos(angle) * r
-    const py = cy + Math.sin(angle) * r
-    const sparkleSize = Math.max(1, Math.floor(size * 0.025)) // a tad bigger
-    ctx.fillStyle = 'rgba(255, 255, 220, 0.9)'
-    ctx.beginPath()
-    ctx.arc(px, py, sparkleSize, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.restore()
-}
-
-export function drawTile(ctx, {
-  symbol,
-  x,
-  y,
-  size,
-  timestamp,
-  isSpinning,
-  velocityPx,
-  isWinning,
-  effectAlpha
-}) {
-  // Motion blur while spinning
-  if (isSpinning && velocityPx > 2) {
-    ctx.save()
-    const blurSteps = Math.min(Math.floor(velocityPx / 3), 10)
-    for (let i = blurSteps; i >= 1; i--) {
-      ctx.globalAlpha = 0.12 * (1 - i / (blurSteps + 1))
-      const trailY = y - (i * velocityPx * 0.18)
-      drawSymbol(ctx, symbol, x, trailY, size)
-    }
-    ctx.restore()
-  }
-
-  const alpha = effectAlpha ?? 1
-  if (isWinning && alpha > 0) {
-    // Subtle pulse
-    const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
-    const pulseScale = 1.0 + Math.sin(phase) * PULSE_SCALE_AMPLITUDE * alpha
-    const cx = x + size / 2
-    const cy = y + size / 2
-
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.scale(pulseScale, pulseScale)
-    ctx.translate(-cx, -cy)
-
-    // Solid yellow background + soft glow
-    drawRadialGlow(ctx, x, y, size, alpha)
-
-    // Symbol on top
-    drawSymbol(ctx, symbol, x, y, size)
-
-    // Stronger golden tint overlay (non-additive)
-    ctx.save()
-    ctx.globalAlpha = Math.min(1, alpha * 0.45)
-    const topGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.75)
-    topGrad.addColorStop(0, 'rgba(255, 240, 120, 1.0)')
-    topGrad.addColorStop(0.6, 'rgba(255, 210, 80, 0.45)')
-    topGrad.addColorStop(1, 'rgba(255, 190, 60, 0.0)')
-    ctx.fillStyle = topGrad
-    ctx.fillRect(x, y, size, size)
-    ctx.restore()
-
-    // Subtle border
-    drawBorders(ctx, x, y, size, alpha)
-
-    ctx.restore()
-
-    // Subtle sparkles
-    const sparkleCount = symbol === 'wild' ? 8 : 4
-    drawSparkles(ctx, x, y, size, sparkleCount, alpha * 0.5, timestamp)
-    return
-  }
-
-  // Default tile
-  drawSymbol(ctx, symbol, x, y, size)
-}
+const BORDER_COLOR = 0xffeb78 // brighter border (RGB: 255, 235, 120)
+const BORDER_LINE_WIDTH = 3 // slightly thicker
 
 export class Tile {
   constructor(x, y, size, symbol) {
@@ -143,6 +13,18 @@ export class Tile {
     this.y = y
     this.size = size
     this.symbol = symbol
+
+    // PixiJS container for this tile
+    this.container = new Container()
+    this.container.position.set(x, y)
+
+    // Visual components
+    this.glowGraphics = null
+    this.borderGraphics = null
+    this.symbolSprite = null
+    this.overlayGraphics = null
+    this.sparklesContainer = null
+    this.motionBlurContainer = null
 
     // highlight and animation state
     this.isWinning = false
@@ -156,12 +38,61 @@ export class Tile {
     this.isDisappearing = false
     this.disappearProgress = 0
     this.disappearStartTime = 0
+
+    this.initializeGraphics()
   }
 
-  setPosition(x, y) { this.x = x; this.y = y }
-  setSize(size) { this.size = size }
-  setSymbol(symbol) { this.symbol = symbol }
-  setVelocityPx(v) { this.velocityPx = v }
+  initializeGraphics() {
+    // Motion blur layer (behind everything)
+    this.motionBlurContainer = new Container()
+    this.container.addChild(this.motionBlurContainer)
+
+    // Glow layer
+    this.glowGraphics = new Graphics()
+    this.container.addChild(this.glowGraphics)
+
+    // Symbol sprite
+    this.symbolSprite = createSymbolSprite(this.symbol, 0, 0, this.size)
+    if (this.symbolSprite) {
+      this.container.addChild(this.symbolSprite)
+    }
+
+    // Overlay layer (for golden tint)
+    this.overlayGraphics = new Graphics()
+    this.container.addChild(this.overlayGraphics)
+
+    // Border layer
+    this.borderGraphics = new Graphics()
+    this.container.addChild(this.borderGraphics)
+
+    // Sparkles layer (on top)
+    this.sparklesContainer = new Container()
+    this.container.addChild(this.sparklesContainer)
+  }
+
+  setPosition(x, y) {
+    this.x = x
+    this.y = y
+    this.container.position.set(x, y)
+  }
+
+  setSize(size) {
+    this.size = size
+  }
+
+  setSymbol(symbol) {
+    if (this.symbol !== symbol) {
+      this.symbol = symbol
+      // Update symbol sprite
+      if (this.symbolSprite) {
+        updateSymbolSprite(this.symbolSprite, symbol, 0, 0, this.size)
+      }
+    }
+  }
+
+  setVelocityPx(v) {
+    this.velocityPx = v
+  }
 
   setWinning(isWinning) {
     this.isWinning = isWinning
@@ -194,92 +125,180 @@ export class Tile {
     }
   }
 
-  drawMotionBlur(ctx) {
-    if (this.velocityPx <= 2) return
-    const blurSteps = Math.min(Math.floor(this.velocityPx / 3), 10)
-    ctx.save()
-    for (let i = blurSteps; i >= 1; i--) {
-      ctx.globalAlpha = 0.12 * (1 - i / (blurSteps + 1))
-      const trailY = this.y - (i * this.velocityPx * 0.18)
-      drawSymbol(ctx, this.symbol, this.x, trailY, this.size)
+  draw(timestamp) {
+    // Clear all graphics
+    this.glowGraphics.clear()
+    this.borderGraphics.clear()
+    this.overlayGraphics.clear()
+    this.sparklesContainer.removeChildren()
+    this.motionBlurContainer.removeChildren()
+
+    if (this.isDisappearing) {
+      this.drawDisappearing(timestamp)
+      return
     }
-    ctx.restore()
-  }
 
-  draw(ctx, timestamp, effectAlpha) {
-    // motion blur behind
-    this.drawMotionBlur(ctx)
+    // Motion blur
+    if (this.velocityPx > 2) {
+      this.drawMotionBlur()
+    }
 
-    const baseAlpha = effectAlpha ?? 1
-    const alpha = Math.min(1, baseAlpha * this.highlightIntensity)
+    const alpha = Math.min(1, this.highlightIntensity)
 
+    // Pulsing scale
     const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
     const pulseScale = this.isWinning ? 1.0 + Math.sin(phase) * PULSE_SCALE_AMPLITUDE * alpha : 1.0
-    const cx = this.x + this.size / 2
-    const cy = this.y + this.size / 2
 
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.scale(pulseScale, pulseScale)
-    ctx.translate(-cx, -cy)
+    // Apply pulse scale to container
+    const cx = this.size / 2
+    const cy = this.size / 2
+    this.container.pivot.set(cx, cy)
+    this.container.position.set(this.x + cx, this.y + cy)
+    this.container.scale.set(pulseScale)
 
+    // Draw winning effects
     if (this.isWinning && alpha > 0) {
-      drawRadialGlow(ctx, this.x, this.y, this.size, alpha)
+      this.drawRadialGlow(alpha)
+      this.drawOverlay(alpha)
+      this.drawBorders(alpha)
+      this.drawSparkles(alpha, timestamp)
     }
 
-    drawSymbol(ctx, this.symbol, this.x, this.y, this.size)
-
-    if (this.isWinning && alpha > 0) {
-      // Stronger golden tint overlay (non-additive)
-      ctx.save()
-      ctx.globalAlpha = Math.min(1, alpha * 0.45)
-      const topGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.size * 0.75)
-      topGrad.addColorStop(0, 'rgba(255, 240, 120, 1.0)')
-      topGrad.addColorStop(0.6, 'rgba(255, 210, 80, 0.45)')
-      topGrad.addColorStop(1, 'rgba(255, 190, 60, 0.0)')
-      ctx.fillStyle = topGrad
-      ctx.fillRect(this.x, this.y, this.size, this.size)
-      ctx.restore()
-
-      drawBorders(ctx, this.x, this.y, this.size, alpha)
-    }
-
-    ctx.restore()
-
-    if (this.isWinning) {
-      const sparkleCount = this.symbol === 'wild' ? 8 : 4
-      drawSparkles(ctx, this.x, this.y, this.size, sparkleCount, Math.min(1, alpha * 0.5), timestamp)
+    // Make symbol visible
+    if (this.symbolSprite) {
+      this.symbolSprite.visible = true
+      this.symbolSprite.alpha = 1
     }
   }
 
-  drawDisappearing(ctx, timestamp) {
+  drawMotionBlur() {
+    const blurSteps = Math.min(Math.floor(this.velocityPx / 3), 10)
+    for (let i = blurSteps; i >= 1; i--) {
+      const alpha = 0.12 * (1 - i / (blurSteps + 1))
+      const trailY = -(i * this.velocityPx * 0.18)
+
+      const blurSprite = createSymbolSprite(this.symbol, 0, trailY, this.size)
+      if (blurSprite) {
+        blurSprite.alpha = alpha
+        this.motionBlurContainer.addChild(blurSprite)
+      }
+    }
+  }
+
+  drawRadialGlow(alpha) {
+    const cx = this.size / 2
+    const cy = this.size / 2
+    const size = this.size
+
+    // Solid gold background
+    const padding = size * 0.06
+    this.glowGraphics.rect(padding, padding, size - padding * 2, size - padding * 2)
+    this.glowGraphics.fill({ color: 0xffd700, alpha: Math.min(1, alpha * 0.95) })
+
+    // Soft gradient depth using circles
+    const steps = 10
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps
+      const r = size * 0.7 * t
+      const gradAlpha = alpha * 0.7 * (1 - t) * 0.45
+      this.glowGraphics.circle(cx, cy, r)
+      this.glowGraphics.fill({ color: 0xffffc8, alpha: gradAlpha })
+    }
+
+    // Outer glow
+    this.glowGraphics.rect(0, 0, size, size)
+    this.glowGraphics.fill({ color: 0xffd700, alpha: alpha * 0.3 })
+  }
+
+  drawOverlay(alpha) {
+    const cx = this.size / 2
+    const cy = this.size / 2
+    const size = this.size
+
+    // Stronger golden tint overlay using circles
+    const steps = 10
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps
+      const r = size * 0.75 * t
+      const overlayAlpha = alpha * 0.45 * (1 - t)
+      const color = interpolateColor(0xfff078, 0xffd250, 0xffbe3c, t)
+      this.overlayGraphics.circle(cx, cy, r)
+      this.overlayGraphics.fill({ color, alpha: overlayAlpha })
+    }
+  }
+
+  drawBorders(alpha) {
+    this.borderGraphics.rect(1, 1, this.size - 2, this.size - 2)
+    this.borderGraphics.stroke({ color: BORDER_COLOR, width: BORDER_LINE_WIDTH, alpha: Math.min(1, alpha * 0.9) })
+  }
+
+  drawSparkles(alpha, timestamp) {
+    const cx = this.size / 2
+    const cy = this.size / 2
+    const phase = timestamp * 0.002
+
+    const sparkleCount = this.symbol === 'wild' ? 8 : 4
+    const maxCount = Math.min(sparkleCount, 6)
+
+    for (let i = 0; i < maxCount; i++) {
+      const angle = (i / maxCount) * Math.PI * 2 + phase
+      const r = this.size * (0.3 + 0.2 * Math.sin(phase + i))
+      const px = cx + Math.cos(angle) * r
+      const py = cy + Math.sin(angle) * r
+      const sparkleSize = Math.max(1, Math.floor(this.size * 0.025))
+
+      const sparkle = new Graphics()
+      sparkle.circle(px, py, sparkleSize)
+      sparkle.fill({ color: 0xffffdc, alpha: Math.min(1, alpha * 0.6) * 0.9 })
+      this.sparklesContainer.addChild(sparkle)
+    }
+  }
+
+  drawDisappearing(timestamp) {
     const progress = this.disappearProgress
     const eased = progress * progress // ease-in
 
     const alpha = 1.0 - eased
     const scale = 1.0 - (eased * 0.15)
-    const blur = eased * 4
 
-    const cx = this.x + this.size / 2
-    const cy = this.y + this.size / 2
-
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.scale(scale, scale)
-    ctx.translate(-cx, -cy)
-
-    ctx.globalAlpha = alpha
-    if (blur > 0 && typeof ctx.filter === 'string') {
-      ctx.filter = `blur(${blur}px)`
-    }
+    // Apply scale and alpha
+    this.container.scale.set(scale)
+    this.container.alpha = alpha
 
     // Keep the soft glow for the first half
     if (progress < 0.5) {
       const remaining = 1 - progress * 2
-      drawRadialGlow(ctx, this.x, this.y, this.size, Math.max(0, remaining))
+      this.drawRadialGlow(Math.max(0, remaining))
     }
 
-    drawSymbol(ctx, this.symbol, this.x, this.y, this.size)
-    ctx.restore()
+    // Make symbol visible
+    if (this.symbolSprite) {
+      this.symbolSprite.visible = true
+      this.symbolSprite.alpha = alpha
+    }
   }
+}
+
+function interpolateColor(color1, color2, color3, t) {
+  if (t < 0.5) {
+    return lerpColor(color1, color2, t * 2)
+  } else {
+    return lerpColor(color2, color3, (t - 0.5) * 2)
+  }
+}
+
+function lerpColor(c1, c2, t) {
+  const r1 = (c1 >> 16) & 0xff
+  const g1 = (c1 >> 8) & 0xff
+  const b1 = c1 & 0xff
+
+  const r2 = (c2 >> 16) & 0xff
+  const g2 = (c2 >> 8) & 0xff
+  const b2 = c2 & 0xff
+
+  const r = Math.round(r1 + (r2 - r1) * t)
+  const g = Math.round(g1 + (g2 - g1) * t)
+  const b = Math.round(b1 + (b2 - b1) * t)
+
+  return (r << 16) | (g << 8) | b
 }
