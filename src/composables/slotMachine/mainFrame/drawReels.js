@@ -8,16 +8,14 @@ let lastTimestamp = 0
 export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
   const m = computeGridMetrics(mainRect)
 
-  const animInfo = (gridState.highlightAnim?.value) || { start: 0, duration: 0 }
   const nowTs = typeof timestamp === 'number' ? timestamp : performance.now()
-  const elapsed = Math.max(0, nowTs - animInfo.start)
-  const total = animInfo.duration || 800
-  const t = Math.min(elapsed / total, 1)
-  const fadeIn = Math.min(t / 0.3, 1)
-  const fadeOut = Math.max(0, 1 - Math.max(0, (t - 0.5)) / 0.5)
-  const baseAlpha = Math.min(1, fadeIn) * Math.max(0, fadeOut)
 
-  const deltaSec = lastTimestamp ? Math.min(0.05, Math.max(0.001, (nowTs - lastTimestamp) / 1000)) : 0.016
+  // Always full highlight strength; do not gate effects by highlightAnim
+  const baseAlpha = 1
+
+  const deltaSec = lastTimestamp
+    ? Math.min(0.05, Math.max(0.001, (nowTs - lastTimestamp) / 1000))
+    : 0.016
   lastTimestamp = nowTs
 
   for (let col = 0; col < m.cols; col++) {

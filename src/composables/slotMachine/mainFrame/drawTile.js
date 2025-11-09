@@ -1,69 +1,67 @@
 import { drawSymbol } from './drawSymbol'
 
 // Tuning constants
-const GLOW_MIN = 15
-const GLOW_MAX = 30
-const PULSE_SPEED = 0.5 // Hz
-const PULSE_MIN_SCALE = 1.0
-const PULSE_MAX_SCALE = 1.08
-const BORDER_COLOR_OUTER = 'rgba(255, 240, 100, 1)'
-const BORDER_COLOR_INNER = 'rgba(255, 255, 200, 0.8)'
+const PULSE_SPEED = 0.25 // Hz, slower to avoid flash
+const PULSE_SCALE_AMPLITUDE = 0.02 // 2% scale
+const BORDER_COLOR = 'rgba(255, 235, 120, 1)'  // brighter border
+const BORDER_LINE_WIDTH = 3                    // slightly thicker
 
-function drawRadialGlow(ctx, x, y, size, alpha, blur) {
+function drawRadialGlow(ctx, x, y, size, alpha) {
   const cx = x + size / 2
   const cy = y + size / 2
-  const radius = size * 0.7
 
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
-  gradient.addColorStop(0, 'rgba(255, 223, 0, 0.9)')
-  gradient.addColorStop(1, 'rgba(255, 180, 0, 0.0)')
-
+  // Solid gold background
   ctx.save()
-  ctx.shadowColor = 'rgba(255, 223, 0, 1)'
-  ctx.shadowBlur = blur
-  ctx.globalAlpha = Math.min(1, alpha)
-  ctx.fillStyle = gradient
-  ctx.beginPath()
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-  ctx.fill()
+  ctx.globalAlpha = Math.min(1, alpha * 0.95)           // stronger opacity
+  ctx.fillStyle = '#FFD700'
+  const padding = size * 0.06                            // less padding → more coverage
+  ctx.fillRect(x + padding, y + padding, size - padding * 2, size - padding * 2)
   ctx.restore()
-}
 
-function withPulse(ctx, x, y, size, timestamp) {
-  const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
-  const s = PULSE_MIN_SCALE + (Math.sin(phase) * (PULSE_MAX_SCALE - PULSE_MIN_SCALE))
+  // Soft gradient depth
   ctx.save()
-  ctx.translate(x + size / 2, y + size / 2)
-  ctx.scale(s, s)
-  ctx.translate(-(x + size / 2), -(y + size / 2))
-  return () => ctx.restore()
+  ctx.globalAlpha = Math.min(1, alpha * 0.7)            // stronger gradient
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.7) // slightly larger radius
+  gradient.addColorStop(0, 'rgba(255, 255, 200, 0.95)') // brighter center
+  gradient.addColorStop(0.5, 'rgba(255, 215, 0, 0.45)')
+  gradient.addColorStop(1, 'rgba(255, 180, 0, 0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(x, y, size, size)
+  ctx.restore()
+
+  // Subtle outer glow
+  ctx.save()
+  ctx.shadowColor = `rgba(255, 200, 0, ${alpha * 0.7})`
+  ctx.shadowBlur = 12                                    // slightly higher blur
+  ctx.fillStyle = `rgba(255, 215, 0, ${alpha * 0.3})`    // stronger outer fill
+  ctx.fillRect(x, y, size, size)
+  ctx.restore()
 }
 
 function drawBorders(ctx, x, y, size, alpha) {
   ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.strokeStyle = BORDER_COLOR_OUTER
-  ctx.lineWidth = 3
-  ctx.strokeRect(x, y, size, size)
-  ctx.strokeStyle = BORDER_COLOR_INNER
-  ctx.lineWidth = 1
-  ctx.strokeRect(x + 2, y + 2, size - 4, size - 4)
+  ctx.globalAlpha = Math.min(1, alpha * 0.9)             // stronger visibility
+  ctx.strokeStyle = BORDER_COLOR
+  ctx.lineWidth = BORDER_LINE_WIDTH
+  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2)
   ctx.restore()
 }
 
 function drawSparkles(ctx, x, y, size, count, alpha, timestamp) {
   const cx = x + size / 2
   const cy = y + size / 2
-  const phase = timestamp * 0.003
+  const phase = timestamp * 0.002
   ctx.save()
-  ctx.globalAlpha = alpha
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + phase * 0.3
-    const r = size * (0.25 + 0.35 * Math.sin(phase + i))
+  ctx.globalAlpha = Math.min(1, alpha * 0.6)             // slightly more visible
+
+  const maxCount = Math.min(count, 6)
+  for (let i = 0; i < maxCount; i++) {
+    const angle = (i / maxCount) * Math.PI * 2 + phase
+    const r = size * (0.3 + 0.2 * Math.sin(phase + i))
     const px = cx + Math.cos(angle) * r
-    const py = cy + Math.sin(angle) * r * 0.6
-    const sparkleSize = Math.max(2, Math.floor(size * 0.04))
-    ctx.fillStyle = 'rgba(255, 215, 0, 1)'
+    const py = cy + Math.sin(angle) * r
+    const sparkleSize = Math.max(1, Math.floor(size * 0.025)) // a tad bigger
+    ctx.fillStyle = 'rgba(255, 255, 220, 0.9)'
     ctx.beginPath()
     ctx.arc(px, py, sparkleSize, 0, Math.PI * 2)
     ctx.fill()
@@ -94,23 +92,44 @@ export function drawTile(ctx, {
     ctx.restore()
   }
 
-  if (isWinning && effectAlpha > 0) {
-    // Glow behind
-    const glowBlur = GLOW_MIN + (GLOW_MAX - GLOW_MIN) * effectAlpha
-    drawRadialGlow(ctx, x, y, size, effectAlpha, glowBlur)
+  const alpha = effectAlpha ?? 1
+  if (isWinning && alpha > 0) {
+    // Subtle pulse
+    const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
+    const pulseScale = 1.0 + Math.sin(phase) * PULSE_SCALE_AMPLITUDE * alpha
+    const cx = x + size / 2
+    const cy = y + size / 2
 
-    // Pulsing scale
-    const restore = withPulse(ctx, x, y, size, timestamp)
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.scale(pulseScale, pulseScale)
+    ctx.translate(-cx, -cy)
+
+    // Solid yellow background + soft glow
+    drawRadialGlow(ctx, x, y, size, alpha)
+
+    // Symbol on top
     drawSymbol(ctx, symbol, x, y, size)
-    restore()
 
-    // Borders
-    drawBorders(ctx, x, y, size, Math.min(1, effectAlpha))
+    // Stronger golden tint overlay (non-additive)
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, alpha * 0.45)
+    const topGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.75)
+    topGrad.addColorStop(0, 'rgba(255, 240, 120, 1.0)')
+    topGrad.addColorStop(0.6, 'rgba(255, 210, 80, 0.45)')
+    topGrad.addColorStop(1, 'rgba(255, 190, 60, 0.0)')
+    ctx.fillStyle = topGrad
+    ctx.fillRect(x, y, size, size)
+    ctx.restore()
 
-    // Particles (stronger for wild)
-    const isWild = symbol === 'wild'
-    const count = isWild ? 16 : 10
-    drawSparkles(ctx, x, y, size, count, Math.min(0.9, effectAlpha), timestamp)
+    // Subtle border
+    drawBorders(ctx, x, y, size, alpha)
+
+    ctx.restore()
+
+    // Subtle sparkles
+    const sparkleCount = symbol === 'wild' ? 8 : 4
+    drawSparkles(ctx, x, y, size, sparkleCount, alpha * 0.5, timestamp)
     return
   }
 
@@ -129,8 +148,6 @@ export class Tile {
     this.isWinning = false
     this.highlightIntensity = 0
     this.pulsePhase = Math.random() * Math.PI * 2
-    this.glowRadius = 15
-    this.particles = []
 
     // motion state
     this.velocityPx = 0
@@ -142,48 +159,15 @@ export class Tile {
   setVelocityPx(v) { this.velocityPx = v }
 
   setWinning(isWinning) {
-    if (isWinning && !this.isWinning) {
-      this.createParticles()
-    }
     this.isWinning = isWinning
-  }
-
-  createParticles() {
-    const cx = this.x + this.size / 2
-    const cy = this.y + this.size / 2
-    for (let i = 0; i < 8; i++) {
-      this.particles.push({
-        x: cx + (Math.random() - 0.5) * this.size,
-        y: cy + (Math.random() - 0.5) * this.size,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2 - 1,
-        life: 1.0,
-        size: Math.random() * 4 + 2,
-        rotation: Math.random() * Math.PI * 2
-      })
-    }
   }
 
   update(deltaSec) {
     if (this.isWinning) {
-      this.highlightIntensity = Math.min(1, this.highlightIntensity + deltaSec * 3)
-      this.pulsePhase += deltaSec * 3
-      const pulseAmount = Math.sin(this.pulsePhase) * 0.5 + 0.5
-      this.glowRadius = 15 + pulseAmount * 15
+      this.highlightIntensity = Math.min(1, this.highlightIntensity + deltaSec * 2) // gentle ramp
+      this.pulsePhase += deltaSec * PULSE_SPEED * (Math.PI * 2)
     } else {
-      this.highlightIntensity = Math.max(0, this.highlightIntensity - deltaSec * 5)
-    }
-
-    // particles update
-    this.particles.forEach(p => {
-      p.x += p.vx
-      p.y += p.vy
-      p.life -= deltaSec * 0.5
-      p.rotation += deltaSec * 2
-    })
-    this.particles = this.particles.filter(p => p.life > 0)
-    if (this.isWinning && this.particles.length < 5 && Math.random() < 0.1) {
-      this.createParticles()
+      this.highlightIntensity = Math.max(0, this.highlightIntensity - deltaSec * 1.5) // gentle fade
     }
   }
 
@@ -199,64 +183,49 @@ export class Tile {
     ctx.restore()
   }
 
-  drawParticles(ctx, alpha) {
-    this.particles.forEach(p => {
-      if (p.life <= 0) return
-      ctx.save()
-      ctx.globalAlpha = p.life * alpha
-      ctx.translate(p.x, p.y)
-      ctx.rotate(p.rotation)
-      const size = p.size * (0.5 + p.life * 0.5)
-      ctx.fillStyle = '#FFD700'
-      ctx.beginPath()
-      for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * Math.PI * 2
-        const inner = size * 0.4
-        const outer = size
-        ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer)
-        ctx.lineTo(Math.cos(angle + Math.PI / 5) * inner, Math.sin(angle + Math.PI / 5) * inner)
-      }
-      ctx.closePath()
-      ctx.fill()
-      ctx.restore()
-    })
-  }
-
   draw(ctx, timestamp, effectAlpha) {
     // motion blur behind
     this.drawMotionBlur(ctx)
 
-    const centerX = this.x + this.size / 2
-    const centerY = this.y + this.size / 2
-    const combinedAlpha = Math.min(1, (effectAlpha ?? 1) * this.highlightIntensity)
+    const baseAlpha = effectAlpha ?? 1
+    const alpha = Math.min(1, baseAlpha * this.highlightIntensity)
 
-    // pulse scale
-    const phase = (timestamp / 1000) * (Math.PI * 2 * 0.5)
-    const pulseScale = this.isWinning
-      ? 1.0 + Math.sin(phase) * 0.08 * this.highlightIntensity
-      : 1.0
+    const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
+    const pulseScale = this.isWinning ? 1.0 + Math.sin(phase) * PULSE_SCALE_AMPLITUDE * alpha : 1.0
+    const cx = this.x + this.size / 2
+    const cy = this.y + this.size / 2
 
     ctx.save()
-    ctx.translate(centerX, centerY)
+    ctx.translate(cx, cy)
     ctx.scale(pulseScale, pulseScale)
-    ctx.translate(-centerX, -centerY)
+    ctx.translate(-cx, -cy)
 
-    if (combinedAlpha > 0) {
-      // glow behind tile
-      const blur = 15 + 15 * combinedAlpha
-      drawRadialGlow(ctx, this.x, this.y, this.size, combinedAlpha, blur)
+    if (this.isWinning && alpha > 0) {
+      drawRadialGlow(ctx, this.x, this.y, this.size, alpha)
     }
 
     drawSymbol(ctx, this.symbol, this.x, this.y, this.size)
 
-    if (combinedAlpha > 0) {
-      drawBorders(ctx, this.x, this.y, this.size, combinedAlpha)
+    if (this.isWinning && alpha > 0) {
+      // Stronger golden tint overlay (non-additive)
+      ctx.save()
+      ctx.globalAlpha = Math.min(1, alpha * 0.45)
+      const topGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.size * 0.75)
+      topGrad.addColorStop(0, 'rgba(255, 240, 120, 1.0)')
+      topGrad.addColorStop(0.6, 'rgba(255, 210, 80, 0.45)')
+      topGrad.addColorStop(1, 'rgba(255, 190, 60, 0.0)')
+      ctx.fillStyle = topGrad
+      ctx.fillRect(this.x, this.y, this.size, this.size)
+      ctx.restore()
+
+      drawBorders(ctx, this.x, this.y, this.size, alpha)
     }
 
     ctx.restore()
 
     if (this.isWinning) {
-      this.drawParticles(ctx, combinedAlpha)
+      const sparkleCount = this.symbol === 'wild' ? 8 : 4
+      drawSparkles(ctx, this.x, this.y, this.size, sparkleCount, Math.min(1, alpha * 0.5), timestamp)
     }
   }
 }
