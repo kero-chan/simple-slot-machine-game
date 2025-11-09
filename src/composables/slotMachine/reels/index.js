@@ -4,56 +4,47 @@ import { BlurFilter } from '@pixi/filter-blur'
 import { BLEND_MODES } from '@pixi/constants'
 import { Color } from '@pixi/color'
 import { ASSETS } from '../../../config/assets'
+import { CONFIG } from '../../../config/constants'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
     const backdrop = new Graphics()
+    const mask = new Graphics()
     container.addChild(backdrop)
+    container.addChild(mask)
 
     const MARGIN_X = 10
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
     const BOTTOM_PARTIAL = 0.15
+    const PAD_X = 0
+    const PAD_Y = 0
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
 
-    function ensureBackdrop(rect) {
+    function ensureBackdrop(rect, canvasW) {
         backdrop.clear()
-        backdrop.rect(rect.x, rect.y, rect.w, rect.h)
+        backdrop.rect(0, rect.y, canvasW, rect.h)
         backdrop.fill(0x2e8f4b)
+
+        // Clip to the green area; add 1px guard to avoid float clipping
+        mask.clear()
+        mask.rect(0, rect.y, canvasW, rect.h + 1)
+        mask.fill(0xffffff)
+        container.mask = mask
     }
 
+    // Keep visuals rigid — no scaling pulse; remove filters to avoid visual seams
     function applyTileVisuals(sp, size, winning, velocityPx, timestamp) {
-        const spinning = velocityPx > 2
-        sp.alpha = spinning ? 0.95 : 1.0
-
-        if (winning) {
-            const PULSE_SPEED = 0.25
-            const PULSE_AMPLITUDE = 0.02
-            const phase = (timestamp / 1000) * (Math.PI * 2 * PULSE_SPEED)
-            const pulseScale = 1.0 + Math.sin(phase) * PULSE_AMPLITUDE
-            sp.scale.set(pulseScale, pulseScale)
-            sp.tint = 0xfff1a0
-            sp.blendMode = BLEND_MODES.ADD
-        } else {
-            sp.scale.set(1, 1)
-            sp.tint = 0xffffff
-            sp.blendMode = BLEND_MODES.NORMAL
-        }
-
-        const glow = new GlowFilter({
-            distance: Math.max(6, Math.floor(size * 0.08)),
-            outerStrength: winning ? 2.0 : 1.2,
-            innerStrength: 0.0,
-            color: rgb(winning ? 0xfff1a0 : 0xffd700),
-            quality: 0.35
-        })
-        const blur = new BlurFilter(Math.max(1, Math.floor(size * 0.015)))
-        sp.filters = [glow, blur]
+        sp.alpha = velocityPx > 2 ? 0.95 : 1.0
+        sp.tint = winning ? 0xfff1a0 : 0xffffff
+        sp.blendMode = BLEND_MODES.NORMAL
+        sp.filters = null
     }
 
+    // Resolve a Pixi Texture for a given symbol key
     function getTextureForSymbol(symbol) {
         const src = ASSETS.loadedImages?.[symbol] || ASSETS.imagePaths?.[symbol]
         if (!src) return null
@@ -61,11 +52,12 @@ export function useReels(gameState, gridState) {
         return Texture.from(src)
     }
 
-    function draw(mainRect, tileSize, timestamp) {
-        ensureBackdrop(mainRect)
+    function draw(mainRect, tileSize, timestamp, canvasW) {
+        ensureBackdrop(mainRect, canvasW)
 
-        const originX = mainRect.x
-        const startY = mainRect.y - Math.floor((1 - TOP_PARTIAL) * tileSize)
+        const stepX = tileSize
+        const originX = MARGIN_X
+        const startY = mainRect.y - (1 - TOP_PARTIAL) * tileSize
         const spinningGlobal = !!gameState.isSpinning?.value
 
         const usedKeys = new Set()
@@ -79,8 +71,8 @@ export function useReels(gameState, gridState) {
             const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
 
             for (let r = 0; r <= ROWS_FULL; r++) {
-                const x = originX + col * tileSize
-                const y = startY + r * tileSize + offsetTiles * tileSize
+                const xCell = originX + col * stepX
+                const yCell = startY + r * tileSize + offsetTiles * tileSize
 
                 let symbol
                 const spinning = spinningGlobal || offsetTiles !== 0
@@ -92,23 +84,26 @@ export function useReels(gameState, gridState) {
                     symbol = gridState.grid?.value?.[col]?.[r]
                 }
 
-                const tex = getTextureForSymbol(symbol)
+                const tex = getTextureForSymbol(symbol) // now defined above
                 if (!tex) continue
 
                 const key = `${col}:${r}`
                 let sp = spriteCache.get(key)
 
-                const pad = Math.floor(tileSize * 0.06)
-                const w = tileSize - pad * 2
-                const h = tileSize - pad * 2
+                // Overscan by 1px each side to swallow transparent borders
+                const bleed = 1
+                const w = tileSize + bleed * 2
+                const h = tileSize + bleed * 2
 
                 if (!sp) {
                     sp = new Sprite(tex)
+                    sp.anchor.set(0, 0)
                     sp.width = w
                     sp.height = h
                     spriteCache.set(key, sp)
                 } else {
                     sp.texture = tex
+                    sp.anchor.set(0, 0)
                     sp.width = w
                     sp.height = h
                 }
@@ -120,7 +115,6 @@ export function useReels(gameState, gridState) {
 
                 applyTileVisuals(sp, tileSize, winning, velocityPx, timestamp)
 
-                // Fade-out for disappearing tiles (reuse existing key)
                 const isDisappear = gridState.disappearPositions?.value?.has(key)
                 if (isDisappear) {
                     const anim = gridState.disappearAnim?.value
@@ -133,8 +127,9 @@ export function useReels(gameState, gridState) {
                     }
                 }
 
-                sp.x = Math.floor(x + pad)
-                sp.y = Math.floor(y + pad)
+                // Position with −bleed to overlap seams; keep fractional Y for precise clipping
+                sp.x = xCell - bleed
+                sp.y = yCell - bleed
 
                 if (!sp.parent) container.addChild(sp)
                 usedKeys.add(key)

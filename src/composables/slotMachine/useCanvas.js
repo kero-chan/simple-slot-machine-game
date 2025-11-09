@@ -58,39 +58,35 @@ export function useCanvas(canvasRef) {
 
     ensureAspectLoaded()
 
-    // Viewport size (visible area)
+    // Visible viewport
     const vw = document.documentElement.clientWidth
     const vh = document.documentElement.clientHeight
 
-    // Simple mobile detection: narrow screens → full viewport
     const isMobile = vw <= 768
 
     let width
     let height
     if (isMobile) {
-      // Mobile: full viewport canvas
+      // SP: full viewport
       width = vw
       height = vh
     } else {
-      // Desktop: use start image natural width, scaled to fit viewport while preserving aspect
-      const natW = targetImageWidth.value || vw
+      // PC: full page height, width by image aspect, capped to viewport width
       const aspect = targetAspect.value || (vw / vh)
-      const natH = Math.round(natW / aspect)
-
-      // Scale down if larger than viewport
-      const scaleDown = Math.min(vw / natW, vh / natH, 1)
-      width = Math.floor(natW * scaleDown)
-      height = Math.floor(natH * scaleDown)
+      height = vh
+      width = Math.floor(height * aspect)
+      if (width > vw) {
+        width = vw
+        height = Math.floor(width / aspect)
+      }
     }
 
-    // Device pixel ratio setup
     const dpr = window.devicePixelRatio || 1
     canvasEl.width = Math.floor(width * dpr)
     canvasEl.height = Math.floor(height * dpr)
     canvasEl.style.width = `${width}px`
     canvasEl.style.height = `${height}px`
 
-    // Scale the context to match CSS pixels
     ctx.value.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     canvasWidth.value = width

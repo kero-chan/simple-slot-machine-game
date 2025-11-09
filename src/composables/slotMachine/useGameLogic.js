@@ -198,6 +198,8 @@ export function useGameLogic(gameState, gridState, render) {
     gridState.disappearPositions.value = new Set(
       positions.map(([c, r]) => `${c},${r}`)
     )
+    // Start fade window so reels renderer can apply alpha over time
+    gridState.disappearAnim.value = { start: startTime, duration: DISAPPEAR_MS }
 
     return new Promise(resolve => {
       const loop = () => {
@@ -206,6 +208,7 @@ export function useGameLogic(gameState, gridState, render) {
           requestAnimationFrame(loop)
         } else {
           gridState.disappearPositions.value.clear()
+          gridState.disappearAnim.value = { start: 0, duration: 0 }
           render()
           resolve()
         }

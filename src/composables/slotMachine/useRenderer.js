@@ -5,6 +5,7 @@ import { useStartScene } from './scenes/startScene'
 import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
+import { CONFIG } from '../../config/constants'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -37,19 +38,25 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
     function computeLayout(w, h) {
         const headerH = Math.round(h * 0.15)
-        const tileSize = Math.floor((w - MARGIN_X * 2) / COLS)
+
+        // Exact tile width: (canvas width - 10*2) / 5
+        const tileSize = (w - MARGIN_X * 2) / COLS
+
         const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + BOTTOM_PARTIAL
-        const mainW = tileSize * COLS
-        const mainH = Math.floor(tileSize * visibleRowsSpan)
+        // Ensure bottom partial is always visible; add 1px guard
+        const mainH = Math.ceil(tileSize * visibleRowsSpan) + 1
+
         const footerH = Math.max(0, h - headerH - mainH)
+
         return {
             headerRect: { x: 0, y: 0, w, h: headerH },
-            mainRect: { x: MARGIN_X, y: headerH, w: mainW, h: mainH },
+            mainRect:   { x: 0, y: headerH, w, h: mainH },
             footerRect: { x: 0, y: headerH + mainH, w, h: footerH },
             tileSize
         }
     }
 
+    // PixiJS-only renderer: start screen, header, reels, footer
     function ensureStage(w, h) {
         pixiApp.ensure(w, h)
         app = pixiApp.getApp()
@@ -57,6 +64,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
         if (!root) {
             root = new Container()
+            app.stage.sortableChildren = true
             app.stage.addChild(root)
 
             startScene = useStartScene(gameState)
@@ -100,11 +108,18 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
 
         if (!showStart) {
-            if (resized && header) header.build(headerRect)
+            // Build header/footer when play screen becomes visible (even without resize)
+            if ((resized || header?.container.children.length === 0) && header) {
+                header.build(headerRect)
+            }
             if (header) header.updateValues()
 
-            if (reels) reels.draw(mainRect, tileSize, timestamp)
-            if (resized && footer) footer.build(footerRect)
+            // Always draw reels so spin/cascade state is reflected
+            if (reels) reels.draw(mainRect, tileSize, timestamp, w)
+
+            if ((resized || footer?.container.children.length === 0) && footer) {
+                footer.build(footerRect)
+            }
         }
     }
 

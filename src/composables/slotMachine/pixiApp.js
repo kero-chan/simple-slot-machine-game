@@ -9,33 +9,32 @@ export function usePixiApp(canvasState) {
     function ensure(width, height) {
         if (!app) {
             app = new Application()
-
             canvasEl = document.createElement('canvas')
 
-            // Decide layout mode from requested size
             const cw = document.documentElement.clientWidth
             const ch = document.documentElement.clientHeight
             const isFullscreen = Math.abs(width - cw) < 2 && Math.abs(height - ch) < 2
 
             canvasEl.style.position = 'fixed'
             if (isFullscreen) {
+                // SP: full viewport
                 canvasEl.style.left = '0'
                 canvasEl.style.top = '0'
                 canvasEl.style.transform = 'none'
                 canvasEl.style.width = '100vw'
                 canvasEl.style.height = '100vh'
             } else {
+                // PC: full page height, center horizontally
                 canvasEl.style.left = '50%'
-                canvasEl.style.top = '50%'
-                canvasEl.style.transform = 'translate(-50%, -50%)'
+                canvasEl.style.top = '0'
+                canvasEl.style.transform = 'translateX(-50%)'
                 canvasEl.style.width = `${width}px`
-                canvasEl.style.height = `${height}px`
+                canvasEl.style.height = '100vh'
             }
             canvasEl.style.pointerEvents = 'auto'
             canvasEl.style.zIndex = '9999'
             document.body.appendChild(canvasEl)
 
-            // Hide legacy 2D canvas
             if (canvasState.canvas.value) {
                 canvasState.canvas.value.style.display = 'none'
             }
@@ -57,7 +56,6 @@ export function usePixiApp(canvasState) {
             })
             .catch(err => console.error('Pixi init failed:', err))
         } else {
-            // Update renderer and CSS for subsequent ensures
             if (app.renderer) {
                 app.renderer.resize(width, height)
             } else {
@@ -78,10 +76,10 @@ export function usePixiApp(canvasState) {
                     canvasEl.style.height = '100vh'
                 } else {
                     canvasEl.style.left = '50%'
-                    canvasEl.style.top = '50%'
-                    canvasEl.style.transform = 'translate(-50%, -50%)'
+                    canvasEl.style.top = '0'
+                    canvasEl.style.transform = 'translateX(-50%)'
                     canvasEl.style.width = `${width}px`
-                    canvasEl.style.height = `${height}px`
+                    canvasEl.style.height = '100vh'
                 }
                 canvasEl.style.zIndex = '9999'
             }
