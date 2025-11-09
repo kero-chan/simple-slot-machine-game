@@ -5,6 +5,16 @@ import { Tile } from './drawTile'
 const tilesCache = new Map()
 let lastTimestamp = 0
 
+// Pending disappear marks to be applied on next draw
+const pendingDisappearPositions = new Set()
+
+// Expose a helper to mark tiles for disappearance using col,row pairs
+export function markTilesToDisappear(positions) {
+  for (const [col, row] of positions) {
+    pendingDisappearPositions.add(`${col},${row}`)
+  }
+}
+
 export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
   const m = computeGridMetrics(mainRect)
 
@@ -53,16 +63,22 @@ export function drawReels(ctx, mainRect, gridState, gameState, timestamp) {
         tile.setSymbol(symbol)
       }
 
-      // Trigger disappear if flagged
-      const shouldDisappear =
-        gridState.disappearPositions?.value?.has(`${col},${row}`) ?? false
-      if (shouldDisappear && !tile.isDisappearing) {
+      // Apply pending disappear marks (once)
+      if (pendingDisappearPositions.has(key) && !tile.isDisappearing) {
         tile.startDisappear()
+        pendingDisappearPositions.delete(key)
       }
 
       tile.setVelocityPx(velocityPx)
       tile.setWinning(isWinning)
       tile.update(deltaSec)
+
+      // Optional: reset state after disappearance completes so new symbols render
+      if (tile.isDisappearComplete()) {
+        tile.isDisappearing = false
+        tile.disappearProgress = 0
+      }
+
       tile.draw(ctx, nowTs, baseAlpha)
     }
   }

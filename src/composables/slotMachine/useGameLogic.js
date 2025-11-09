@@ -1,5 +1,6 @@
 import { CONFIG } from '../../config/constants'
 import { getRandomSymbol } from '../../utils/gameHelpers'
+import { markTilesToDisappear } from './mainFrame/drawReels'
 
 export function useGameLogic(gameState, gridState, render) {
   // Visible rows: only evaluate rows 1..4 for wins and scatters
@@ -186,15 +187,16 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
-  // Insert a short disappear phase for winning tiles
   const animateDisappear = (wins) => {
     const DISAPPEAR_MS = 300
     const startTime = Date.now()
-    const positions = new Set()
+
+    // Collect positions and mark them in the renderer
+    const positions = []
     wins.forEach(win => {
-      win.positions.forEach(([col, row]) => positions.add(`${col},${row}`))
+      win.positions.forEach(([col, row]) => positions.push([col, row]))
     })
-    gridState.disappearPositions.value = positions
+    markTilesToDisappear(positions)
 
     return new Promise(resolve => {
       const loop = () => {
@@ -203,8 +205,6 @@ export function useGameLogic(gameState, gridState, render) {
         if (elapsed < DISAPPEAR_MS) {
           requestAnimationFrame(loop)
         } else {
-          // Clear flags before cascade
-          gridState.disappearPositions.value = new Set()
           render()
           resolve()
         }
@@ -299,7 +299,7 @@ export function useGameLogic(gameState, gridState, render) {
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)
 
-      // NEW: run disappear phase before cascading
+      // Run disappear before cascading
       await animateDisappear(wins)
 
       await cascadeSymbols(wins)
