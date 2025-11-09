@@ -10,7 +10,7 @@ export const CONFIG = {
     spacing: 8
   },
   paytable: {
-    wild: { 3: 15, 4: 60, 5: 100 },
+    wild: { 3: 15, 4: 60, 5: 80 },
     scatter: { 3: 10, 4: 40, 5: 80 },
     dragon_red: { 3: 8, 4: 20, 5: 60 },
     dragon_green: { 3: 6, 4: 15, 5: 40 },

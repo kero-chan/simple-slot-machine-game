@@ -2,30 +2,47 @@ import { CONFIG } from '../../config/constants'
 import { getRandomSymbol } from '../../utils/gameHelpers'
 
 export function useGameLogic(gameState, gridState, render) {
+  // Visible rows: only evaluate rows 1..4 for wins and scatters
+  const VISIBLE_START_ROW = 1
+  const VISIBLE_ROWS = 4
+  const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
+
+  const showAlert = (text) => {
+    if (typeof window !== 'undefined' && window.alert) {
+      console.log(text)
+    }
+  }
+
   const findWinningCombinations = () => {
     const wins = []
 
-    for (let row = 0; row < CONFIG.reels.rows; row++) {
-      let currentSymbol = gridState.grid.value[0][row]
-      let count = 1
-      let positions = [[0, row]]
+    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'scatter')
+    for (const symbol of symbolsToCheck) {
+      const countsPerReel = []
+      const positionsPerReel = []
 
-      for (let col = 1; col < CONFIG.reels.count; col++) {
-        const symbol = gridState.grid.value[col][row]
-
-        if (symbol === currentSymbol || symbol === 'wild' || currentSymbol === 'wild') {
-          count++
-          positions.push([col, row])
-          if (currentSymbol === 'wild' && symbol !== 'wild') {
-            currentSymbol = symbol
+      for (let col = 0; col < CONFIG.reels.count; col++) {
+        const matches = []
+        for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
+          const cell = gridState.grid.value[col][row]
+          const isMatch = symbol === 'wild'
+            ? cell === 'wild'
+            : (cell === symbol || cell === 'wild')
+          if (isMatch) {
+            matches.push([col, row])
           }
-        } else {
-          break
         }
+
+        if (matches.length === 0) break
+        countsPerReel.push(matches.length)
+        positionsPerReel.push(matches)
       }
 
-      if (count >= 3 && currentSymbol !== 'scatter') {
-        wins.push({ symbol: currentSymbol, count, positions })
+      const matchedReels = countsPerReel.length
+      if (matchedReels >= 3) {
+        const ways = countsPerReel.reduce((a, b) => a * b, 1)
+        const positions = positionsPerReel.slice(0, matchedReels).flat()
+        wins.push({ symbol, count: matchedReels, ways, positions })
       }
     }
 
@@ -35,7 +52,7 @@ export function useGameLogic(gameState, gridState, render) {
   const countScatters = () => {
     let count = 0
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      for (let row = 0; row < CONFIG.reels.rows; row++) {
+      for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
         if (gridState.grid.value[col][row] === 'scatter') count++
       }
     }
@@ -47,7 +64,7 @@ export function useGameLogic(gameState, gridState, render) {
     for (const win of wins) {
       const paytable = CONFIG.paytable[win.symbol]
       if (paytable && paytable[win.count]) {
-        total += paytable[win.count]
+        total += paytable[win.count] * win.ways
       }
     }
     return total
@@ -81,10 +98,10 @@ export function useGameLogic(gameState, gridState, render) {
             }
           }
 
-          // Add golden symbols
+          // Add golden symbols only within visible rows
           gridState.goldenSymbols.value.clear()
           for (let col = 1; col <= 3; col++) {
-            for (let row = 0; row < CONFIG.reels.rows; row++) {
+            for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
               if (Math.random() < 0.2 &&
                   gridState.grid.value[col][row] !== 'wild' &&
                   gridState.grid.value[col][row] !== 'scatter') {
@@ -188,6 +205,7 @@ export function useGameLogic(gameState, gridState, render) {
   const checkWinsAndCascade = async () => {
     let totalWin = 0
     let hasWins = true
+    let scattersAwarded = false
 
     while (hasWins) {
       const wins = findWinningCombinations()
@@ -196,20 +214,37 @@ export function useGameLogic(gameState, gridState, render) {
         break
       }
 
-      const winAmount = calculateWinAmount(wins)
-      const multipliedWin = winAmount * gameState.currentMultiplier.value * gameState.bet.value
+      const waysWinAmount = calculateWinAmount(wins)
+      const multipliedWays = waysWinAmount * gameState.currentMultiplier.value * gameState.bet.value
 
-      totalWin += multipliedWin
+      totalWin += multipliedWays
       gameState.consecutiveWins.value++
+
+      // Alert this cascade hit
+      showAlert(`Hit! ${wins.length} win(s). +${multipliedWays} credits (x${gameState.currentMultiplier.value}).`)
 
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)
 
-      const scatterCount = countScatters()
-      if (scatterCount >= 3) {
-        gameState.freeSpins.value += CONFIG.game.freeSpinsPerScatter +
-                         (scatterCount - 3) * CONFIG.game.bonusScattersPerSpin
-        gameState.inFreeSpinMode.value = true
+      // Scatter payout and free spins: award once per spin
+      if (!scattersAwarded) {
+        const scatterCount = countScatters()
+        if (scatterCount >= 3) {
+          const scatterPaytable = CONFIG.paytable.scatter || {}
+          const scatterBase = scatterPaytable[scatterCount] || 0
+          const scatterWin = scatterBase * gameState.currentMultiplier.value * gameState.bet.value
+
+          const awardedFreeSpins = CONFIG.game.freeSpinsPerScatter +
+            (scatterCount - 3) * CONFIG.game.bonusScattersPerSpin
+
+          totalWin += scatterWin
+          gameState.freeSpins.value += awardedFreeSpins
+          gameState.inFreeSpinMode.value = true
+
+          // Alert scatter bonus
+          showAlert(`Scatter! ${scatterCount} scatters. +${scatterWin} credits, +${awardedFreeSpins} free spins.`)
+        }
+        scattersAwarded = true
       }
 
       await cascadeSymbols(wins)
