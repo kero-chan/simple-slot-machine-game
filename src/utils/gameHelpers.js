@@ -20,3 +20,15 @@ export function createEmptyGrid() {
   }
   return grid
 }
+
+export function createReelStrips(count, length) {
+  const strips = []
+  for (let c = 0; c < count; c++) {
+    const strip = []
+    for (let i = 0; i < length; i++) {
+      strip.push(getRandomSymbol())
+    }
+    strips.push(strip)
+  }
+  return strips
+}

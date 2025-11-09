@@ -78,9 +78,9 @@ export function useGameLogic(gameState, gridState, render) {
     const cols = CONFIG.reels.count
 
     const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5)
-    const FREEZE_THRESHOLD = 0.82   // begin alignment phase slightly earlier
-    const ALIGN_STEP_MAX = 0.35     // max tiles/frame during alignment
-    const MIN_ALIGN_STEP = 0.08     // minimum downward step to avoid stall
+    const FREEZE_THRESHOLD = 0.82
+    const ALIGN_STEP_MAX = 0.35
+    const MIN_ALIGN_STEP = 0.08
     const EPS = 1e-3
 
     return new Promise(resolve => {
@@ -100,9 +100,9 @@ export function useGameLogic(gameState, gridState, render) {
           const t = Math.max(0, Math.min(elapsed / baseDuration, 1))
           const ease = easeOutQuint(t)
 
+          // Spin phase: update fractional offset and advance topIndex as needed
           if (t < FREEZE_THRESHOLD) {
-            // Spin phase: faster start → slower end
-            const maxVel = 0.65 // tiles/frame
+            const maxVel = 0.65
             const targetVel = (1 - ease) * maxVel
             const prevVel = gridState.spinVelocities.value[col] || 0
             const smoothedVel = prevVel * 0.8 + targetVel * 0.2
@@ -110,20 +110,17 @@ export function useGameLogic(gameState, gridState, render) {
             gridState.spinVelocities.value[col] = smoothedVel
             gridState.spinOffsets.value[col] += smoothedVel
 
-            // Rotate down when we cross a tile boundary
             while (gridState.spinOffsets.value[col] >= 1) {
               gridState.spinOffsets.value[col] -= 1
-              for (let row = totalRows - 1; row > 0; row--) {
-                gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
-              }
-              gridState.grid.value[col][0] = getRandomSymbol()
+              const stripLen = gridState.reelStrips.value[col].length
+              gridState.reelTopIndex.value[col] = (gridState.reelTopIndex.value[col] + 1) % stripLen
             }
 
             allStopped = false
             continue
           }
 
-          // Alignment phase: only move downward to the next boundary; never up
+          // Alignment phase: glide DOWN to next boundary, rotate once, snap to 0
           const offset = gridState.spinOffsets.value[col]
           if (offset < EPS) {
             gridState.spinOffsets.value[col] = 0
@@ -131,7 +128,7 @@ export function useGameLogic(gameState, gridState, render) {
             continue
           }
 
-          const remaining = 1 - offset // tiles to reach next boundary
+          const remaining = 1 - offset
           const step = Math.min(
             remaining,
             Math.max(MIN_ALIGN_STEP, ALIGN_STEP_MAX * (1 - ease))
@@ -140,12 +137,9 @@ export function useGameLogic(gameState, gridState, render) {
           gridState.spinOffsets.value[col] += step
 
           if (gridState.spinOffsets.value[col] >= 1 - EPS) {
-            // Final rotate and snap to exact tile alignment
             gridState.spinOffsets.value[col] = 0
-            for (let row = totalRows - 1; row > 0; row--) {
-              gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
-            }
-            gridState.grid.value[col][0] = getRandomSymbol()
+            const stripLen = gridState.reelStrips.value[col].length
+            gridState.reelTopIndex.value[col] = (gridState.reelTopIndex.value[col] + 1) % stripLen
             gridState.spinVelocities.value[col] = 0
           } else {
             gridState.spinVelocities.value[col] = step
@@ -153,10 +147,20 @@ export function useGameLogic(gameState, gridState, render) {
           }
         }
 
-        // Continuous render loop is already driving frames; no deep copies needed
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
+          // Commit final grid from reel strips for the 6 rows
+          for (let col = 0; col < cols; col++) {
+            const strip = gridState.reelStrips.value[col]
+            const top = gridState.reelTopIndex.value[col]
+            for (let row = 0; row < totalRows; row++) {
+              const idx = (top + row) % strip.length
+              gridState.grid.value[col][row] = strip[idx]
+            }
+            gridState.spinOffsets.value[col] = 0
+            gridState.spinVelocities.value[col] = 0
+          }
           resolve()
         }
       }
