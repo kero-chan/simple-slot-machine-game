@@ -43,7 +43,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const tileSize = (w - MARGIN_X * 2) / COLS
 
         const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + BOTTOM_PARTIAL
-        // Ensure bottom partial is always visible; add 1px guard
+        // Ceil + 1px guard so the bottom 15% is never clipped
         const mainH = Math.ceil(tileSize * visibleRowsSpan) + 1
 
         const footerH = Math.max(0, h - headerH - mainH)

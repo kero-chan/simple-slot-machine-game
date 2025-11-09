@@ -29,19 +29,11 @@ export function useReels(gameState, gridState) {
         backdrop.rect(0, rect.y, canvasW, rect.h)
         backdrop.fill(0x2e8f4b)
 
-        // Clip to the green area; add 1px guard to avoid float clipping
+        // Add 1px guard to avoid float rounding cropping the bottom
         mask.clear()
         mask.rect(0, rect.y, canvasW, rect.h + 1)
         mask.fill(0xffffff)
         container.mask = mask
-    }
-
-    // Keep visuals rigid — no scaling pulse; remove filters to avoid visual seams
-    function applyTileVisuals(sp, size, winning, velocityPx, timestamp) {
-        sp.alpha = velocityPx > 2 ? 0.95 : 1.0
-        sp.tint = winning ? 0xfff1a0 : 0xffffff
-        sp.blendMode = BLEND_MODES.NORMAL
-        sp.filters = null
     }
 
     // Resolve a Pixi Texture for a given symbol key
@@ -52,13 +44,21 @@ export function useReels(gameState, gridState) {
         return Texture.from(src)
     }
 
+    function applyTileVisuals(sp, size, winning, velocityPx, timestamp) {
+        // No scaling pulse to keep edges flush
+        sp.alpha = velocityPx > 2 ? 0.95 : 1.0
+        sp.tint = winning ? 0xfff1a0 : 0xffffff
+        sp.blendMode = BLEND_MODES.NORMAL
+        sp.filters = null
+    }
+
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
 
         const stepX = tileSize
         const originX = MARGIN_X
         const startY = mainRect.y - (1 - TOP_PARTIAL) * tileSize
-        const spinningGlobal = !!gameState.isSpinning?.value
+        const spinning = !!gameState.isSpinning?.value
 
         const usedKeys = new Set()
 
@@ -70,13 +70,13 @@ export function useReels(gameState, gridState) {
             const reelStrip = gridState.reelStrips?.value?.[col] || []
             const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
 
-            for (let r = 0; r <= ROWS_FULL; r++) {
+            // Draw 0..5: top partial, 4 full rows, bottom partial
+            for (let r = 0; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
                 const yCell = startY + r * tileSize + offsetTiles * tileSize
 
                 let symbol
-                const spinning = spinningGlobal || offsetTiles !== 0
-                if (spinning || r === ROWS_FULL) {
+                if (spinning) {
                     if (reelStrip.length === 0) continue
                     const idx = ((reelTop + r) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
@@ -84,16 +84,15 @@ export function useReels(gameState, gridState) {
                     symbol = gridState.grid?.value?.[col]?.[r]
                 }
 
-                const tex = getTextureForSymbol(symbol) // now defined above
+                const tex = getTextureForSymbol(symbol)
                 if (!tex) continue
 
                 const key = `${col}:${r}`
                 let sp = spriteCache.get(key)
 
-                // Overscan by 1px each side to swallow transparent borders
-                const bleed = 1
-                const w = tileSize + bleed * 2
-                const h = tileSize + bleed * 2
+                // Edge-to-edge
+                const w = tileSize
+                const h = tileSize
 
                 if (!sp) {
                     sp = new Sprite(tex)
@@ -127,16 +126,16 @@ export function useReels(gameState, gridState) {
                     }
                 }
 
-                // Position with −bleed to overlap seams; keep fractional Y for precise clipping
-                sp.x = xCell - bleed
-                sp.y = yCell - bleed
+                // Keep fractional Y to prevent rounding from shaving the bottom partial
+                sp.x = xCell
+                sp.y = yCell
 
                 if (!sp.parent) container.addChild(sp)
                 usedKeys.add(key)
             }
         }
 
-        // Cleanup
+        // Cleanup (unchanged)
         for (const [key, sprite] of spriteCache.entries()) {
             if (!usedKeys.has(key)) {
                 if (sprite.parent) sprite.parent.removeChild(sprite)
