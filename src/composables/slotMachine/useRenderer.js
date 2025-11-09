@@ -1,7 +1,7 @@
 import { ASSETS } from '../../config/assets'
 import { useHeader } from './useHeader'
 import { useFooter } from './footer'
-import { useMainFrame } from './useMainFrame'
+import { useMainFrame } from './mainFrame'
 
 export function useRenderer(canvasState, gameState, gridState) {
     const header = useHeader(canvasState, gameState)
