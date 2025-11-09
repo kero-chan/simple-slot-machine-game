@@ -50,10 +50,7 @@ export function useRenderer(canvasState, gameState, gridState) {
         header.draw(ctx, headerRect)
         footer.draw(ctx, footerRect, timestamp)
 
-        if (gameState.freeSpins.value > 0) {
-            drawFreeSpinsInfo(ctx, canvasState, gameState)
-        }
-
+        // Removed Free Spins overlay
         animationFrameId = requestAnimationFrame(renderFrame)
     }
 
@@ -119,22 +116,4 @@ const roundRect = (ctx, x, y, w, h, r) => {
 }
 
 // ----- Free spins overlay -----
-const drawFreeSpinsInfo = (ctx, canvasState, gameState) => {
-    const w = canvasState.canvasWidth.value
-    const boxWidth = 250 * canvasState.scale.value
-    const boxHeight = 60 * canvasState.scale.value
-    const x = (w - boxWidth) / 2
-    const y = Math.floor(canvasState.canvasHeight.value * 0.15)
-
-    ctx.fillStyle = 'rgba(255, 215, 0, 0.95)'
-    ctx.fillRect(x, y, boxWidth, boxHeight)
-    ctx.strokeStyle = '#FF4500'
-    ctx.lineWidth = 3
-    ctx.strokeRect(x, y, boxWidth, boxHeight)
-
-    ctx.fillStyle = '#000'
-    ctx.font = `bold ${Math.floor(20 * canvasState.scale.value)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(`FREE SPINS: ${gameState.freeSpins.value}`, w / 2, y + boxHeight / 2)
-}
+// Removed drawFreeSpinsInfo(ctx, canvasState, gameState)

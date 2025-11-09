@@ -24,13 +24,11 @@ export function useSlotMachine(canvasRef) {
       // Start animation loop for spin button
       startAnimation()
 
-      // Reactive re-renders are no longer needed as the animation loop handles continuous rendering
-      // But we keep them for now in case we want to optimize later
+      // Remove redundant watchers to avoid double render churn
       watch(() => gridState.grid.value, render, { deep: true })
       watch(() => gameState.credits.value, render)
       watch(() => gameState.bet.value, render)
       watch(() => gameState.currentWin.value, render)
-      watch(() => gameState.freeSpins.value, render)
       watch(() => gridState.highlightWins.value, render)
     } catch (err) {
       console.error('SlotMachine init failed:', err)

@@ -13,16 +13,13 @@ export function useGameState() {
     const showStartScreen = ref(true)
 
     const currentMultiplier = computed(() => {
-        const multipliers = inFreeSpinMode.value
-            ? CONFIG.freeSpinMultipliers
-            : CONFIG.multipliers
+        const multipliers = CONFIG.multipliers
         const index = Math.min(consecutiveWins.value, multipliers.length - 1)
         return multipliers[index]
     })
 
     const canSpin = computed(() => {
-        return !isSpinning.value &&
-               (credits.value >= bet.value || freeSpins.value > 0)
+        return !isSpinning.value && credits.value >= bet.value
     })
 
     return {
@@ -31,8 +28,6 @@ export function useGameState() {
         currentWin,
         isSpinning,
         consecutiveWins,
-        freeSpins,
-        inFreeSpinMode,
         currentMultiplier,
         canSpin,
         showStartScreen

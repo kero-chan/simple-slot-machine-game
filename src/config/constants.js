@@ -24,11 +24,12 @@ export const CONFIG = {
   multipliers: [1, 2, 3, 5, 5, 5],
   freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
   animation: {
-    spinDuration: 2000,
-    cascadeDuration: 500
+    spinDuration: 1600,
+    cascadeDuration: 500,
+    reelStagger: 150
   },
   game: {
-    initialCredits: 1000,
+    initialCredits: 1000000,
     minBet: 5,
     maxBet: 100,
     betStep: 5,

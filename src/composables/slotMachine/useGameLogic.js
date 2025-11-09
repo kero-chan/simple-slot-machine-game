@@ -72,45 +72,67 @@ export function useGameLogic(gameState, gridState, render) {
 
   const animateSpin = () => {
     const startTime = Date.now()
-    const duration = CONFIG.animation.spinDuration
+    const baseDuration = CONFIG.animation.spinDuration
+    const stagger = CONFIG.animation.reelStagger || 150
+    const totalRows = CONFIG.reels.rows
+    const cols = CONFIG.reels.count
+
+    // Ease-out quint: faster start, smoother decelerate
+    const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5)
+    const FREEZE_THRESHOLD = 0.86 // after this, stop rotating, just glide to rest
 
     return new Promise(resolve => {
       const animate = () => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
+        const now = Date.now()
+        let allStopped = true
 
-        if (progress < 1) {
-          // Randomize symbols during spin
-          for (let col = 0; col < CONFIG.reels.count; col++) {
-            for (let row = 0; row < CONFIG.reels.rows; row++) {
-              if (Math.random() > 0.7) {
-                gridState.grid.value[col][row] = getRandomSymbol()
-              }
-            }
+        for (let col = 0; col < cols; col++) {
+          const colStart = startTime + col * stagger
+          if (now < colStart) {
+            allStopped = false
+            gridState.spinVelocities.value[col] = 0
+            continue
           }
-          gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
+
+          const elapsed = Math.min(now - colStart, baseDuration)
+          const t = Math.max(0, Math.min(elapsed / baseDuration, 1))
+          const ease = easeOutQuint(t)
+
+          // Slightly higher max velocity for faster spin, smoothed
+          const maxVel = 0.65 // tiles/frame
+          const targetVel = (1 - ease) * maxVel
+          const prevVel = gridState.spinVelocities.value[col] || 0
+          let smoothedVel = prevVel * 0.8 + targetVel * 0.2
+
+          if (t >= FREEZE_THRESHOLD) {
+              // Freeze symbol rotation near stop; just ease remaining offset down
+              smoothedVel = 0
+              gridState.spinOffsets.value[col] *= 0.82 // smooth glide to 0
+          } else {
+              // Accumulate downward offset and rotate full-tile steps
+              gridState.spinVelocities.value[col] = smoothedVel
+              gridState.spinOffsets.value[col] += smoothedVel
+              while (gridState.spinOffsets.value[col] >= 1) {
+                  gridState.spinOffsets.value[col] -= 1
+                  for (let row = totalRows - 1; row > 0; row--) {
+                      gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
+                  }
+                  gridState.grid.value[col][0] = getRandomSymbol()
+              }
+          }
+
+          if (t < 1 || gridState.spinOffsets.value[col] > 0.02) {
+            allStopped = false
+          } else {
+            gridState.spinVelocities.value[col] = 0
+            gridState.spinOffsets.value[col] = 0
+          }
+        }
+
+        // No deep copy each frame; the render loop is continuous
+        if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // Final grid
-          for (let col = 0; col < CONFIG.reels.count; col++) {
-            for (let row = 0; row < CONFIG.reels.rows; row++) {
-              gridState.grid.value[col][row] = getRandomSymbol()
-            }
-          }
-
-          // Add golden symbols only within visible rows
-          gridState.goldenSymbols.value.clear()
-          for (let col = 1; col <= 3; col++) {
-            for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-              if (Math.random() < 0.2 &&
-                  gridState.grid.value[col][row] !== 'wild' &&
-                  gridState.grid.value[col][row] !== 'scatter') {
-                gridState.goldenSymbols.value.add(`${col},${row}`)
-              }
-            }
-          }
-
-          gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
           resolve()
         }
       }
@@ -216,33 +238,20 @@ export function useGameLogic(gameState, gridState, render) {
 
       const waysWinAmount = calculateWinAmount(wins)
       const multipliedWays = waysWinAmount * gameState.currentMultiplier.value * gameState.bet.value
-
       totalWin += multipliedWays
       gameState.consecutiveWins.value++
-
-      // Alert this cascade hit
-      showAlert(`Hit! ${wins.length} win(s). +${multipliedWays} credits (x${gameState.currentMultiplier.value}).`)
 
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)
 
-      // Scatter payout and free spins: award once per spin
+      // Scatter payout only (no free spins)
       if (!scattersAwarded) {
         const scatterCount = countScatters()
         if (scatterCount >= 3) {
           const scatterPaytable = CONFIG.paytable.scatter || {}
           const scatterBase = scatterPaytable[scatterCount] || 0
           const scatterWin = scatterBase * gameState.currentMultiplier.value * gameState.bet.value
-
-          const awardedFreeSpins = CONFIG.game.freeSpinsPerScatter +
-            (scatterCount - 3) * CONFIG.game.bonusScattersPerSpin
-
           totalWin += scatterWin
-          gameState.freeSpins.value += awardedFreeSpins
-          gameState.inFreeSpinMode.value = true
-
-          // Alert scatter bonus
-          showAlert(`Scatter! ${scatterCount} scatters. +${scatterWin} credits, +${awardedFreeSpins} free spins.`)
         }
         scattersAwarded = true
       }
@@ -261,16 +270,11 @@ export function useGameLogic(gameState, gridState, render) {
   const spin = async () => {
     if (gameState.isSpinning.value) return
 
-    if (gameState.freeSpins.value > 0) {
-      gameState.freeSpins.value--
-    } else {
-      if (gameState.credits.value < gameState.bet.value) {
-        return
-      }
-      gameState.credits.value -= gameState.bet.value
-      gameState.consecutiveWins.value = 0
-      gameState.inFreeSpinMode.value = false
+    if (gameState.credits.value < gameState.bet.value) {
+      return
     }
+    gameState.credits.value -= gameState.bet.value
+    gameState.consecutiveWins.value = 0
 
     gameState.isSpinning.value = true
     gameState.currentWin.value = 0
