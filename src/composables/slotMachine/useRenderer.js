@@ -1,84 +1,157 @@
-import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
-import { ASSETS } from '../../config/assets'
-import { useHeader } from './useHeader'
+// PixiJS-only renderer: start screen, header, reels, footer
+import { Container } from 'pixi.js'
+import { usePixiApp } from './pixiApp'
+import { useStartScene } from './scenes/startScene'
+import { useHeader } from './header'
+import { useReels } from './reels'
 import { useFooter } from './footer'
-import { useMainFrame } from './mainFrame'
 
-export function useRenderer(canvasState, gameState, gridState) {
-    const header = useHeader(canvasState, gameState)
-    const footer = useFooter(canvasState, gameState)
-    const mainFrame = useMainFrame(canvasState, gameState, gridState)
+export function useRenderer(canvasState, gameState, gridState, controls) {
+    // Composables
+    const pixiApp = usePixiApp(canvasState)
 
+    // Scene graph
+    let app = null
+    let root = null
+    let startScene = null
+    let header = null
+    let reels = null
+    let footer = null
+
+    // Track last layout for rebuilds
+    let lastW = 0
+    let lastH = 0
+
+    // RAF handle
     let animationFrameId = null
 
-    // Safe init: do nothing until canvas is ready
-    const init = () => {
-        if (!canvasState?.ctx || !canvasState?.canvasWidth || !canvasState?.canvasHeight) return
-        // No-op: fields are reactive and set by setupCanvas()
+    // Layout constants
+    const MARGIN_X = 10
+    const COLS = 5
+    const ROWS_FULL = 4
+    const TOP_PARTIAL = 0.30
+    const BOTTOM_PARTIAL = 0.15
+
+    // Track control handlers for footer buttons
+    let controlHandlers = controls || null
+
+    function computeLayout(w, h) {
+        const headerH = Math.round(h * 0.15)
+        const tileSize = Math.floor((w - MARGIN_X * 2) / COLS)
+        const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + BOTTOM_PARTIAL
+        const mainW = tileSize * COLS
+        const mainH = Math.floor(tileSize * visibleRowsSpan)
+        const footerH = Math.max(0, h - headerH - mainH)
+        return {
+            headerRect: { x: 0, y: 0, w, h: headerH },
+            mainRect: { x: MARGIN_X, y: headerH, w: mainW, h: mainH },
+            footerRect: { x: 0, y: headerH + mainH, w, h: footerH },
+            tileSize
+        }
+    }
+
+    function ensureStage(w, h) {
+        pixiApp.ensure(w, h)
+        app = pixiApp.getApp()
+        if (!pixiApp.isReady()) return false
+
+        if (!root) {
+            root = new Container()
+            app.stage.addChild(root)
+
+            startScene = useStartScene(gameState)
+            header = useHeader(gameState)
+            reels = useReels(gameState, gridState)
+            footer = useFooter(gameState)
+            if (controlHandlers && footer?.setHandlers) {
+                footer.setHandlers(controlHandlers)
+            }
+
+            root.addChild(startScene.container)
+            root.addChild(header.container)
+            root.addChild(reels.container)
+            root.addChild(footer.container)
+        }
+        return true
+    }
+
+    function updateOnce(timestamp = 0) {
+        const w = canvasState.canvasWidth.value
+        const h = canvasState.canvasHeight.value
+        if (!w || !h) return
+        if (!ensureStage(w, h)) return
+
+        const resized = w !== lastW || h !== lastH
+        lastW = w
+        lastH = h
+
+        const { headerRect, mainRect, footerRect, tileSize } = computeLayout(w, h)
+
+        const showStart = !!gameState.showStartScreen.value
+        if (startScene?.container) startScene.container.visible = showStart
+        if (header?.container) header.container.visible = !showStart
+        if (reels?.container) reels.container.visible = !showStart
+        if (footer?.container) footer.container.visible = !showStart
+
+        if (showStart && startScene) {
+            if (resized || startScene.container.children.length === 0) {
+                startScene.build(w, h)
+            }
+        }
+
+        if (!showStart) {
+            if (resized && header) header.build(headerRect)
+            if (header) header.updateValues()
+
+            if (reels) reels.draw(mainRect, tileSize, timestamp)
+            if (resized && footer) footer.build(footerRect)
+        }
     }
 
     const renderFrame = (timestamp = 0) => {
-        // Defend against early calls (before setupCanvas)
-        if (!canvasState?.ctx || !canvasState?.canvasWidth || !canvasState?.canvasHeight) {
-            animationFrameId = requestAnimationFrame(renderFrame)
-            return
+        updateOnce(timestamp)
+        const appInstance = pixiApp.getApp()
+        if (appInstance?.renderer) {
+            appInstance.renderer.render(appInstance.stage)
         }
-        const ctx = canvasState.ctx.value
-        const w = canvasState.canvasWidth.value
-        const h = canvasState.canvasHeight.value
-        if (!ctx || !w || !h) {
-            animationFrameId = requestAnimationFrame(renderFrame)
-            return
-        }
-
-        // Start screen branch
-        if (gameState.showStartScreen.value) {
-            drawStartScreen(ctx, w, h, canvasState)
-            animationFrameId = requestAnimationFrame(renderFrame)
-            return
-        }
-
-        // Layout
-        const cols = 5
-        const marginX = 10
-        const tileSize = (w - marginX * 2) / cols
-
-        const topVisible = 0.3 * tileSize
-        const bottomVisible = 0.2 * tileSize
-        const mainH = Math.round(4 * tileSize + topVisible + bottomVisible)
-
-        const headerH = Math.round(h * 0.15)
-        const headerRect = { x: 0, y: 0, w, h: headerH }
-        const mainRect = { x: 0, y: headerRect.h, w, h: mainH }
-        const footerH = Math.max(0, h - headerRect.h - mainRect.h)
-        const footerRect = { x: 0, y: headerRect.h + mainRect.h, w, h: footerH }
-
-        mainFrame.draw(ctx, w, h, mainRect, timestamp)
-        header.draw(ctx, headerRect)
-        footer.draw(ctx, footerRect, timestamp)
-
         animationFrameId = requestAnimationFrame(renderFrame)
     }
 
-    const render = () => {
-        renderFrame(performance.now())
+    const init = () => {
+        // lazy; stage is created on first updateOnce after app init
     }
 
-    return {
-        init,
-        render,
-        startAnimation: () => {
-            if (!animationFrameId) {
-                animationFrameId = requestAnimationFrame(renderFrame)
-            }
-        },
-        stopAnimation: () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId)
-                animationFrameId = null
-            }
+    const render = () => {
+        const ts = performance.now()
+        updateOnce(ts)
+        const appInstance = pixiApp.getApp()
+        if (appInstance?.renderer) {
+            appInstance.renderer.render(appInstance.stage)
         }
     }
+
+    const startAnimation = () => {
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(renderFrame)
+        }
+    }
+
+    const stopAnimation = () => {
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId)
+            animationFrameId = null
+        }
+    }
+
+    // Allow wiring control handlers after construction
+    const setControls = (handlers) => {
+        controlHandlers = handlers
+        if (footer?.setHandlers) {
+            footer.setHandlers(handlers)
+        }
+    }
+
+    return { init, render, startAnimation, stopAnimation, setControls }
 }
 
 // ----- Start screen rendering -----

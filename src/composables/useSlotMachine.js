@@ -13,6 +13,13 @@ export function useSlotMachine(canvasRef) {
   const renderer = useRenderer(canvasState, gameState, gridState)
   const gameLogic = useGameLogic(gameState, gridState, renderer.render)
 
+  // Wire Pixi footer controls to game logic actions
+  renderer.setControls({
+    spin: gameLogic.spin,
+    increaseBet: gameLogic.increaseBet,
+    decreaseBet: gameLogic.decreaseBet
+  })
+
   const init = async () => {
     try {
       await nextTick()

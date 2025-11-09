@@ -13,6 +13,8 @@ export function useGridState() {
   const highlightAnim = ref({ start: 0, duration: 0 })
   // Track tiles flagged to disappear (Set of "col,row")
   const disappearPositions = ref(new Set())
+  // Track fade-out animation window
+  const disappearAnim = ref({ start: 0, duration: 0 })
 
   return {
     grid,
@@ -23,6 +25,7 @@ export function useGridState() {
     reelStrips,
     reelTopIndex,
     highlightAnim,
-    disappearPositions
+    disappearPositions,
+    disappearAnim
   }
 }

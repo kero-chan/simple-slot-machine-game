@@ -12,6 +12,7 @@ export function useCanvas(canvasRef) {
   const scale = ref(1)
   const reelOffset = ref({ x: 0, y: 0 })
   const targetAspect = ref(null)
+  const targetImageWidth = ref(null)
 
   const buttons = ref({
     spin: { x: 0, y: 0, radius: 50 },
@@ -22,10 +23,11 @@ export function useCanvas(canvasRef) {
 
   // Load start image once to get aspect ratio (optional)
   const ensureAspectLoaded = () => {
-    if (targetAspect.value) return
+    if (targetAspect.value && targetImageWidth.value) return
     const img = new Image()
     img.onload = () => {
       targetAspect.value = img.width / img.height
+      targetImageWidth.value = img.width
       if (canvas.value) setupCanvas()
     }
     img.src = startBgUrl
@@ -55,12 +57,31 @@ export function useCanvas(canvasRef) {
     ctx.value = canvasEl.getContext('2d')
 
     ensureAspectLoaded()
-    const aspect = targetAspect.value ?? (CONFIG.canvas.baseWidth / CONFIG.canvas.baseHeight)
 
-    const vh = window.innerHeight
-    const vw = window.innerWidth
-    const height = vh
-    const width = Math.min(vw, Math.round(height * aspect))
+    // Viewport size (visible area)
+    const vw = document.documentElement.clientWidth
+    const vh = document.documentElement.clientHeight
+
+    // Simple mobile detection: narrow screens → full viewport
+    const isMobile = vw <= 768
+
+    let width
+    let height
+    if (isMobile) {
+      // Mobile: full viewport canvas
+      width = vw
+      height = vh
+    } else {
+      // Desktop: use start image natural width, scaled to fit viewport while preserving aspect
+      const natW = targetImageWidth.value || vw
+      const aspect = targetAspect.value || (vw / vh)
+      const natH = Math.round(natW / aspect)
+
+      // Scale down if larger than viewport
+      const scaleDown = Math.min(vw / natW, vh / natH, 1)
+      width = Math.floor(natW * scaleDown)
+      height = Math.floor(natH * scaleDown)
+    }
 
     // Device pixel ratio setup
     const dpr = window.devicePixelRatio || 1
