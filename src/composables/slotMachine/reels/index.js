@@ -24,13 +24,31 @@ export function useReels(gameState, gridState) {
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
+    let backdropSprite = null
 
     function ensureBackdrop(rect, canvasW) {
+        // Clear the old Graphics fill
         backdrop.clear()
-        backdrop.rect(0, rect.y, canvasW, rect.h)
-        backdrop.fill(0x2e8f4b)
 
-        // Add 1px guard to avoid float rounding cropping the bottom
+        // Prepare/update background sprite from bg.png
+        const src = ASSETS.loadedImages?.reels_bg || ASSETS.imagePaths?.reels_bg
+        if (src) {
+            const tex = src instanceof Texture ? src : Texture.from(src)
+            if (!backdropSprite) {
+                backdropSprite = new Sprite(tex)
+                backdropSprite.anchor.set(0, 0)
+                // Keep it at the back
+                container.addChildAt(backdropSprite, 0)
+            } else {
+                backdropSprite.texture = tex
+            }
+            backdropSprite.x = 0
+            backdropSprite.y = rect.y
+            backdropSprite.width = canvasW
+            backdropSprite.height = rect.h
+        }
+
+        // Mask remains to clip the main area cleanly
         mask.clear()
         mask.rect(0, rect.y, canvasW, rect.h + 1)
         mask.fill(0xffffff)
