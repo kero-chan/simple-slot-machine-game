@@ -10,16 +10,16 @@ export const CONFIG = {
     spacing: 8
   },
   paytable: {
-    wild: { 3: 15, 4: 60, 5: 80 },
-    scatter: { 3: 10, 4: 40, 5: 80 },
-    dragon_red: { 3: 8, 4: 20, 5: 60 },
-    dragon_green: { 3: 6, 4: 15, 5: 40 },
-    dragon_white: { 3: 6, 4: 15, 5: 40 },
-    wind_east: { 3: 4, 4: 10, 5: 20 },
-    wind_south: { 3: 4, 4: 10, 5: 20 },
-    bamboo: { 3: 2, 4: 5, 5: 10 },
-    character: { 3: 2, 4: 5, 5: 10 },
-    dot: { 3: 2, 4: 5, 5: 10 }
+    liangsuo: { 3: 15, 4: 60, 5: 80 },
+    liangtong: { 3: 10, 4: 40, 5: 80 },
+    wusuo: { 3: 8, 4: 20, 5: 60 },
+    wutong: { 3: 6, 4: 15, 5: 40 },
+    bawan: { 3: 6, 4: 15, 5: 40 },
+    bai: { 3: 4, 4: 10, 5: 20 },
+    zhong: { 3: 4, 4: 10, 5: 20 },
+    fa: { 3: 2, 4: 5, 5: 10 },
+    bonus: { 3: 2, 4: 5, 5: 10 },
+    gold: { 3: 2, 4: 5, 5: 10 }
   },
   multipliers: [1, 2, 3, 5, 5, 5],
   freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
