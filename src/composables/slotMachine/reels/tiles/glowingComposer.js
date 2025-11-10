@@ -1,4 +1,5 @@
-import { Container, Sprite, Texture } from 'pixi.js'
+// Top imports
+import { Container, Sprite, Texture, Graphics } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
 
@@ -54,6 +55,9 @@ function ensureStarTexture() {
 export function useGlowOverlay(gameState, gridState, options = {}) {
   const container = new Container()
   container.zIndex = 1000
+
+  // Add a graphics mask to clip to the board area
+  let maskGraphics = null
 
   const dotsMap = new Map() // key -> { list: [] }
 
@@ -126,6 +130,19 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
   function draw(mainRect, tileSize, timestamp) {
     const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
     const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
+
+    // Update mask so effects never appear in header/footer
+    const boardW = COLS * tileW
+    const boardH = ROWS_FULL * tileH + TOP_PARTIAL * tileH
+    if (!maskGraphics) {
+      maskGraphics = new Graphics()
+      container.addChild(maskGraphics)
+      container.mask = maskGraphics
+    }
+    maskGraphics.clear()
+    maskGraphics.beginFill(0xffffff)
+    maskGraphics.drawRect(mainRect.x, mainRect.y, boardW, boardH)
+    maskGraphics.endFill()
 
     const originX = MARGIN_X
     const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
