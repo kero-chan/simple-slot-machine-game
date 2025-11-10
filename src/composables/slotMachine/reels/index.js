@@ -1,10 +1,6 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { GlowFilter } from '@pixi/filter-glow'
-import { BlurFilter } from '@pixi/filter-blur'
-import { BLEND_MODES } from '@pixi/constants'
-import { Color } from '@pixi/color'
+import { Container, Graphics, Sprite, Texture, Rectangle } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
-import { CONFIG } from '../../../config/constants'
+import { TILE_SLICES } from './tiles/config'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -24,13 +20,31 @@ export function useReels(gameState, gridState) {
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
+    let backdropSprite = null
 
     function ensureBackdrop(rect, canvasW) {
+        // Clear the old Graphics fill
         backdrop.clear()
-        backdrop.rect(0, rect.y, canvasW, rect.h)
-        backdrop.fill(0x2e8f4b)
 
-        // Add 1px guard to avoid float rounding cropping the bottom
+        // Prepare/update background sprite from bg.png
+        const src = ASSETS.loadedImages?.reels_bg || ASSETS.imagePaths?.reels_bg
+        if (src) {
+            const tex = src instanceof Texture ? src : Texture.from(src)
+            if (!backdropSprite) {
+                backdropSprite = new Sprite(tex)
+                backdropSprite.anchor.set(0, 0)
+                // Keep it at the back
+                container.addChildAt(backdropSprite, 0)
+            } else {
+                backdropSprite.texture = tex
+            }
+            backdropSprite.x = 0
+            backdropSprite.y = rect.y
+            backdropSprite.width = canvasW
+            backdropSprite.height = rect.h
+        }
+
+        // Mask remains to clip the main area cleanly
         mask.clear()
         mask.rect(0, rect.y, canvasW, rect.h + 1)
         mask.fill(0xffffff)
@@ -39,18 +53,20 @@ export function useReels(gameState, gridState) {
 
     // Resolve a Pixi Texture for a given symbol key
     function getTextureForSymbol(symbol) {
+        if (symbol in TILE_SLICES) {
+            const tex = ASSETS.loadedImages?.[symbol]
+            return tex instanceof Texture ? tex : null
+        }
         const src = ASSETS.loadedImages?.[symbol] || ASSETS.imagePaths?.[symbol]
         if (!src) return null
-        if (src instanceof Texture) return src
-        return Texture.from(src)
+        return src instanceof Texture ? src : Texture.from(src)
     }
 
-    function applyTileVisuals(sp, size, winning, velocityPx, timestamp) {
-        // No scaling pulse to keep edges flush
-        sp.alpha = velocityPx > 2 ? 0.95 : 1.0
-        sp.tint = winning ? 0xfff1a0 : 0xffffff
-        sp.blendMode = BLEND_MODES.NORMAL
-        sp.filters = null
+    // Ensure visuals use Pixi blend modes
+    function applyTileVisuals(sprite, alpha = 1, highlight = false) {
+        if (!sprite) return
+        sprite.alpha = alpha
+        sprite.tint = highlight ? 0xffffcc : 0xffffff
     }
 
     function draw(mainRect, tileSize, timestamp, canvasW) {
