@@ -62,8 +62,8 @@ export const TILE_SLICES = {
   dot: {
     outSize: 512,
     layers: [
-      { sourceSprite: 'tiles_29', icon: { x: 170, y: 6, w: 152, h: 85 }, scale: 0.4, offsetY: -0.25 },
-      { sourceSprite: 'tiles_50', icon: { x: 660, y: 270, w: 152, h: 97 }, scale: 0.5, offsetY: 0.12 },
+      { sourceSprite: 'tiles_29', icon: { x: 170, y: 6, w: 152, h: 85 }, scale: 0.4, offsetY: -0.27 },
+      { sourceSprite: 'tiles_50', icon: { x: 660, y: 270, w: 152, h: 97 }, scale: 0.48, offsetY: 0.08 },
     ]
   }
 }
