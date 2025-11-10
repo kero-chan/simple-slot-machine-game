@@ -43,10 +43,50 @@ export function useGlowOverlay(gameState, gridState) {
   const ROWS_FULL = 4
   const TOP_PARTIAL = 0.30
 
+  // Multiple glow frames (add or edit rects as needed)
+  const GLOW_RECTS = [
+    { x: 221, y: 333, w: 77, h: 77, scale: 0.75 },
+    { x: 123, y: 330, w: 79, h: 81, scale: 0.7 }
+  ]
+  const GLOW_FPS = 2
+  const GLOW_DEFAULT_SCALE = 0.75
+
+  let GLOW_TEXTURES = null
+
+  function ensureGlowTextures() {
+    if (GLOW_TEXTURES && GLOW_TEXTURES.length) return true
+
+    const sheetTex = ASSETS.loadedImages?.tiles_30
+      ? ASSETS.loadedImages.tiles_30
+      : Texture.from(ASSETS.imagePaths.tiles_30)
+
+    const source = sheetTex?.source || sheetTex?.baseTexture
+    if (!source) return false
+
+    GLOW_TEXTURES = GLOW_RECTS.map(r => {
+      const frame = new Rectangle(r.x, r.y, r.w, r.h)
+      return new Texture({ source, frame })
+    }).filter(Boolean)
+
+    return GLOW_TEXTURES.length > 0
+  }
+
+  function getGlowFrameAtTime(timestamp) {
+    if (!ensureGlowTextures()) return null
+    const frames = GLOW_TEXTURES.length
+    if (frames === 0) return null
+    const frameIdx = Math.floor(timestamp / (1000 / GLOW_FPS)) % frames
+    return {
+      texture: GLOW_TEXTURES[frameIdx],
+      rect: GLOW_RECTS[frameIdx],
+      index: frameIdx
+    }
+  }
+
   function draw(mainRect, tileSize, timestamp, canvasW) {
-    // Early exit until the cropped texture is ready
-    const tex = getGlowTexture()
-    if (!tex) return
+    const frame = getGlowFrameAtTime(timestamp)
+    if (!frame) return
+    const tex = frame.texture
 
     const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
     const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
@@ -84,16 +124,18 @@ export function useGlowOverlay(gameState, gridState) {
           s = new Sprite(tex)
           s.anchor.set(0.5)
           s.blendMode = BLEND_MODES.ADD
-          // lighter glow: near-white tint + higher alpha
-          s.tint = 0xFFF7CC
-          s.alpha = symbol === 'gold' ? 1.0 : 0.95
+          s.tint = 0xFFFFFF
+          s.alpha = symbol === 'gold' ? 1.0 : 0.98
           container.addChild(s)
           sprites.set(key, s)
+        } else {
+          // swap texture to current frame
+          s.texture = tex
         }
 
-        // apply scale from GLOW_RECT to size the overlay
-        const baseTarget = Math.max(tileW, tileH) * 1.2
-        const target = baseTarget * (GLOW_RECT.scale || 1)
+        const baseTarget = Math.max(tileW, tileH) * 1.35
+        const perFrameScale = frame.rect?.scale ?? GLOW_DEFAULT_SCALE
+        const target = baseTarget * perFrameScale
         s.width = target
         s.height = target
         s.x = xCell + tileW / 2
@@ -103,7 +145,6 @@ export function useGlowOverlay(gameState, gridState) {
       }
     }
 
-    // Cleanup
     for (const [key, s] of sprites.entries()) {
       if (!used.has(key)) {
         s.parent?.removeChild(s)
