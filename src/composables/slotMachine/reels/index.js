@@ -20,7 +20,7 @@ export function useReels(gameState, gridState) {
     // const BOTTOM_PARTIAL = 0.15
     // const PAD_X = 0
     // const PAD_Y = 0
-    const BLEED = 3 // increase to remove gaps between tiles
+    const BLEED = 10 // increase to remove gaps between tiles
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
@@ -56,9 +56,13 @@ export function useReels(gameState, gridState) {
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
 
-        const stepX = tileSize
+        // Accept both numeric and object tileSize
+        const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
+        const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
+
+        const stepX = tileW
         const originX = MARGIN_X
-        const startY = mainRect.y - (1 - TOP_PARTIAL) * tileSize
+        const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
         const spinning = !!gameState.isSpinning?.value
 
         const usedKeys = new Set()
@@ -66,7 +70,7 @@ export function useReels(gameState, gridState) {
         for (let col = 0; col < COLS; col++) {
             const offsetTiles = gridState.spinOffsets?.value?.[col] ?? 0
             const velocityTiles = gridState.spinVelocities?.value?.[col] ?? 0
-            const velocityPx = velocityTiles * tileSize
+            const velocityPx = velocityTiles * tileH
 
             const reelStrip = gridState.reelStrips?.value?.[col] || []
             const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
@@ -74,7 +78,7 @@ export function useReels(gameState, gridState) {
             // Draw 0..5: top partial, 4 full rows, bottom partial
             for (let r = 0; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
-                const yCell = startY + r * tileSize + offsetTiles * tileSize
+                const yCell = startY + r * tileH + offsetTiles * tileH
 
                 let symbol
                 if (spinning) {
@@ -93,8 +97,8 @@ export function useReels(gameState, gridState) {
 
                 // Edge-to-edge
                 // Slight overscan to eliminate gaps from transparent edges
-                const w = tileSize + BLEED * 2
-                const h = tileSize + BLEED * 2
+                const w = tileW + BLEED * 2
+                const h = tileH + BLEED * 2
 
                 if (!sp) {
                     sp = new Sprite(tex)
@@ -114,19 +118,7 @@ export function useReels(gameState, gridState) {
                         win.positions.some(([c, rr]) => c === col && rr === r))
                     : false
 
-                applyTileVisuals(sp, tileSize, winning, velocityPx, timestamp)
-
-                const isDisappear = gridState.disappearPositions?.value?.has(key)
-                if (isDisappear) {
-                    const anim = gridState.disappearAnim?.value
-                    if (anim?.start && anim?.duration) {
-                        const nowMs = Date.now()
-                        const t = Math.min(1, (nowMs - anim.start) / anim.duration)
-                        sp.alpha = Math.max(0, 1 - t)
-                    } else {
-                        sp.alpha = 0.2
-                    }
-                }
+                applyTileVisuals(sp, tileH, winning, velocityPx, timestamp)
 
                 // Keep fractional Y to prevent rounding from shaving the bottom partial
                 sp.x = Math.round(xCell) - BLEED

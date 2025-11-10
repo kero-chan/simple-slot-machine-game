@@ -39,12 +39,14 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     function computeLayout(w, h) {
         const headerH = Math.round(h * 0.15)
 
-        // Exact tile width: (canvas width - 10*2) / 5
-        const tileSize = (w - MARGIN_X * 2) / COLS
+        // Tile width from canvas width; tile height from required ratio 157/184
+        const tileW = (w - MARGIN_X * 2) / COLS
+        const TILE_RATIO_H_OVER_W = 184 / 157
+        const tileH = tileW * TILE_RATIO_H_OVER_W
 
-        const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + BOTTOM_PARTIAL
+        const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.15
         // Ceil + 1px guard so the bottom 15% is never clipped
-        const mainH = Math.ceil(tileSize * visibleRowsSpan) + 1
+        const mainH = Math.ceil(tileH * visibleRowsSpan) + 1
 
         const footerH = Math.max(0, h - headerH - mainH)
 
@@ -52,7 +54,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             headerRect: { x: 0, y: 0, w, h: headerH },
             mainRect:   { x: 0, y: headerH, w, h: mainH },
             footerRect: { x: 0, y: headerH + mainH, w, h: footerH },
-            tileSize
+            tileSize:   { w: tileW, h: tileH }
         }
     }
 
@@ -120,7 +122,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             if ((resized || footer?.container.children.length === 0) && footer) {
                 footer.build(footerRect)
             }
-            // Update footer every frame for arrow rotation
+            // Update footer every frame: arrow rotation + values refresh
+            if (footer?.updateValues) footer.updateValues()
             if (footer?.update) footer.update(timestamp)
         }
     }

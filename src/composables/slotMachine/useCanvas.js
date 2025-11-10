@@ -67,18 +67,12 @@ export function useCanvas(canvasRef) {
     let width
     let height
     if (isMobile) {
-      // SP: full viewport
+      // SP: full viewport width
       width = vw
       height = vh
     } else {
-      // PC: full page height, width by image aspect, capped to viewport width
-      const aspect = targetAspect.value || (vw / vh)
+      width = Math.floor(vw * 0.3)
       height = vh
-      width = Math.floor(height * aspect)
-      if (width > vw) {
-        width = vw
-        height = Math.floor(width / aspect)
-      }
     }
 
     const dpr = window.devicePixelRatio || 1

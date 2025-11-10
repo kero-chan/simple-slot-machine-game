@@ -12,50 +12,19 @@ export function useHeader(gameState) {
         bar.fill(0x8a4b28)
         container.addChild(bar)
 
-        const pillGap = Math.floor(w * 0.02)
-        const pillWidth = Math.floor((w - pillGap * 4) / 3)
-        const pillHeight = Math.floor(h * 0.35)
-        const labels = ['CREDITS', 'BET', 'WIN']
-        const vals = [
-            Number(gameState.credits.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            Number(gameState.bet.value).toFixed(2),
-            Number(gameState.currentWin.value).toFixed(2)
-        ]
-
-        for (let i = 0; i < 3; i++) {
-            const px = x + pillGap + i * (pillWidth + pillGap)
-            const py = y + pillGap
-            const pill = new Graphics()
-            pill.roundRect(px, py, pillWidth, pillHeight, Math.floor(pillHeight / 3))
-            pill.fill(0xb2784f)
-            container.addChild(pill)
-
-            const label = new Text(labels[i], { fill: 0xffffff, fontSize: Math.floor(pillHeight * 0.25) })
-            label.x = px + Math.floor(pillWidth * 0.06)
-            label.y = py + Math.floor(pillHeight * 0.10)
-            container.addChild(label)
-
-            const valueText = new Text(vals[i], { fill: 0xffffff, fontSize: Math.floor(pillHeight * 0.35), fontWeight: 'bold' })
-            valueText.x = px + Math.floor(pillWidth * 0.06)
-            valueText.y = py + Math.floor(pillHeight * 0.50)
-            valueText.name = `pill-value-${i}`
-            container.addChild(valueText)
-        }
+        const title = new Text('x1    x2    x3    x5', {
+            fill: 0xffd04d,
+            fontSize: Math.floor(h * 0.45),
+            fontWeight: 'bold'
+        })
+        title.anchor.set(0.5, 0.5)
+        title.x = x + Math.floor(w / 2)
+        title.y = y + Math.floor(h / 2)
+        container.addChild(title)
     }
 
     function updateValues() {
-        const vals = [
-            Number(gameState.credits.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            Number(gameState.bet.value).toFixed(2),
-            Number(gameState.currentWin.value).toFixed(2)
-        ]
-        for (let i = 0; i < container.children.length; i++) {
-            const child = container.children[i]
-            if (child instanceof Text && child.name && child.name.startsWith('pill-value-')) {
-                const idx = Number(child.name.replace('pill-value-', ''))
-                child.text = vals[idx]
-            }
-        }
+        // No-op for now; header shows static multipliers label
     }
 
     return { container, build, updateValues }
