@@ -34,12 +34,11 @@ const FRAME_MS_APPROX = 16.7
 // Cache a valid Pixi Texture for the star, regardless of source type
 let STAR_TEX = null
 function ensureStarTexture() {
-  if (STAR_TEX && STAR_TEX.baseTexture?.valid) return STAR_TEX
+  if (STAR_TEX && STAR_TEX.source?.valid) return STAR_TEX
 
   const loaded = ASSETS.loadedImages?.tiles_star
   if (loaded) {
-    // loaded may be a Texture, Image, or URL string
-    STAR_TEX = loaded.baseTexture ? loaded : Texture.from(loaded)
+    STAR_TEX = loaded.source ? loaded : Texture.from(loaded)
     return STAR_TEX
   }
 
@@ -140,9 +139,8 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
       container.mask = maskGraphics
     }
     maskGraphics.clear()
-    maskGraphics.beginFill(0xffffff)
-    maskGraphics.drawRect(mainRect.x, mainRect.y, boardW, boardH)
-    maskGraphics.endFill()
+    maskGraphics.rect(mainRect.x, mainRect.y, boardW, boardH)
+    maskGraphics.fill(0xffffff)
 
     const originX = MARGIN_X
     const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
