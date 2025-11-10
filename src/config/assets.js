@@ -11,6 +11,7 @@ export const ASSETS = {
     dot: new URL('../assets/dot.png', import.meta.url).href,
     start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href,
     // Spin button assets: frame background + gold arrow
+    spin: new URL('../assets/slotMachine/spin_btn/spinBtn.png', import.meta.url).href,
     spin_frame: new URL('../assets/slotMachine/spin_btn/frame.png', import.meta.url).href,
     spin_arrow: new URL('../assets/slotMachine/spin_btn/arrow.png', import.meta.url).href,
     // Tiles spritesheet (source of tile base + bamboo icon)
