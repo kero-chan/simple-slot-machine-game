@@ -1,31 +1,355 @@
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Sprite, Texture, Rectangle } from "pixi.js";
+import { ASSETS } from "../../../config/assets";
+import { composeConsecutiveWinsTextures } from "./consecutiveWins/consecutiveWinsComposer";
+import { CONSECUTIVE_WINS_CONFIG } from "./consecutiveWins/config";
 
 export function useHeader(gameState) {
-    const container = new Container()
+  const container = new Container();
+  let multiplierSprites = []; // Store sprites for multiplier display
+  let app = null; // Store PIXI app reference
 
-    function build(rect) {
-        container.removeChildren()
-        const { x, y, w, h } = rect
+  function getConfiguredTexture(configKey) {
+    const config = CONSECUTIVE_WINS_CONFIG[configKey];
+    if (!config) return { texture: null, scale: 1 };
 
-        const bar = new Graphics()
-        bar.rect(x, y, w, h)
-        bar.fill(0x8a4b28)
-        container.addChild(bar)
+    // Try to get composed texture first
+    let texture = ASSETS.loadedImages?.[configKey];
+    const scale = config.iconScale || 1;
 
-        const title = new Text('x1    x2    x3    x5', {
-            fill: 0xffd04d,
-            fontSize: Math.floor(h * 0.45),
-            fontWeight: 'bold'
-        })
-        title.anchor.set(0.5, 0.5)
-        title.x = x + Math.floor(w / 2)
-        title.y = y + Math.floor(h / 2)
-        container.addChild(title)
+    // If composed texture doesn't exist, try to create a cropped texture from source
+    if (!texture && config.icon && config.iconAsset) {
+      const sourceTexture = ASSETS.loadedImages?.[config.iconAsset];
+      if (sourceTexture) {
+        // Create cropped texture manually using Rectangle
+        const { x, y, w, h } = config.icon;
+        try {
+          texture = new Texture({
+            source: sourceTexture.source,
+            frame: new Rectangle(x, y, w, h),
+          });
+        } catch (e) {
+          console.warn(`Failed to create cropped texture for ${configKey}:`, e);
+          texture = sourceTexture; // Fallback to full texture
+        }
+      }
     }
 
-    function updateValues() {
-        // No-op for now; header shows static multipliers label
+    return { texture, scale };
+  }
+
+  function getMultiplierTexture(multiplier, isActive) {
+    const state = isActive ? "active" : "default";
+    const assetKey = `x${multiplier}_${state}`;
+
+    // First try to get the composed texture
+    const composedTexture = ASSETS.loadedImages?.[assetKey];
+    if (composedTexture) {
+      return composedTexture;
     }
 
-    return { container, build, updateValues }
+    // Fallback to original assets
+    const fallbackKey = `x${multiplier}_${isActive ? "active" : "disable"}`;
+    const src =
+      ASSETS.loadedImages?.[fallbackKey] || ASSETS.imagePaths?.[fallbackKey];
+    if (!src) return null;
+    return src instanceof Texture ? src : Texture.from(src);
+  }
+
+  function getMultiplierTextureAndScale(multiplier, isActive) {
+    const state = isActive ? "active" : "default";
+    const assetKey = `x${multiplier}_${state}`;
+
+    // Get configured texture and scale
+    const { texture, scale } = getConfiguredTexture(assetKey);
+    if (texture) {
+      return { texture, scale };
+    }
+
+    // Fallback to original texture without config scale
+    const fallbackTexture = getMultiplierTexture(multiplier, isActive);
+    return { texture: fallbackTexture, scale: 1 };
+  }
+
+  function getDisplayedMultiplier(consecutiveWins) {
+    // Map consecutive wins to displayed multiplier
+    // Default to X1 active even when no wins
+    if (consecutiveWins <= 0) return 1; // Default X1 active
+    if (consecutiveWins === 1) return 1;
+    if (consecutiveWins === 2) return 2;
+    if (consecutiveWins === 3) return 3;
+    return 5; // consecutiveWins >= 4
+  }
+
+  function initializeComposedTextures(pixiApp) {
+    app = pixiApp;
+    // Compose consecutive wins textures if not already done
+    if (app && app.renderer) {
+      composeConsecutiveWinsTextures(app);
+    }
+  }
+
+  function getBackgroundTexture(bgKey) {
+    const texture = ASSETS.loadedImages?.[bgKey];
+    return texture || null;
+  }
+
+  function getBackgroundTextureAndScale(bgKey) {
+    const { texture, scale } = getConfiguredTexture(bgKey);
+    if (texture) {
+      return { texture, scale };
+    }
+
+    // Fallback to original texture without config scale
+    const fallbackTexture = getBackgroundTexture(bgKey);
+    return { texture: fallbackTexture, scale: 1 };
+  }
+
+  function build(rect) {
+    container.removeChildren();
+    multiplierSprites = [];
+    const { x, y, w, h } = rect;
+
+    // Create layered background system
+    // bg_01: Full header background (lowest layer)
+    const { texture: bg01Texture, scale: bg01Scale } =
+      getBackgroundTextureAndScale("bg_01");
+    if (bg01Texture) {
+      const bg01 = new Sprite(bg01Texture);
+      bg01.x = x;
+      bg01.y = y;
+
+      // Apply config scale first, then fit to container
+      const baseWidth = bg01Texture.width * bg01Scale;
+      const baseHeight = bg01Texture.height * bg01Scale;
+
+      // Scale to fit container dimensions
+      const scaleX = w / baseWidth;
+      const scaleY = h / baseHeight;
+      const containerScale = Math.max(scaleX, scaleY); // Cover the entire area
+
+      bg01.width = baseWidth * containerScale;
+      bg01.height = baseHeight * containerScale;
+
+      container.addChild(bg01);
+    } else {
+      // Fallback to solid background
+      const bar = new Graphics();
+      bar.rect(x, y, w, h);
+      bar.fill(0x8a4b28);
+      container.addChild(bar);
+    }
+
+    // bg_02: Bottom part background (middle layer)
+    let bg02Y = y + h * 0.7; // Default bottom area if no bg_02
+    let bg02Height = h * 0.3; // Default height
+
+    const { texture: bg02Texture, scale: bg02Scale } =
+      getBackgroundTextureAndScale("bg_02");
+    if (bg02Texture) {
+      const bg02 = new Sprite(bg02Texture);
+      bg02.x = x;
+      bg02.width = w;
+
+      // Apply config scale first
+      const baseHeight = bg02Texture.height * bg02Scale;
+      const scaledWidth = bg02Texture.width * bg02Scale;
+
+      // Maintain aspect ratio for height, but fit width to container
+      const widthScale = w / scaledWidth;
+      let calculatedHeight = baseHeight * widthScale;
+
+      // Ensure minimum height of 50% header height
+      const minHeight = h * 0.5;
+      bg02.height = Math.max(calculatedHeight, minHeight);
+      bg02.y = y + h - bg02.height; // Position at bottom
+      container.addChild(bg02);
+
+      // Store bg_02 position for multiplier positioning
+      bg02Y = bg02.y;
+      bg02Height = bg02.height;
+    }
+
+    // bg_03: Center part background (top layer)
+    let bg03Y = y + h / 2; // Default center if no bg_03
+    let bg03Height = h * 0.6; // Default height
+
+    const { texture: bg03Texture, scale: bg03Scale } =
+      getBackgroundTextureAndScale("bg_03");
+    if (bg03Texture) {
+      const bg03 = new Sprite(bg03Texture);
+      bg03.x = x;
+      bg03.width = w;
+
+      // Apply config scale first
+      const baseHeight = bg03Texture.height * bg03Scale;
+      const scaledWidth = bg03Texture.width * bg03Scale;
+
+      // Maintain aspect ratio for height, but fit width to container
+      const widthScale = w / scaledWidth;
+      let calculatedHeight = baseHeight * widthScale;
+
+      // Ensure minimum height of 50% header height
+      const minHeight = h * 0.5;
+      bg03.height = Math.max(calculatedHeight, minHeight);
+
+      // Position bg_03 with at least 40% header height distance from bottom
+      const minBottomGap = h * 0.4; // 40% of header height
+      const maxY = y + h - minBottomGap - bg03.height; // Maximum Y position
+      const centerY = y + (h - bg03.height) / 2; // Original center position
+
+      // Use the higher position (closer to top) to ensure minimum bottom gap
+      bg03.y = Math.min(centerY, maxY);
+
+      container.addChild(bg03);
+
+      // Store bg_03 position for page title positioning
+      bg03Y = bg03.y;
+      bg03Height = bg03.height;
+    }
+
+    // === PAGE TITLE (on bg_03) ===
+    // Display page title in the center of bg_03 area with fixed 50% width
+    const { texture: pageTitleTexture, scale: configScale } =
+      getConfiguredTexture("page_title");
+
+    if (pageTitleTexture) {
+      const pageTitle = new Sprite(pageTitleTexture);
+      pageTitle.anchor.set(0.5);
+      pageTitle.x = x + w / 2; // Center horizontally in header
+      pageTitle.y = bg03Y + bg03Height / 2 - 4; // Center vertically in bg_03
+
+      // Fixed width: 40% of header width
+      const targetWidth = w * 0.4; // 40% of header width
+      
+      // Calculate height to maintain aspect ratio
+      const originalAspectRatio = pageTitleTexture.width / pageTitleTexture.height;
+      const targetHeight = targetWidth / originalAspectRatio;
+
+      // Apply the fixed size
+      pageTitle.width = targetWidth;
+      pageTitle.height = targetHeight;
+
+      container.addChild(pageTitle);
+    }
+
+    // === MULTIPLIER DISPLAY (TOP LAYER) ===
+    // Create multiplier display: X1, X2, X3, X5
+    // Position multipliers on top of bg_02 area (bottom section)
+    const multipliers = [1, 2, 3, 5];
+
+    // Layout configuration:
+    // - Each multiplier: 10% of header width
+    // - Gap between multipliers: 7% of header width
+    const multiplierWidth = w * 0.1; // 10% width for each multiplier
+    const gapWidth = w * 0.07; // 7% gap between multipliers
+
+    // Calculate total content width and center it horizontally
+    const totalContentWidth =
+      multipliers.length * multiplierWidth +
+      (multipliers.length - 1) * gapWidth;
+    const startX = x + (w - totalContentWidth) / 2; // Center the entire group horizontally
+
+    // Position multipliers in the bg_02 area (bottom section)
+    const spriteHeight = Math.floor(bg02Height * 0.8); // Size relative to bg_02 height
+
+    for (let i = 0; i < multipliers.length; i++) {
+      const mult = multipliers[i];
+      const centerX =
+        startX + i * (multiplierWidth + gapWidth) + multiplierWidth / 2;
+      const centerY = bg02Y + bg02Height / 2; // Center within bg_02 area
+
+      // Determine if this multiplier should be active
+      const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
+      const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
+      const isActive = mult === displayedMult; // Only the current multiplier is active
+
+      // Get texture and config scale for active/inactive state
+      const { texture, scale: configScale } = getMultiplierTextureAndScale(
+        mult,
+        isActive
+      );
+
+      if (texture) {
+        const sprite = new Sprite(texture);
+        sprite.anchor.set(0.5);
+        sprite.x = centerX;
+        sprite.y = centerY;
+
+        // Apply iconScale from config first
+        const baseWidth = texture.width * configScale;
+        const baseHeight = texture.height * configScale;
+
+        // Then apply container constraints if needed
+        const maxWidth = multiplierWidth;
+        const maxHeight = spriteHeight;
+
+        // Calculate additional scale if base size exceeds container
+        const additionalScaleX = Math.min(1, maxWidth / baseWidth);
+        const additionalScaleY = Math.min(1, maxHeight / baseHeight);
+        const additionalScale = Math.min(additionalScaleX, additionalScaleY);
+
+        // Final size combines config scale and container constraints
+        sprite.width = baseWidth * additionalScale;
+        sprite.height = baseHeight * additionalScale;
+
+        container.addChild(sprite);
+        multiplierSprites.push({ sprite, multiplier: mult });
+      } else {
+        // Fallback to text if texture not available
+        const color = isActive ? 0xffd04d : 0x666666;
+        const text = new Text(`X${mult}`, {
+          fill: color,
+          fontSize: Math.floor(Math.min(multiplierWidth, spriteHeight) * 0.4),
+          fontWeight: "bold",
+        });
+        text.anchor.set(0.5);
+        text.x = centerX;
+        text.y = centerY;
+        container.addChild(text);
+        multiplierSprites.push({ sprite: text, multiplier: mult });
+      }
+    }
+  }
+
+  function updateValues() {
+    // Update multiplier sprites based on current consecutive wins
+    const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
+    const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
+
+    for (const item of multiplierSprites) {
+      const { sprite, multiplier } = item;
+      const isActive = multiplier === displayedMult; // Only the current multiplier is active
+
+      // Update texture if it's a Sprite
+      if (sprite instanceof Sprite) {
+        const { texture, scale: configScale } = getMultiplierTextureAndScale(
+          multiplier,
+          isActive
+        );
+        if (texture) {
+          sprite.texture = texture;
+
+          // Re-apply config scale and container constraints
+          const baseWidth = texture.width * configScale;
+          const baseHeight = texture.height * configScale;
+
+          // Get container constraints from original build
+          const multiplierWidth = sprite.parent.getBounds().width * 0.1; // Approximate
+          const spriteHeight = sprite.parent.getBounds().height * 0.8; // Approximate
+
+          const additionalScaleX = Math.min(1, multiplierWidth / baseWidth);
+          const additionalScaleY = Math.min(1, spriteHeight / baseHeight);
+          const additionalScale = Math.min(additionalScaleX, additionalScaleY);
+
+          sprite.width = baseWidth * additionalScale;
+          sprite.height = baseHeight * additionalScale;
+        }
+      } else if (sprite instanceof Text) {
+        // Update text color for fallback
+        sprite.style.fill = isActive ? 0xffd04d : 0x666666;
+      }
+    }
+  }
+
+  return { container, build, updateValues, initializeComposedTextures };
 }
