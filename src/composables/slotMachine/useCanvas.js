@@ -5,11 +5,14 @@ import startBgUrl from '../../assets/start_game_bg.jpg'
 export function useCanvas(canvasRef) {
   const canvas = ref(null)
   const ctx = ref(null)
+  const ownedCanvas = ref(null)
+
   const canvasWidth = ref(0)
   const canvasHeight = ref(0)
   const scale = ref(1)
   const reelOffset = ref({ x: 0, y: 0 })
   const targetAspect = ref(null)
+  const targetImageWidth = ref(null)
 
   const buttons = ref({
     spin: { x: 0, y: 0, radius: 50 },
@@ -18,36 +21,74 @@ export function useCanvas(canvasRef) {
     start: { x: 0, y: 0, width: 0, height: 0 }
   })
 
-  // Load start image once to get the exact aspect ratio
+  // Load start image once to get aspect ratio (optional)
   const ensureAspectLoaded = () => {
-    if (targetAspect.value) return
+    if (targetAspect.value && targetImageWidth.value) return
     const img = new Image()
     img.onload = () => {
       targetAspect.value = img.width / img.height
+      targetImageWidth.value = img.width
       if (canvas.value) setupCanvas()
     }
     img.src = startBgUrl
   }
 
-  const setupCanvas = () => {
+  const setupCanvas = async () => {
     if (!canvasRef.value) return
 
-    canvas.value = canvasRef.value
-    ctx.value = canvas.value.getContext('2d')
+    // Create or use an actual HTMLCanvasElement
+    const hostEl = canvasRef.value
+    let canvasEl
+    if (hostEl instanceof HTMLCanvasElement) {
+      canvasEl = hostEl
+    } else {
+      if (!ownedCanvas.value) {
+        ownedCanvas.value = document.createElement('canvas')
+        ownedCanvas.value.style.display = 'block'
+        ownedCanvas.value.style.touchAction = 'none'
+        // Replace any previous children to ensure clean rendering target
+        hostEl.innerHTML = ''
+        hostEl.appendChild(ownedCanvas.value)
+      }
+      canvasEl = ownedCanvas.value
+    }
+
+    canvas.value = canvasEl
+    ctx.value = canvasEl.getContext('2d')
 
     ensureAspectLoaded()
-    const aspect = targetAspect.value ?? (CONFIG.canvas.baseWidth / CONFIG.canvas.baseHeight)
 
-    const vh = window.innerHeight
-    const vw = window.innerWidth
-    const height = vh
-    const width = Math.min(vw, Math.round(height * aspect))
+    // Visible viewport
+    const vw = document.documentElement.clientWidth
+    const vh = document.documentElement.clientHeight
 
-    // Full height, width by aspect
-    canvas.value.style.width = `${width}px`
-    canvas.value.style.height = `${height}px`
-    canvas.value.width = width
-    canvas.value.height = height
+    const isMobile = vw <= 768
+
+    let width
+    let height
+    if (isMobile) {
+      // SP: full viewport
+      width = vw
+      height = vh
+    } else {
+      // PC: full page height, width by image aspect, capped to viewport width
+      const aspect = targetAspect.value || (vw / vh)
+      height = vh
+      width = Math.floor(height * aspect)
+      if (width > vw) {
+        width = vw
+        height = Math.floor(width / aspect)
+      }
+    }
+
+    const dpr = window.devicePixelRatio || 1
+    canvasEl.width = Math.floor(width * dpr)
+    canvasEl.height = Math.floor(height * dpr)
+    canvasEl.style.width = `${width}px`
+    canvasEl.style.height = `${height}px`
+
+    ctx.value.setTransform(dpr, 0, 0, dpr, 0, 0)
+
     canvasWidth.value = width
     canvasHeight.value = height
 
@@ -66,13 +107,10 @@ export function useCanvas(canvasRef) {
     // Button positions
     buttons.value.spin.x = Math.floor(width / 2)
     buttons.value.spin.y = height - Math.floor(160 * scale.value)
-
-    // Make spin button smaller
     buttons.value.spin.radius = Math.floor(85 * scale.value)
 
-    // Arrange minus/plus left/right of the spin, same vertical center
-    const controlSize = Math.floor(72 * scale.value) // ring diameter
-    const gap = Math.floor(36 * scale.value)         // space between spin edge and ring
+    const controlSize = Math.floor(72 * scale.value)
+    const gap = Math.floor(36 * scale.value)
 
     // Minus (left of spin)
     buttons.value.betMinus.width = controlSize
@@ -93,7 +131,7 @@ export function useCanvas(canvasRef) {
     buttons.value.start.y = height - Math.floor(24 * scale.value) - sbHeight
     buttons.value.start.width = sbWidth
     buttons.value.start.height = sbHeight
-}
+  }
 
   return {
     canvas,

@@ -1,23 +1,29 @@
 export function useHeader(canvasState, gameState) {
-    function draw(ctx, rect) {
-        const scale = canvasState.scale.value
-        const { x, y, w, h } = rect
+  function draw(ctx, rect) {
+    if (!ctx) return
+    const { w, h } = rect
+    const scale = canvasState.scale.value
 
-        const grad = ctx.createLinearGradient(0, y, 0, y + h)
-        grad.addColorStop(0, '#a75b2a')
-        grad.addColorStop(0.5, '#c1763d')
-        grad.addColorStop(1, '#8a4b23')
-        ctx.fillStyle = grad
-        ctx.fillRect(x, y, w, h)
+    // Background gradient
+    ctx.save()
+    const grad = ctx.createLinearGradient(0, 0, 0, h)
+    grad.addColorStop(0, '#a75b2a')
+    grad.addColorStop(0.5, '#c1763d')
+    grad.addColorStop(1, '#8a4b23')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, w, h)
+    ctx.restore()
 
-        // Placeholder multipliers centered vertically in header rect
-        ctx.fillStyle = '#ffd04d'
-        ctx.font = `bold ${Math.floor(26 * scale)}px Arial`
-        ctx.textAlign = 'left'
-        ctx.textBaseline = 'middle'
-        const padX = Math.floor(20 * scale)
-        ctx.fillText('x1    x2    x3    x5', x + padX, y + h / 2)
-    }
+    // Multipliers text
+    ctx.save()
+    ctx.fillStyle = '#ffd04d'
+    ctx.font = `bold ${Math.floor(26 * scale)}px Arial`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    const text = 'x1    x2    x3    x5'
+    ctx.fillText(text, Math.floor(20 * scale), h / 2)
+    ctx.restore()
+  }
 
-    return { draw }
+  return { draw }
 }

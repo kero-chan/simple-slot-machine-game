@@ -1,6 +1,5 @@
 import { CONFIG } from '../../config/constants'
 import { getRandomSymbol } from '../../utils/gameHelpers'
-import { markTilesToDisappear } from './mainFrame/drawReels'
 
 export function useGameLogic(gameState, gridState, render) {
   // Visible rows: only evaluate rows 1..4 for wins and scatters
@@ -191,12 +190,16 @@ export function useGameLogic(gameState, gridState, render) {
     const DISAPPEAR_MS = 300
     const startTime = Date.now()
 
-    // Collect positions and mark them in the renderer
+    // Collect positions and mark them in state for renderer to consume
     const positions = []
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => positions.push([col, row]))
     })
-    markTilesToDisappear(positions)
+    gridState.disappearPositions.value = new Set(
+      positions.map(([c, r]) => `${c},${r}`)
+    )
+    // Start fade window so reels renderer can apply alpha over time
+    gridState.disappearAnim.value = { start: startTime, duration: DISAPPEAR_MS }
 
     return new Promise(resolve => {
       const loop = () => {
@@ -204,6 +207,8 @@ export function useGameLogic(gameState, gridState, render) {
         if (elapsed < DISAPPEAR_MS) {
           requestAnimationFrame(loop)
         } else {
+          gridState.disappearPositions.value.clear()
+          gridState.disappearAnim.value = { start: 0, duration: 0 }
           render()
           resolve()
         }

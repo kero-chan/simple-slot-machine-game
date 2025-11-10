@@ -10,33 +10,41 @@ export function useSlotMachine(canvasRef) {
   const gameState = useGameState()
   const gridState = useGridState()
   const canvasState = useCanvas(canvasRef)
-  const { render, startAnimation, stopAnimation } = useRenderer(canvasState, gameState, gridState)
-  const gameLogic = useGameLogic(gameState, gridState, render)
+  const renderer = useRenderer(canvasState, gameState, gridState)
+  const gameLogic = useGameLogic(gameState, gridState, renderer.render)
+
+  // Wire Pixi footer controls to game logic actions
+  renderer.setControls({
+    spin: gameLogic.spin,
+    increaseBet: gameLogic.increaseBet,
+    decreaseBet: gameLogic.decreaseBet
+  })
 
   const init = async () => {
     try {
       await nextTick()
-      canvasState.setupCanvas()
-      render()
+      await canvasState.setupCanvas()
 
+      // Load assets
       await loadAllAssets()
 
-      startAnimation()
+      // Initialize renderer
+      renderer.init()
+
+      // Start animation
+      renderer.startAnimation()
     } catch (err) {
       console.error('SlotMachine init failed:', err)
     }
   }
 
-  const handleResize = () => {
-    canvasState.setupCanvas()
-    render()
+  const handleResize = async () => {
+    await canvasState.setupCanvas()
   }
 
   const start = () => {
     if (gameState.showStartScreen.value) {
       gameState.showStartScreen.value = false
-      canvasState.setupCanvas()
-      render()
     }
   }
 
@@ -75,16 +83,20 @@ export function useSlotMachine(canvasRef) {
   }
 
   const handleCanvasClick = (e) => {
-    const rect = canvasState.canvas.value.getBoundingClientRect()
+    const canvasEl = canvasState.canvas.value
+    if (!canvasEl) return
+    const rect = canvasEl.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     processClick(x, y)
   }
 
   const handleCanvasTouch = (e) => {
+    const canvasEl = canvasState.canvas.value
+    if (!canvasEl) return
     const touch = e.changedTouches[0]
     if (touch) {
-      const rect = canvasState.canvas.value.getBoundingClientRect()
+      const rect = canvasEl.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
       processClick(x, y)
@@ -104,7 +116,7 @@ export function useSlotMachine(canvasRef) {
     gridState,
     canvasState,
     init,
-    render,
+    render: renderer.render,
     handleResize,
     handleCanvasClick,
     handleCanvasTouch,
@@ -113,6 +125,6 @@ export function useSlotMachine(canvasRef) {
     increaseBet: gameLogic.increaseBet,
     decreaseBet: gameLogic.decreaseBet,
     start,
-    stopAnimation
+    stopAnimation: renderer.stopAnimation
   }
 }
