@@ -1,4 +1,3 @@
-// PixiJS-only renderer: start screen, header, reels, footer
 import { Container } from 'pixi.js'
 import { usePixiApp } from './pixiApp'
 import { useStartScene } from './scenes/startScene'
@@ -6,6 +5,8 @@ import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
 import { CONFIG } from '../../config/constants'
+import { ASSETS } from '../../config/assets'
+import { composeTilesTextures } from './reels/tiles/tilesComposer'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -35,6 +36,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
     // Track control handlers for footer buttons
     let controlHandlers = controls || null
+    let bambooComposed = false
 
     function computeLayout(w, h) {
         const headerH = Math.round(h * 0.15)
@@ -82,6 +84,9 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(reels.container)
             root.addChild(footer.container)
         }
+
+        // Compose all configured tiles from tiles_50 (idempotent)
+        composeTilesTextures(app)
         return true
     }
 

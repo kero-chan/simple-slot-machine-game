@@ -2,12 +2,26 @@ import { ASSETS } from '../config/assets'
 import { CONFIG } from '../config/constants'
 
 export function getRandomSymbol() {
-  const symbols = Object.keys(ASSETS.symbols)
-  const regularSymbols = symbols.filter(s => s !== 'scatter' && s !== 'wild')
+  // Prefer paytable keys; this is available before assets load
+  const paytableSymbols = Object.keys(CONFIG.paytable || {})
+  // Regular pool excludes special symbols
+  const regularFromPaytable = paytableSymbols.filter(s => s !== 'scatter' && s !== 'wild')
+
+  // Fallback: derive from imagePaths if paytable is empty for any reason
+  const imagePathSymbols = Object.keys(ASSETS.imagePaths || {})
+  const regularFromAssets = imagePathSymbols.filter(s => s !== 'scatter' && s !== 'wild')
+
+  const pool = regularFromPaytable.length ? regularFromPaytable : regularFromAssets
+
+  // If for some reason both are empty, default to a safe symbol
+  if (pool.length === 0) return 'bamboo'
+
+  // Chance to inject specials
   const rand = Math.random()
-  if (rand < 0.05) return 'wild'
-  if (rand < 0.10) return 'scatter'
-  return regularSymbols[Math.floor(Math.random() * regularSymbols.length)]
+  if (rand < 0.05 && paytableSymbols.includes('wild')) return 'wild'
+  if (rand < 0.10 && paytableSymbols.includes('scatter')) return 'scatter'
+
+  return pool[Math.floor(Math.random() * pool.length)]
 }
 
 export function createEmptyGrid() {
