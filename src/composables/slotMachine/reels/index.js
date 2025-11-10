@@ -45,15 +45,133 @@ export function useReels(gameState, gridState) {
         container.mask = mask
     }
 
-    // Resolve Pixi Texture for a symbol key
-    function getTextureForSymbol(symbol) {
-        if (symbol in TILE_SLICES) {
-            const tex = ASSETS.loadedImages?.[symbol]
-            return tex instanceof Texture ? tex : null
+    // Gold selection state and limits
+    const GOLD_ALLOWED_COLS = [1, 2, 3]       // allow showing gold in columns 2–4 (zero-based)
+    const VISIBLE_ROWS = [1, 2, 3, 4]          // visible rows
+    const HIDDEN_ROWS = [0, ROWS_FULL + 1]     // top and bottom partial rows
+    let goldBaseTiles = new Set()
+
+    // Utility: count current visible gold tiles
+    function countVisibleGold() {
+        let cnt = 0
+        for (const key of goldBaseTiles) {
+            const [cStr, rStr] = key.split(':')
+            const col = Number(cStr), row = Number(rStr)
+            if (VISIBLE_ROWS.includes(row)) cnt++
         }
-        const src = ASSETS.loadedImages?.[symbol] || ASSETS.imagePaths?.[symbol]
-        if (!src) return null
-        return src instanceof Texture ? src : Texture.from(src)
+        return cnt
+    }
+
+    // Utility: remove any gold from disallowed columns and trim visible gold to max=2
+    function enforceGoldRules() {
+        const keep = new Set()
+        let visibleKept = 0
+        for (const key of goldBaseTiles) {
+            const [cStr, rStr] = key.split(':')
+            const col = Number(cStr), row = Number(rStr)
+            if (!GOLD_ALLOWED_COLS.includes(col)) continue
+            if (VISIBLE_ROWS.includes(row)) {
+                if (visibleKept >= 2) continue
+                visibleKept++
+            }
+            keep.add(key)
+        }
+        goldBaseTiles = keep
+    }
+
+    // Pick visible additions to reach up to 2; hidden rows are optional and not capped here
+    function pickGoldVisible(need = 0) {
+        if (need <= 0) return new Set()
+        const candidates = []
+        for (const col of GOLD_ALLOWED_COLS) {
+            for (const r of VISIBLE_ROWS) {
+                const key = `${col}:${r}`
+                if (!goldBaseTiles.has(key)) candidates.push(key)
+            }
+        }
+        // Shuffle candidates
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
+        }
+        const chosen = new Set()
+        for (let i = 0; i < candidates.length && chosen.size < need; i++) {
+            chosen.add(candidates[i])
+        }
+        return chosen
+    }
+
+    // Optionally add some hidden golds (no cap specified; keep modest)
+    function pickGoldHidden(maxAdd = 0) {
+        if (maxAdd <= 0) return new Set()
+        const candidates = []
+        for (const col of GOLD_ALLOWED_COLS) {
+            for (const r of HIDDEN_ROWS) {
+                const key = `${col}:${r}`
+                if (!goldBaseTiles.has(key)) candidates.push(key)
+            }
+        }
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
+        }
+        const chosen = new Set()
+        for (let i = 0; i < candidates.length && chosen.size < maxAdd; i++) {
+            chosen.add(candidates[i])
+        }
+        return chosen
+    }
+
+    // API to manage gold selection (persist across spins, enforce rules)
+    function preselectGoldTiles() {
+        enforceGoldRules()
+        const visibleCnt = countVisibleGold()
+        const needVisible = Math.max(0, 2 - visibleCnt)
+        // Fill visible up to 2
+        const addVisible = pickGoldVisible(needVisible)
+        addVisible.forEach(k => goldBaseTiles.add(k))
+        // Optionally add up to 1 hidden gold per preselect; adjust as desired
+        const addHidden = pickGoldHidden(1)
+        addHidden.forEach(k => goldBaseTiles.add(k))
+        enforceGoldRules()
+    }
+    function preselectGoldCols() {
+        preselectGoldTiles()
+    }
+    function setGoldBaseTiles(items) {
+        const push = (col, row) => {
+            if (!GOLD_ALLOWED_COLS.includes(col)) return
+            const key = `${col}:${row}`
+            if (VISIBLE_ROWS.includes(row)) {
+                if (countVisibleGold() >= 2) return
+            }
+            goldBaseTiles.add(key)
+        }
+        if (Array.isArray(items)) {
+            for (const it of items) {
+                if (Array.isArray(it) && it.length === 2) {
+                    const [c, r] = it.map(Number); push(c, r)
+                } else if (typeof it === 'string') {
+                    const [cs, rs] = it.split(':'); push(Number(cs), Number(rs))
+                }
+            }
+        }
+        enforceGoldRules()
+    }
+    function clearGoldBaseTiles() {
+        goldBaseTiles.clear()
+    }
+
+    // Resolve Pixi Texture for a symbol key, preferring *_gold variant if requested
+    function getTextureForSymbol(symbol, useGold = false) {
+        const alias = useGold ? `${symbol}_gold` : symbol
+        const src = ASSETS.loadedImages?.[alias] || ASSETS.imagePaths?.[alias]
+        if (src) return src instanceof Texture ? src : Texture.from(src)
+        if (useGold) {
+            const normal = ASSETS.loadedImages?.[symbol] || ASSETS.imagePaths?.[symbol]
+            return normal ? (normal instanceof Texture ? normal : Texture.from(normal)) : null
+        }
+        return null
     }
 
     // Basic tile visuals: alpha and optional highlight tint
@@ -98,7 +216,12 @@ export function useReels(gameState, gridState) {
                     symbol = gridState.grid?.value?.[col]?.[r]
                 }
 
-                const tex = getTextureForSymbol(symbol)
+                // Show gold even while spinning
+                const goldVisible = true
+
+                // Use gold for preselected tiles regardless of spin state
+                const useGold = goldVisible && goldBaseTiles.has(`${col}:${r}`)
+                const tex = getTextureForSymbol(symbol, useGold)
                 if (!tex) continue
 
                 const key = `${col}:${r}`
@@ -146,5 +269,12 @@ export function useReels(gameState, gridState) {
         }
     }
 
-    return { container, draw }
+    return {
+        container,
+        draw,
+        // expose for renderer orchestration
+        preselectGoldCols,
+        setGoldBaseTiles,
+        clearGoldBaseTiles
+    }
 }

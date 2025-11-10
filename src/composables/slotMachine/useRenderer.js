@@ -90,7 +90,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
         // Compose all configured tiles from tiles_50 (idempotent)
         composeTilesTextures(app)
-        
+
         // Initialize consecutive wins composed textures
         if (header?.initializeComposedTextures) {
             header.initializeComposedTextures(app)
@@ -186,7 +186,12 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    return { init, render, startAnimation, stopAnimation, setControls }
+    // Expose gold-base preselection to orchestrator
+    const preselectGoldBase = () => {
+        if (reels?.preselectGoldCols) reels.preselectGoldCols()
+    }
+
+    return { init, render, startAnimation, stopAnimation, setControls, preselectGoldBase }
 }
 
 // ----- Start screen rendering -----

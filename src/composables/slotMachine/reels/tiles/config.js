@@ -1,4 +1,5 @@
 export const BASE_RECT = { x: 819, y: 0, w: 162, h: 188 }
+export const BASE_GOLD_RECT = { x: 661, y: 0, w: 155, h: 188 }
 
 export const TILE_SLICES = {
   fa: {
@@ -8,9 +9,30 @@ export const TILE_SLICES = {
       { sourceSprite: 'tiles_50', icon: { x: 25, y: 211, w: 120, h: 134 }, scale: 0.78 }
     ]
   },
+  fa_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 25, y: 211, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
   wutong: {
     base: BASE_RECT,
     outSize: 512,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 353, y: 211, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
+  wusuo_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 514, y: 213, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
+  wutong_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
     layers: [
       { sourceSprite: 'tiles_50', icon: { x: 353, y: 211, w: 120, h: 134 }, scale: 0.78 }
     ]
@@ -29,9 +51,23 @@ export const TILE_SLICES = {
       { sourceSprite: 'tiles_50', icon: { x: 25, y: 19, w: 120, h: 134 }, scale: 0.78 }
     ]
   },
+  bawan_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 25, y: 19, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
   liangtong: {
     base: BASE_RECT,
     outSize: 512,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 353, y: 24, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
+  liangtong_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
     layers: [
       { sourceSprite: 'tiles_50', icon: { x: 353, y: 24, w: 120, h: 134 }, scale: 0.78 }
     ]
@@ -43,6 +79,13 @@ export const TILE_SLICES = {
       { sourceSprite: 'tiles_50', icon: { x: 516, y: 23, w: 120, h: 134 }, scale: 0.78 }
     ]
   },
+  liangsuo_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 516, y: 23, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
   bai: {
     base: BASE_RECT,
     outSize: 512,
@@ -50,9 +93,23 @@ export const TILE_SLICES = {
       { sourceSprite: 'tiles_50', icon: { x: 191, y: 210, w: 120, h: 134 }, scale: 0.78 }
     ]
   },
+  bai_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 191, y: 210, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
   zhong: {
     base: BASE_RECT,
     outSize: 512,
+    layers: [
+      { sourceSprite: 'tiles_50', icon: { x: 189, y: 22, w: 120, h: 134 }, scale: 0.78 }
+    ]
+  },
+  zhong_gold: {
+    base: BASE_GOLD_RECT,
+    outSize: 256,
     layers: [
       { sourceSprite: 'tiles_50', icon: { x: 189, y: 22, w: 120, h: 134 }, scale: 0.78 }
     ]
