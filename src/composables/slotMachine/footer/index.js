@@ -1,5 +1,6 @@
-import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
+import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
+import { BASE_FRAME, ARROWS } from './config'
 
 export function useFooter(gameState) {
   const container = new Container()
@@ -19,9 +20,21 @@ export function useFooter(gameState) {
   let minusBtn = null
   let plusBtn = null
   let lastTs = 0
+  const scaleSpinBtn = 1
 
   // Track value Text nodes
   const VALUE_NAME_PREFIX = 'footer-pill-value-'
+  const sheetTex = ASSETS.loadedImages?.spin || ASSETS.imagePaths?.spin
+  const source = sheetTex?.source || sheetTex?.baseTexture
+  const subTex = (r) => new Texture({ source, frame: new Rectangle(r.x, r.y, r.w, r.h) })
+  const texArrowNormal = subTex(ARROWS.gold)
+  const texArrowSpinning = subTex(ARROWS.gold_spinning)
+
+  function setToSpinning(isSpinning) {
+    if (!arrowSprite) return
+
+    arrowSprite.texture = isSpinning ? texArrowSpinning : texArrowNormal
+  }
 
   function build(rect) {
     container.removeChildren()
@@ -73,46 +86,39 @@ export function useFooter(gameState) {
     const BTN_SCALE_H = 0.95
     const btnSize = Math.floor(Math.min(h * BTN_SCALE_H, w * BTN_SCALE_W))
 
-    // Frame sprite
-    const frameSrc = ASSETS.loadedImages?.spin_frame || ASSETS.imagePaths?.spin_frame
-    const frameTex = frameSrc ? (frameSrc instanceof Texture ? frameSrc : Texture.from(frameSrc)) : null
-    frameSprite = frameTex ? new Sprite(frameTex) : new Graphics().circle(0, 0, Math.floor(btnSize / 2)).fill(0x00aa66)
-    frameSprite.anchor?.set?.(0.5)
-    frameSprite.x = centerX
-    frameSprite.y = centerY
-    frameSprite.width = btnSize
-    frameSprite.height = btnSize
-    frameSprite.eventMode = 'static'
-    frameSprite.cursor = gameState.canSpin?.value ? 'pointer' : 'not-allowed'
-    frameSprite.on?.('pointerdown', () => {
-      if (gameState.showStartScreen?.value) return
-      if (gameState.isSpinning?.value) return
-      if (!gameState.canSpin?.value) return
-      handlers.spin && handlers.spin()
-    })
-    container.addChild(frameSprite)
+    // Button fram sprite
+    const bgPosition = BASE_FRAME
+    if (bgPosition) {
+      frameSprite = new Sprite(subTex(bgPosition))
+      frameSprite.anchor.set(0.5);
+      frameSprite.x = centerX;
+      frameSprite.y = centerY;
+      frameSprite.scale.set(scaleSpinBtn)
+      frameSprite.rotation = -(Math.PI / 2)
+
+      frameSprite.eventMode = 'static'
+      frameSprite.cursor = gameState.canSpin?.value ? 'pointer' : 'not-allowed'
+      frameSprite.on?.('pointerdown', () => {
+        console.log('pointerdown')
+        if (gameState.showStartScreen?.value) return
+        if (gameState.isSpinning?.value) return
+        if (!gameState.canSpin?.value) return
+
+        handlers.spin && handlers.spin()
+      })
+
+      container.addChild(frameSprite)
+    }
 
     // Gold arrow sprite
-    {
-      const src = ASSETS.loadedImages?.spin_arrow || ASSETS.imagePaths?.spin_arrow
-      const tex = src ? (src instanceof Texture ? src : Texture.from(src)) : null
-      arrowSprite = new Sprite(tex)
-      arrowSprite.anchor.set(0.5)
-      arrowSprite.x = centerX
-      arrowSprite.y = centerY
-
-      const ARROW_SCALE = 0.48
-      const innerDiameter = Math.floor(btnSize * ARROW_SCALE)
-      arrowSprite.width = innerDiameter
-      arrowSprite.height = innerDiameter
+    const arrowFramePos = ARROWS.gold
+    if (arrowFramePos) {
+      arrowSprite = new Sprite(subTex(arrowFramePos))
+      arrowSprite.anchor.set(0.5);
+      arrowSprite.x = centerX;
+      arrowSprite.y = centerY;
+      arrowSprite.scale.set(scaleSpinBtn)
       container.addChild(arrowSprite)
-
-      const MASK_INSET_PX = 2
-      const arrowMask = new Graphics()
-      arrowMask.circle(centerX, centerY, Math.max(0, Math.floor(innerDiameter / 2) - MASK_INSET_PX))
-      arrowMask.fill(0xffffff)
-      container.addChild(arrowMask)
-      arrowSprite.mask = arrowMask
     }
 
     // Bet controls
@@ -190,14 +196,20 @@ export function useFooter(gameState) {
       frameSprite.alpha = canSpin ? 1 : 0.5
       frameSprite.cursor = canSpin ? 'pointer' : 'not-allowed'
     }
+
     if (arrowSprite) {
       const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0
       lastTs = timestamp
       const spinning = !!gameState.isSpinning?.value
-      const speed = spinning ? (Math.PI * 2.5) : (Math.PI * 0.8) // rad/sec
+      if (spinning) {
+        setToSpinning(true)
+      } else {
+        setToSpinning(false)
+      }
+      const speed = spinning ? (Math.PI * 5) : (Math.PI * 0.5) // rad/sec
       arrowSprite.rotation += speed * dt
     }
   }
 
-  return { container, build, setHandlers, update, updateValues }
+  return { container, build, setHandlers, update, updateValues, setToSpinning }
 }
