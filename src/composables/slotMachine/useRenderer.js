@@ -39,7 +39,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let bambooComposed = false
 
     function computeLayout(w, h) {
-        const headerH = Math.round(h * 0.15)
+        const headerH = Math.round(h * 0.18)
 
         // Tile width from canvas width; tile height from required ratio 157/184
         const tileW = (w - MARGIN_X * 2) / COLS
@@ -87,6 +87,11 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
         // Compose all configured tiles from tiles_50 (idempotent)
         composeTilesTextures(app)
+        
+        // Initialize consecutive wins composed textures
+        if (header?.initializeComposedTextures) {
+            header.initializeComposedTextures(app)
+        }
         return true
     }
 

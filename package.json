@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@pixi/constants": "^7.4.3",
+    "@pixi/core": "^7.4.3",
     "@pixi/filter-blur": "^7.4.3",
     "@pixi/filter-glow": "^5.2.1",
     "pixi-filters": "^6.1.4",
