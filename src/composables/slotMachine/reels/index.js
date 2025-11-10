@@ -16,7 +16,7 @@ export function useReels(gameState, gridState) {
     // const BOTTOM_PARTIAL = 0.15
     // const PAD_X = 0
     // const PAD_Y = 0
-    const BLEED = 3 // increase to remove gaps between tiles
+    const BLEED = 2 // increase to remove gaps between tiles
 
     const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
