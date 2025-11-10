@@ -9,6 +9,7 @@ export const ASSETS = {
     tiles_50: new URL('../assets/slotMachine/tiles/50.png', import.meta.url).href,
     tiles_29: new URL('../assets/slotMachine/tiles/29.png', import.meta.url).href,
     tiles_34: new URL('../assets/slotMachine/tiles/34.png', import.meta.url).href,
+    tiles_star: new URL('../assets/slotMachine/tiles/star.png', import.meta.url).href,
     reels_bg: new URL('../assets/slotMachine/reels/bg.jpeg', import.meta.url).href,
     // Consecutive wins spritesheets
     header_background: new URL('../assets/consecutiveWins/43.png', import.meta.url).href,

@@ -34,7 +34,7 @@ export function useStartScene(gameState) {
         })
         container.addChild(btn)
 
-        const btnText = new Text('开始', { fill: 0xffffff, fontSize: Math.floor(buttonH * 0.45), fontWeight: 'bold' })
+        const btnText = new Text({ text: '开始', style: { fill: 0xffffff, fontSize: Math.floor(buttonH * 0.45), fontWeight: 'bold' } })
         btnText.anchor.set(0.5)
         btnText.x = buttonX + buttonW / 2
         btnText.y = buttonY + buttonH / 2

@@ -4,9 +4,9 @@ import { useStartScene } from './scenes/startScene'
 import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
-import { CONFIG } from '../../config/constants'
 import { ASSETS } from '../../config/assets'
 import { composeTilesTextures } from './reels/tiles/tilesComposer'
+import { useGlowOverlay } from './reels/tiles/glowingComposer'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -19,6 +19,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let header = null
     let reels = null
     let footer = null
+    let glowOverlay = null
 
     // Track last layout for rebuilds
     let lastW = 0
@@ -75,6 +76,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             header = useHeader(gameState)
             reels = useReels(gameState, gridState)
             footer = useFooter(gameState)
+            glowOverlay = useGlowOverlay(gameState, gridState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
             }
@@ -82,6 +84,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(startScene.container)
             root.addChild(header.container)
             root.addChild(reels.container)
+            root.addChild(glowOverlay.container)
             root.addChild(footer.container)
         }
 
@@ -111,6 +114,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         if (startScene?.container) startScene.container.visible = showStart
         if (header?.container) header.container.visible = !showStart
         if (reels?.container) reels.container.visible = !showStart
+        if (glowOverlay?.container) glowOverlay.container.visible = !showStart // <-- toggle overlay
         if (footer?.container) footer.container.visible = !showStart
 
         if (showStart && startScene) {
@@ -128,6 +132,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
             // Always draw reels so spin/cascade state is reflected
             if (reels) reels.draw(mainRect, tileSize, timestamp, w)
+            if (glowOverlay) glowOverlay.draw(mainRect, tileSize, timestamp, w)
 
             if ((resized || footer?.container.children.length === 0) && footer) {
                 footer.build(footerRect)

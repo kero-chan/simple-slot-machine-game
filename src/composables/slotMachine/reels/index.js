@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture, Rectangle } from 'pixi.js'
+import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
 import { TILE_SLICES } from './tiles/config'
 
@@ -13,27 +13,21 @@ export function useReels(gameState, gridState) {
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
-    // const BOTTOM_PARTIAL = 0.15
-    // const PAD_X = 0
-    // const PAD_Y = 0
     const BLEED = 2 // increase to remove gaps between tiles
 
-    const rgb = (hex) => new Color(hex).toRgbArray()
     const spriteCache = new Map() // `${col}:${row}`
     let backdropSprite = null
 
     function ensureBackdrop(rect, canvasW) {
-        // Clear the old Graphics fill
         backdrop.clear()
 
-        // Prepare/update background sprite from bg.png
+        // Background image for the reel area
         const src = ASSETS.loadedImages?.reels_bg || ASSETS.imagePaths?.reels_bg
         if (src) {
             const tex = src instanceof Texture ? src : Texture.from(src)
             if (!backdropSprite) {
                 backdropSprite = new Sprite(tex)
                 backdropSprite.anchor.set(0, 0)
-                // Keep it at the back
                 container.addChildAt(backdropSprite, 0)
             } else {
                 backdropSprite.texture = tex
@@ -44,14 +38,14 @@ export function useReels(gameState, gridState) {
             backdropSprite.height = rect.h
         }
 
-        // Mask remains to clip the main area cleanly
+        // Clip main area cleanly
         mask.clear()
         mask.rect(0, rect.y, canvasW, rect.h + 1)
         mask.fill(0xffffff)
         container.mask = mask
     }
 
-    // Resolve a Pixi Texture for a given symbol key
+    // Resolve Pixi Texture for a symbol key
     function getTextureForSymbol(symbol) {
         if (symbol in TILE_SLICES) {
             const tex = ASSETS.loadedImages?.[symbol]
@@ -62,7 +56,7 @@ export function useReels(gameState, gridState) {
         return src instanceof Texture ? src : Texture.from(src)
     }
 
-    // Ensure visuals use Pixi blend modes
+    // Basic tile visuals: alpha and optional highlight tint
     function applyTileVisuals(sprite, alpha = 1, highlight = false) {
         if (!sprite) return
         sprite.alpha = alpha
@@ -72,7 +66,6 @@ export function useReels(gameState, gridState) {
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
 
-        // Accept both numeric and object tileSize
         const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
         const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
 
@@ -111,8 +104,7 @@ export function useReels(gameState, gridState) {
                 const key = `${col}:${r}`
                 let sp = spriteCache.get(key)
 
-                // Edge-to-edge
-                // Slight overscan to eliminate gaps from transparent edges
+                // Edge-to-edge with slight overscan to hide transparent edges
                 const w = tileW + BLEED * 2
                 const h = tileH + BLEED * 2
 
@@ -136,7 +128,6 @@ export function useReels(gameState, gridState) {
 
                 applyTileVisuals(sp, tileH, winning, velocityPx, timestamp)
 
-                // Keep fractional Y to prevent rounding from shaving the bottom partial
                 sp.x = Math.round(xCell) - BLEED
                 sp.y = yCell - BLEED
 
@@ -145,7 +136,7 @@ export function useReels(gameState, gridState) {
             }
         }
 
-        // Cleanup (unchanged)
+        // Cleanup unused tile sprites
         for (const [key, sprite] of spriteCache.entries()) {
             if (!usedKeys.has(key)) {
                 if (sprite.parent) sprite.parent.removeChild(sprite)
