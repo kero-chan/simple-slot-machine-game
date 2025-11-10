@@ -18,18 +18,34 @@ export function composeTilesTextures(app) {
 
       const outSize = cfg.outSize || Math.max((BASE_RECT?.w || 256), (BASE_RECT?.h || 256))
       const container = new Container()
-
       const makeSubTex = (source, r) => new Texture({ source, frame: new Rectangle(r.x, r.y, r.w, r.h) })
 
       // Draw base only if the tile defines one
       if (cfg.base) {
-        const baseSourceAlias = cfg.baseSourceSprite || (cfg.layers?.[0]?.sourceSprite) || 'tiles_50'
-        const baseSheetTex = ASSETS.loadedImages?.[baseSourceAlias]
+        let baseAlias, baseRect, baseScale = 1, baseOffsetX = 0, baseOffsetY = 0
+        if (typeof cfg.base === 'object' && 'icon' in cfg.base) {
+          baseAlias = cfg.base.sourceSprite || 'tiles_50'
+          baseRect = cfg.base.icon
+          baseScale = cfg.base.scale ?? 1
+          baseOffsetX = cfg.base.offsetX ?? 0
+          baseOffsetY = cfg.base.offsetY ?? 0
+        } else {
+          baseAlias = cfg.baseSourceSprite || (cfg.layers?.[0]?.sourceSprite) || 'tiles_50'
+          baseRect = cfg.base
+          baseScale = cfg.baseScale ?? 1
+          baseOffsetX = cfg.baseOffsetX ?? 0
+          baseOffsetY = cfg.baseOffsetY ?? 0
+        }
+
+        const baseSheetTex = ASSETS.loadedImages?.[baseAlias]
         const baseSource = baseSheetTex?.source || baseSheetTex?.baseTexture
-        if (baseSource) {
-          const baseSp = new Sprite(makeSubTex(baseSource, cfg.base))
-          baseSp.width = outSize
-          baseSp.height = outSize
+        if (baseSource && baseRect) {
+          const baseSp = new Sprite(new Texture({ source: baseSource, frame: new Rectangle(baseRect.x, baseRect.y, baseRect.w, baseRect.h) }))
+          baseSp.anchor.set(0.5)
+          baseSp.width = Math.floor(outSize * baseScale)
+          baseSp.height = Math.floor(outSize * baseScale)
+          baseSp.x = Math.floor(outSize / 2) + Math.floor(outSize * baseOffsetX)
+          baseSp.y = Math.floor(outSize / 2) + Math.floor(outSize * baseOffsetY)
           container.addChild(baseSp)
         }
       }
