@@ -74,3 +74,18 @@ export const TILE_SLICES = {
     ]
   }
 }
+
+const DEFAULT_LAYER_OFFSET_X = 0.02
+const DEFAULT_LAYER_OFFSET_Y = -0.05
+const EXEMPT_SYMBOLS = new Set(['gold', 'bonus'])
+
+for (const [symbol, cfg] of Object.entries(TILE_SLICES)) {
+  if (EXEMPT_SYMBOLS.has(symbol)) continue
+  if (Array.isArray(cfg.layers)) {
+    for (const layer of cfg.layers) {
+      if (!layer) continue
+      if (layer.offsetX === undefined) layer.offsetX = DEFAULT_LAYER_OFFSET_X
+      if (layer.offsetY === undefined) layer.offsetY = DEFAULT_LAYER_OFFSET_Y
+    }
+  }
+}
