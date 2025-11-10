@@ -67,7 +67,7 @@ export const TILE_SLICES = {
   },
 
   bonus: {
-    base: { sourceSprite: 'tiles_34', icon: { x: 409, y: 8, w: 61, h: 68 }, scale: 1.8 },
+    base: { sourceSprite: 'tiles_34', icon: { x: 416, y: 16, w: 45, h: 53 }, scale: 1.8 },
     outSize: 512,
     layers: [
       { sourceSprite: 'tiles_29', icon: { x: 0, y: 1, w: 165, h: 180 }, scale: 2 },
