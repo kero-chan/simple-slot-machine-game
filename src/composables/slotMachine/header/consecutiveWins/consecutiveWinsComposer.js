@@ -9,9 +9,9 @@ export function composeConsecutiveWinsTextures(app) {
 
   // Check if all required sheet textures are loaded
   const sheet43 = ASSETS.loadedImages?.['header_background']
-  const sheet58 = ASSETS.loadedImages?.['text']
-  const sheet64 = ASSETS.loadedImages?.['consecutive_wins_active']
-  const sheet65 = ASSETS.loadedImages?.['consecutive_wins_default']
+  const sheet58 = ASSETS.loadedImages?.['header_title']
+  const sheet64 = ASSETS.loadedImages?.['header_multiplier_active']
+  const sheet65 = ASSETS.loadedImages?.['header_multiplier_default']
   if (!sheet43 || !sheet58 || !sheet64 || !sheet65) return
 
   composing = true
@@ -22,9 +22,9 @@ export function composeConsecutiveWinsTextures(app) {
       // Select the appropriate sheet based on iconAsset
       let sheetTex
       if (cfg.iconAsset === 'header_background') sheetTex = sheet43
-      else if (cfg.iconAsset === 'text') sheetTex = sheet58
-      else if (cfg.iconAsset === 'consecutive_wins_active') sheetTex = sheet64
-      else if (cfg.iconAsset === 'consecutive_wins_default') sheetTex = sheet65
+      else if (cfg.iconAsset === 'header_title') sheetTex = sheet58
+      else if (cfg.iconAsset === 'header_multiplier_active') sheetTex = sheet64
+      else if (cfg.iconAsset === 'header_multiplier_default') sheetTex = sheet65
       
       const source = sheetTex?.source || sheetTex?.baseTexture
       if (!source) return
