@@ -1,97 +1,132 @@
-// imports + cropped texture builder (Pixi v8-safe)
-import { Container, Sprite, Texture, Rectangle } from 'pixi.js'
+import { Container, Sprite, Texture } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
 
-// Single crop coordinates from tiles_30.png
-// module-level config
-const GLOW_RECT = { x: 221, y: 333, w: 77, h: 77, scale: 0.75 }
+// Basic reel layout
+const MARGIN_X = 10
+const COLS = 5
+const ROWS_FULL = 4
+const TOP_PARTIAL = 0.30
 
-// Cache the cropped glow texture so we don’t rebuild every frame
-let GLOW_TEXTURE = null
+// Sparkle tuning: bottom → top star dots
+const DOTS_PER_TILE = 16
+const DOT_SPAWN_RATE = 0.30
+const DOT_MIN_SIZE = 20
+const DOT_MAX_SIZE = 50
 
-function getGlowTexture() {
-  if (GLOW_TEXTURE) return GLOW_TEXTURE
+// Lifetime (ms) — extended to allow travel above the tile
+const DOT_MIN_LIFE = 800   // was 450
+const DOT_MAX_LIFE = 4000  // was 900
 
-  const sheetTex = ASSETS.loadedImages?.tiles_30
-    ? ASSETS.loadedImages.tiles_30
-    : Texture.from(ASSETS.imagePaths.tiles_30)
+// Speeds
+const DOT_UP_SPEED_MIN = 0.6  // px/frame upward
+const DOT_UP_SPEED_MAX = 1.3
+const DOT_DRIFT_MAX = 0.4     // px/frame horizontal drift
 
-  // Use Pixi v8-friendly source; avoid gating on source.valid
-  const source = sheetTex?.source || sheetTex?.baseTexture
-  if (!source) {
-    return null
+// New: how high dots travel relative to tile height (e.g., 1.8 → 180%)
+const DOT_TRAVEL_FACTOR = 1.8
+
+// Approx frame time for converting frames → ms
+const FRAME_MS_APPROX = 16.7
+
+// Cache the star texture once; fallback keeps dots visible
+// Cache a valid Pixi Texture for the star, regardless of source type
+let STAR_TEX = null
+function ensureStarTexture() {
+  if (STAR_TEX && STAR_TEX.baseTexture?.valid) return STAR_TEX
+
+  const loaded = ASSETS.loadedImages?.tiles_star
+  if (loaded) {
+    // loaded may be a Texture, Image, or URL string
+    STAR_TEX = loaded.baseTexture ? loaded : Texture.from(loaded)
+    return STAR_TEX
   }
 
-  const r = GLOW_RECT
-  const frame = new Rectangle(r.x, r.y, r.w, r.h)
+  const url = ASSETS.imagePaths?.tiles_star
+  if (url) {
+    STAR_TEX = Texture.from(url)
+    return STAR_TEX
+  }
 
-  // Construct subtexture immediately; Pixi will resolve asynchronously if needed
-  GLOW_TEXTURE = new Texture({ source, frame })
-  return GLOW_TEXTURE
+  return null
 }
 
-export function useGlowOverlay(gameState, gridState) {
+export function useGlowOverlay(gameState, gridState, options = {}) {
   const container = new Container()
   container.zIndex = 1000
 
-  const sprites = new Map()
+  const dotsMap = new Map() // key -> { list: [] }
 
-  // Reel layout (kept aligned with your reels math)
-  const MARGIN_X = 10
-  const COLS = 5
-  const ROWS_FULL = 4
-  const TOP_PARTIAL = 0.30
-
-  // Multiple glow frames (add or edit rects as needed)
-  const GLOW_RECTS = [
-    { x: 221, y: 333, w: 77, h: 77, scale: 0.75 },
-    { x: 123, y: 330, w: 79, h: 81, scale: 0.7 }
-  ]
-  const GLOW_FPS = 2
-  const GLOW_DEFAULT_SCALE = 0.75
-
-  let GLOW_TEXTURES = null
-
-  function ensureGlowTextures() {
-    if (GLOW_TEXTURES && GLOW_TEXTURES.length) return true
-
-    const sheetTex = ASSETS.loadedImages?.tiles_30
-      ? ASSETS.loadedImages.tiles_30
-      : Texture.from(ASSETS.imagePaths.tiles_30)
-
-    const source = sheetTex?.source || sheetTex?.baseTexture
-    if (!source) return false
-
-    GLOW_TEXTURES = GLOW_RECTS.map(r => {
-      const frame = new Rectangle(r.x, r.y, r.w, r.h)
-      return new Texture({ source, frame })
-    }).filter(Boolean)
-
-    return GLOW_TEXTURES.length > 0
-  }
-
-  function getGlowFrameAtTime(timestamp) {
-    if (!ensureGlowTextures()) return null
-    const frames = GLOW_TEXTURES.length
-    if (frames === 0) return null
-    const frameIdx = Math.floor(timestamp / (1000 / GLOW_FPS)) % frames
-    return {
-      texture: GLOW_TEXTURES[frameIdx],
-      rect: GLOW_RECTS[frameIdx],
-      index: frameIdx
+  function spawnDot(key, tileW, tileH, xCell, yCell, timestamp) {
+    let entry = dotsMap.get(key)
+    if (!entry) {
+      entry = { list: [] }
+      dotsMap.set(key, entry)
     }
+    if (entry.list.length >= DOTS_PER_TILE) return
+    if (Math.random() > DOT_SPAWN_RATE) return
+
+    const tex = ensureStarTexture() || Texture.WHITE
+    const s = new Sprite(tex)
+    s.blendMode = BLEND_MODES.ADD
+    s.anchor.set(0.5)
+
+    const sizeMin = Math.min(DOT_MIN_SIZE, DOT_MAX_SIZE)
+    const sizeMax = Math.max(DOT_MIN_SIZE, DOT_MAX_SIZE)
+    const pxSize = Math.round(sizeMin + Math.random() * (sizeMax - sizeMin))
+    s.width = pxSize
+    s.height = pxSize
+
+    // Start in bottom band
+    s.x = xCell + tileW * (0.3 + Math.random() * 0.4)
+    s.y = yCell + tileH * (0.82 + Math.random() * 0.12)
+    s.alpha = 1.0
+
+    // Motion
+    const vy = -(DOT_UP_SPEED_MIN + Math.random() * (DOT_UP_SPEED_MAX - DOT_UP_SPEED_MIN))
+    const vx = (Math.random() * 2 - 1) * DOT_DRIFT_MAX
+
+    // Life so dot rises DOT_TRAVEL_FACTOR × tileH pixels
+    const desiredRisePx = tileH * DOT_TRAVEL_FACTOR
+    const framesNeeded = desiredRisePx / Math.max(0.001, Math.abs(vy))
+    let life = framesNeeded * FRAME_MS_APPROX
+    // Clamp to configured min/max and add slight variance
+    life = Math.max(DOT_MIN_LIFE, Math.min(DOT_MAX_LIFE, life)) * (0.9 + Math.random() * 0.2)
+
+    container.addChild(s)
+    entry.list.push({ sprite: s, born: timestamp, life, vx, vy })
   }
 
-  function draw(mainRect, tileSize, timestamp, canvasW) {
-    const frame = getGlowFrameAtTime(timestamp)
-    if (!frame) return
-    const tex = frame.texture
+  function updateDots(entry, timestamp) {
+    if (!entry) return
+    const alive = []
+    for (const p of entry.list) {
+      const age = timestamp - p.born
+      const t = Math.min(Math.max(age / p.life, 0), 1)
 
+      // Move upward with slight random drift
+      p.sprite.x += p.vx
+      p.sprite.y += p.vy
+
+      // Ease-out fade and slight shrink for sparkle feel
+      p.sprite.alpha = (1 - t) * (1 - t)
+      p.sprite.width *= 0.997
+      p.sprite.height *= 0.997
+
+      if (t < 1) {
+        alive.push(p)
+      } else {
+        p.sprite.parent?.removeChild(p.sprite)
+        p.sprite.destroy({ children: true, texture: false, baseTexture: false })
+      }
+    }
+    entry.list = alive
+  }
+
+  function draw(mainRect, tileSize, timestamp) {
     const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
     const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
 
-    const stepX = tileW
     const originX = MARGIN_X
     const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
     const spinning = !!gameState.isSpinning?.value
@@ -104,7 +139,7 @@ export function useGlowOverlay(gameState, gridState) {
       const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
 
       for (let r = 0; r <= ROWS_FULL + 1; r++) {
-        const xCell = originX + col * stepX
+        const xCell = originX + col * tileW
         const yCell = startY + r * tileH + offsetTiles * tileH
 
         let symbol
@@ -116,40 +151,28 @@ export function useGlowOverlay(gameState, gridState) {
           symbol = gridState.grid?.value?.[col]?.[r]
         }
 
+        // Only gold and bonus tiles
         if (symbol !== 'gold' && symbol !== 'bonus') continue
 
         const key = `${col}:${r}`
-        let s = sprites.get(key)
-        if (!s) {
-          s = new Sprite(tex)
-          s.anchor.set(0.5)
-          s.blendMode = BLEND_MODES.ADD
-          s.tint = 0xFFFFFF
-          s.alpha = symbol === 'gold' ? 1.0 : 0.98
-          container.addChild(s)
-          sprites.set(key, s)
-        } else {
-          // swap texture to current frame
-          s.texture = tex
-        }
 
-        const baseTarget = Math.max(tileW, tileH) * 1.35
-        const perFrameScale = frame.rect?.scale ?? GLOW_DEFAULT_SCALE
-        const target = baseTarget * perFrameScale
-        s.width = target
-        s.height = target
-        s.x = xCell + tileW / 2
-        s.y = yCell + tileH / 2
+        // Spawn and update dots
+        spawnDot(key, tileW, tileH, xCell, yCell, timestamp)
+        const dotEntry = dotsMap.get(key)
+        if (dotEntry) updateDots(dotEntry, timestamp)
 
         used.add(key)
       }
     }
 
-    for (const [key, s] of sprites.entries()) {
+    // Cleanup dots for tiles no longer active
+    for (const [key, entry] of dotsMap.entries()) {
       if (!used.has(key)) {
-        s.parent?.removeChild(s)
-        s.destroy({ children: true, texture: false, baseTexture: false })
-        sprites.delete(key)
+        for (const p of entry.list) {
+          p.sprite.parent?.removeChild(p.sprite)
+          p.sprite.destroy({ children: true, texture: false, baseTexture: false })
+        }
+        dotsMap.delete(key)
       }
     }
   }
