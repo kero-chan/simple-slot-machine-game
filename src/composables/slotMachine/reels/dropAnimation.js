@@ -4,7 +4,7 @@
 export function createDropAnimationManager() {
   const dropStates = new Map() // key -> { fromY, toY, startTime, duration, symbol }
   const completedStates = new Map() // key -> { symbol, completedAt } - Keep symbols after animation completes
-  const GRACE_PERIOD = 4000 // ms - Keep symbols preserved until next cascade starts
+  const GRACE_PERIOD = 6000 // ms - Keep symbols preserved until next cascade starts
 
   /**
    * Start a drop animation for a tile

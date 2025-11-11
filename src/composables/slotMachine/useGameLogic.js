@@ -260,8 +260,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     // Trigger reactivity for Vue to detect changes
     gridState.grid.value = [...gridState.grid.value]
 
-    // Force a small delay to ensure grid update is processed
-    return new Promise(resolve => setTimeout(resolve, 100))
+    // Force a delay to ensure grid update is processed and rendered
+    return new Promise(resolve => setTimeout(resolve, 200))
   }
 
   const animateDisappear = (wins) => {
@@ -426,6 +426,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
       // Transform _gold tiles to gold after flip animation completes
       await transformGoldTilesToGold(wins)
       render() // Force render to update sprite textures
+
+      // Wait for players to see the gold transformation before other tiles disappear
+      await new Promise(resolve => setTimeout(resolve, 250))
 
       // Run disappear before cascading
       await animateDisappear(wins)
