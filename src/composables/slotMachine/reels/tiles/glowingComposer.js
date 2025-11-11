@@ -4,7 +4,6 @@ import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
 
 // Basic reel layout
-const MARGIN_X = 10
 const COLS = 5
 const ROWS_FULL = 4
 const TOP_PARTIAL = 0.30
@@ -126,7 +125,7 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
     entry.list = alive
   }
 
-  function draw(mainRect, tileSize, timestamp) {
+  function draw(mainRect, tileSize, timestamp, canvasW) {
     const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
     const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
 
@@ -142,8 +141,15 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
     maskGraphics.rect(mainRect.x, mainRect.y, boardW, boardH)
     maskGraphics.fill(0xffffff)
 
-    const originX = MARGIN_X
-    const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
+    // Match reels positioning with small margins on sides
+    const margin = 10  // Small margin on left and right
+    const availableWidth = canvasW - (margin * 2)
+    const scaledTileW = availableWidth / COLS  // Each tile takes 1/5 of available width
+    const scaledTileH = scaledTileW * (tileH / tileW)  // Maintain aspect ratio
+    const stepX = scaledTileW  // No spacing between tiles, they touch
+    const originX = margin  // Start from left margin
+
+    const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
     const spinning = !!gameState.isSpinning?.value
 
     const used = new Set()
@@ -154,8 +160,8 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
       const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
 
       for (let r = 0; r <= ROWS_FULL + 1; r++) {
-        const xCell = originX + col * tileW
-        const yCell = startY + r * tileH + offsetTiles * tileH
+        const xCell = originX + col * stepX
+        const yCell = startY + r * scaledTileH + offsetTiles * scaledTileH
 
         let symbol
         if (spinning) {

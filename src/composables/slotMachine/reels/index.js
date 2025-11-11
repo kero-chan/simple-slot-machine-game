@@ -10,7 +10,6 @@ export function useReels(gameState, gridState) {
     const { ensureBackdrop } = createBackdrop(container)
     const winningEffects = createWinningEffects()
 
-    const MARGIN_X = 10
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
@@ -36,9 +35,15 @@ export function useReels(gameState, gridState) {
         const tileW = typeof tileSize === 'number' ? tileSize : tileSize.w
         const tileH = typeof tileSize === 'number' ? tileSize : tileSize.h
 
-        const stepX = tileW
-        const originX = MARGIN_X
-        const startY = mainRect.y - (1 - TOP_PARTIAL) * tileH
+        // Calculate tile size and positioning with small margins on sides
+        const margin = 10  // Small margin on left and right
+        const availableWidth = canvasW - (margin * 2)
+        const scaledTileW = availableWidth / COLS  // Each tile takes 1/5 of available width
+        const scaledTileH = scaledTileW * (tileH / tileW)  // Maintain aspect ratio
+        const stepX = scaledTileW  // No spacing between tiles, they touch
+        const originX = margin  // Start from left margin
+
+        const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
         const spinning = !!gameState.isSpinning?.value
 
         const usedKeys = new Set()
@@ -64,7 +69,7 @@ export function useReels(gameState, gridState) {
             // Draw 0..5: top partial, 4 full rows, bottom partial
             for (let r = 0; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
-                const yCell = startY + r * tileH + offsetTiles * tileH
+                const yCell = startY + r * scaledTileH + offsetTiles * scaledTileH
 
                 let symbol
                 if (spinning) {
@@ -98,8 +103,8 @@ export function useReels(gameState, gridState) {
 
                 let sp = spriteCache.get(cellKey)
 
-                const w = tileW + BLEED * 2
-                const h = tileH + BLEED * 2
+                const w = scaledTileW + BLEED * 2
+                const h = scaledTileH + BLEED * 2
 
                 if (!sp) {
                     sp = new Sprite(tex)

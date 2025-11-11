@@ -48,8 +48,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const TILE_RATIO_H_OVER_W = 184 / 170
         const tileH = tileW * TILE_RATIO_H_OVER_W
 
-        const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.15
-        // Ceil + 1px guard so the bottom 15% is never clipped
+        const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.35  // Increased bottom visibility from 0.15 to 0.35
+        // Ceil + 1px guard so the bottom row is more visible
         const mainH = Math.ceil(tileH * visibleRowsSpan) + 1
 
         const footerH = Math.max(0, h - headerH - mainH)
