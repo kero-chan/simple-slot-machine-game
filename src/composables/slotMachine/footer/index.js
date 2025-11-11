@@ -254,7 +254,6 @@ export function useFooter(gameState) {
       spinBtnSprite.eventMode = 'static'
       spinBtnSprite.cursor = gameState.canSpin?.value ? 'pointer' : 'not-allowed'
       spinBtnSprite.on?.('pointerdown', () => {
-        console.log('pointerdown')
         if (gameState.showStartScreen?.value) return
         if (gameState.isSpinning?.value) return
         if (!gameState.canSpin?.value) return

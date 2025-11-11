@@ -193,21 +193,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          console.log('\n🎰 ========== SPIN STOPPING - COMMITTING GRID ==========')
-
-          // Log what's about to be committed from reel strips
-          console.log('📋 REEL STRIPS STATE (what should be shown):')
-          for (let col = 0; col < cols; col++) {
-            const strip = gridState.reelStrips.value[col]
-            const top = gridState.reelTopIndex.value[col]
-            const stripSnapshot = []
-            for (let row = 0; row < totalRows; row++) {
-              const idx = (top + row) % strip.length
-              stripSnapshot.push(`[${row}]=${strip[idx]}`)
-            }
-            console.log(`  Col ${col} (topIndex=${top}): ${stripSnapshot.join(', ')}`)
-          }
-
           // Commit final grid from reel strips for the 6 rows
           for (let col = 0; col < cols; col++) {
             const strip = gridState.reelStrips.value[col]
@@ -219,19 +204,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
             gridState.spinOffsets.value[col] = 0
             gridState.spinVelocities.value[col] = 0
           }
-
-          // Log what was committed to grid
-          console.log('\n✅ GRID STATE (after commit):')
-          for (let col = 0; col < cols; col++) {
-            const gridSnapshot = []
-            for (let row = 0; row < totalRows; row++) {
-              const visualRow = row - BUFFER_OFFSET
-              gridSnapshot.push(`[${row}](v${visualRow})=${gridState.grid.value[col][row]}`)
-            }
-            console.log(`  Col ${col}: ${gridSnapshot.join(', ')}`)
-          }
-
-          console.log('🎰 ========== SPIN COMMIT COMPLETE ==========\n')
 
           resolve()
         }
@@ -297,10 +269,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   }
 
   const cascadeSymbols = async (wins) => {
-    console.log('\n╔══════════════════════════════════════════════════════════════')
-    console.log('║ CASCADE DEBUG START')
-    console.log('╚══════════════════════════════════════════════════════════════')
-
     const toRemove = new Set()
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
@@ -314,75 +282,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     // CRITICAL: Save grid snapshot BEFORE cascade modifies it
     // This ensures drop animations have the correct "before" state
     gridState.previousGridSnapshot = gridState.grid.value.map(col => [...col])
-    console.log('💾 Saved previousGridSnapshot before cascade')
 
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
-
-    // LOG 1: WINNING TILES
-    console.log('\n📍 STEP 1: WINNING TILES (to be removed)')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const winningInCol = []
-      for (let row = 0; row < totalRows; row++) {
-        if (toRemove.has(`${col},${row}`)) {
-          const symbol = gridState.grid.value[col][row]
-          const visualRow = row - BUFFER_OFFSET
-          winningInCol.push(`grid(${col},${row})[visual ${visualRow}]=${symbol}`)
-        }
-      }
-      if (winningInCol.length > 0) {
-        console.log(`  Col ${col}: ${winningInCol.join(' | ')}`)
-      }
-    }
-
-    // LOG 2: TILES ABOVE WINNING TILES
-    console.log('\n⬆️  STEP 2: TILES ABOVE WINNING (that should drop)')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const aboveTiles = []
-      // Find the lowest winning tile in this column
-      let lowestWinningRow = -1
-      for (let row = totalRows - 1; row >= 0; row--) {
-        if (toRemove.has(`${col},${row}`)) {
-          lowestWinningRow = row
-          break
-        }
-      }
-
-      if (lowestWinningRow !== -1) {
-        // Log all tiles above this row
-        for (let row = lowestWinningRow - 1; row >= 0; row--) {
-          const symbol = gridState.grid.value[col][row]
-          const visualRow = row - BUFFER_OFFSET
-          aboveTiles.push(`grid(${col},${row})[visual ${visualRow}]=${symbol}`)
-        }
-        if (aboveTiles.length > 0) {
-          console.log(`  Col ${col}: ${aboveTiles.join(' | ')}`)
-        }
-      }
-    }
-
-    // LOG 3: EXPECTED RESULT AFTER REMOVAL
-    console.log('\n🎯 STEP 3: EXPECTED RESULT (after removal, before new tiles)')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const rowsToRemove = []
-      for (let row = BUFFER_OFFSET; row < totalRows; row++) {
-        if (toRemove.has(`${col},${row}`)) {
-          rowsToRemove.push(row)
-        }
-      }
-
-      if (rowsToRemove.length > 0) {
-        console.log(`  Col ${col}: Removing ${rowsToRemove.length} tiles`)
-        const keptTiles = []
-        for (let row = totalRows - 1; row >= 0; row--) {
-          if (!toRemove.has(`${col},${row}`)) {
-            const symbol = gridState.grid.value[col][row]
-            keptTiles.unshift(`${symbol}`)
-          }
-        }
-        console.log(`    Kept tiles (top→bottom): [${keptTiles.join(', ')}]`)
-        console.log(`    Will add ${rowsToRemove.length} new tiles at top`)
-      }
-    }
 
     // PERFORM CASCADE
     for (let col = 0; col < CONFIG.reels.count; col++) {
@@ -439,28 +340,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     // Mark cascade completion time for renderer
     gridState.lastCascadeTime.value = Date.now()
 
-    // LOG 4: ACTUAL RESULT AFTER CASCADE
-    console.log('\n✅ STEP 4: ACTUAL RESULT (after cascade with new tiles)')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const hadWinning = Array.from(toRemove).some(pos => pos.startsWith(`${col},`))
-      if (!hadWinning) continue
-
-      console.log(`  Col ${col}:`)
-      for (let row = 0; row < totalRows; row++) {
-        const symbol = gridState.grid.value[col][row]
-        const visualRow = row - BUFFER_OFFSET
-        if (row < BUFFER_OFFSET) {
-          console.log(`    grid(${col},${row})[BUFFER]=${symbol}`)
-        } else {
-          console.log(`    grid(${col},${row})[visual ${visualRow}]=${symbol}`)
-        }
-      }
-    }
-
-    console.log('\n╔══════════════════════════════════════════════════════════════')
-    console.log('║ CASCADE DEBUG END')
-    console.log('╚══════════════════════════════════════════════════════════════\n')
-
     await animateCascade()
   }
 
@@ -468,8 +347,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     const startTime = Date.now()
     const MAX_WAIT = 5000 // 5 second safety timeout
     let framesPassed = 0
-
-    console.log('⏳ animateCascade: Starting wait for drop animations')
 
     return new Promise(resolve => {
       const animate = () => {
@@ -481,17 +358,12 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
         // Also have a safety timeout in case something goes wrong
         const shouldWait = framesPassed < 2 || gridState.isDropAnimating.value
 
-        if (framesPassed % 30 === 0) { // Log every 30 frames
-          console.log(`⏳ animateCascade: frame=${framesPassed}, elapsed=${elapsed}ms, isDropAnimating=${gridState.isDropAnimating.value}`)
-        }
-
         if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
         } else {
           if (elapsed >= MAX_WAIT) {
             console.warn('⚠️ animateCascade: Hit max wait time, proceeding anyway')
           }
-          console.log(`✅ animateCascade complete after ${elapsed}ms (${framesPassed} frames), isDropAnimating=${gridState.isDropAnimating.value}`)
           render()
           resolve()
         }
@@ -501,23 +373,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   }
 
   const checkWinsAndCascade = async () => {
-    console.log('\n🔍 ========== CHECK WINS START ==========')
-    console.log('📊 GRID STATE (at start of checkWinsAndCascade):')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
-      const gridSnapshot = []
-      for (let row = 0; row < totalRows; row++) {
-        const visualRow = row - BUFFER_OFFSET
-        if (row < BUFFER_OFFSET) {
-          gridSnapshot.push(`[${row}](BUFFER)=${gridState.grid.value[col][row]}`)
-        } else {
-          gridSnapshot.push(`[${row}](v${visualRow})=${gridState.grid.value[col][row]}`)
-        }
-      }
-      console.log(`  Col ${col}: ${gridSnapshot.join(', ')}`)
-    }
-    console.log('🔍 ========== STARTING WIN DETECTION ==========\n')
-
     let totalWin = 0
     let hasWins = true
     let scattersAwarded = false
@@ -562,7 +417,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
 
       // Show win overlay with appropriate intensity
       const intensity = getWinIntensity(allWins)
-      console.log(`🎉 ${intensity.toUpperCase()} WIN: ${totalWin} credits`)
 
       if (showWinOverlay) {
         showWinOverlay(intensity, totalWin)
@@ -578,21 +432,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     if (gameState.credits.value < gameState.bet.value) {
       return
     }
-
-    console.log('\n🎲 ========== SPIN FUNCTION START ==========')
-    console.log('📊 GRID STATE (at start of spin() - before animation):')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
-      const gridSnapshot = []
-      for (let row = 0; row < totalRows; row++) {
-        const visualRow = row - BUFFER_OFFSET
-        if (row >= BUFFER_OFFSET && row < BUFFER_OFFSET + 6) {
-          gridSnapshot.push(`[${row}](v${visualRow})=${gridState.grid.value[col][row]}`)
-        }
-      }
-      console.log(`  Col ${col}: ${gridSnapshot.join(', ')}`)
-    }
-    console.log('🎲 ========== STARTING SPIN ANIMATION ==========\n')
 
     gameState.credits.value -= gameState.bet.value
     gameState.consecutiveWins.value = 0

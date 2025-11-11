@@ -202,8 +202,6 @@ export function createWinOverlay(gameState) {
       // Try to use image for grand/mega/jackpot
       try {
         const imageSrc = ASSETS.loadedImages?.[config.imageKey] || ASSETS.imagePaths?.[config.imageKey]
-        console.log(`🎯 Win overlay - imageKey: ${config.imageKey}, imageSrc:`, imageSrc)
-        console.log(`📦 ASSETS.loadedImages:`, ASSETS.loadedImages)
 
         if (imageSrc) {
           const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
@@ -219,7 +217,6 @@ export function createWinOverlay(gameState) {
 
           container.addChild(titleImage)
           imageLoaded = true
-          console.log(`✅ Win image loaded successfully: ${config.imageKey}`)
         } else {
           console.warn(`❌ No imageSrc found for ${config.imageKey}`)
         }

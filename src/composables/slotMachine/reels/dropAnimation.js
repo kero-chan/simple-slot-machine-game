@@ -17,16 +17,11 @@ export function createDropAnimationManager() {
   function startDrop(key, sprite, fromY, toY, symbol, getTexture) {
     if (!sprite) return
 
-    // Log BEFORE starting animation
-    const spriteCurrentSymbol = sprite.texture?.textureCacheIds?.[0] || 'none'
-    console.log(`🟢 [${key}] BEFORE DROP: sprite=${spriteCurrentSymbol} → willSet=${symbol}`)
-
     // CRITICAL: Set the sprite's texture AND position IMMEDIATELY to prevent visible flashing
     // The sprite must show the correct symbol at the correct starting position
     if (getTexture) {
       const tex = getTexture(symbol)
       if (tex && sprite.texture !== tex) {
-        console.log(`   ↳ Setting texture: ${spriteCurrentSymbol} → ${symbol}`)
         sprite.texture = tex
       }
     }
@@ -59,7 +54,6 @@ export function createDropAnimationManager() {
 
       if (progress >= 1) {
         // Animation complete - move to completed states to preserve symbol
-        console.log(`🏁 [${key}] Animation COMPLETE - preserving symbol: ${drop.symbol}`)
         completedStates.set(key, {
           symbol: drop.symbol,
           completedAt: now
@@ -102,9 +96,6 @@ export function createDropAnimationManager() {
    */
   function hasActiveDrops() {
     const active = dropStates.size > 0 || completedStates.size > 0
-    if (active && Date.now() % 500 < 16) { // Log occasionally
-      console.log(`💧 hasActiveDrops: active=${active}, dropping=${dropStates.size}, completed=${completedStates.size}`)
-    }
     return active
   }
 
@@ -145,7 +136,6 @@ export function createDropAnimationManager() {
    * Clear only completed states (used when new cascade starts)
    */
   function clearCompleted() {
-    console.log(`🧹 Clearing ${completedStates.size} completed animation states for new cascade`)
     completedStates.clear()
   }
 

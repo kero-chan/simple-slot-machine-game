@@ -47,7 +47,6 @@ export async function loadAllAssets() {
 
   // Log loaded assets for debugging
   const loadedCount = Object.values(ASSETS.loadedImages).filter(t => t).length
-  console.log(`✅ Loaded ${loadedCount}/${entries.length} assets`)
 }
 
 /**
