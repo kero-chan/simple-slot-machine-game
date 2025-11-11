@@ -44,7 +44,7 @@ export const CONSECUTIVE_WINS_CONFIG = {
   x5_active: {
     iconAsset: 'header_multiplier_active',
     icon: { x: 544, y: 8, w: 106, h: 76 },
-    iconScale: 0.78,
+    iconScale: 1,
     iconRotation: 0,
   },
   page_title: {

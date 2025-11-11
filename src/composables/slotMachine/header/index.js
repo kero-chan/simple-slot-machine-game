@@ -6,6 +6,7 @@ import { CONSECUTIVE_WINS_CONFIG } from "./consecutiveWins/config";
 export function useHeader(gameState) {
   const container = new Container();
   let multiplierSprites = []; // Store sprites for multiplier display
+  let multiplierBackgrounds = []; // Store background sprites for active multipliers
   let app = null; // Store PIXI app reference
 
   function getConfiguredTexture(configKey) {
@@ -107,6 +108,7 @@ export function useHeader(gameState) {
   function build(rect) {
     container.removeChildren();
     multiplierSprites = [];
+    multiplierBackgrounds = [];
     const { x, y, w, h } = rect;
 
     // Create layered background system
@@ -249,10 +251,10 @@ export function useHeader(gameState) {
     const multipliers = [1, 2, 3, 5];
 
     // Layout configuration:
-    // - Each multiplier: 13% default, 14% active
-    // - Gap between multipliers: 5% of header width
+    // - Each multiplier: 12% default, 14% active
+    // - Gap between multipliers: 6% of header width
     const defaultMultiplierWidth = w * 0.12; // 12% width for default
-    const activeMultiplierWidth = w * 0.125; // 12.5% width for active
+    const activeMultiplierWidth = w * 0.14; // 14% width for active (increased from 12.5%)
     const gapWidth = w * 0.06; // 6% gap between multipliers
 
     // Determine current active multiplier
@@ -288,6 +290,33 @@ export function useHeader(gameState) {
       );
 
       if (texture) {
+        // Add active status background if this multiplier is active
+        if (isActive) {
+          const activeBgTexture = ASSETS.loadedImages?.active_status_bg;
+          if (activeBgTexture) {
+            const bgSprite = new Sprite(activeBgTexture);
+            bgSprite.anchor.set(0.5);
+            bgSprite.x = centerX;
+            bgSprite.y = centerY - 50; // Move background up by 50px
+            
+            // Set blend mode to 'screen' for better blending with dark background
+            bgSprite.blendMode = 'screen';
+            
+            // Scale background to fit the multiplier area (slightly larger for effect)
+            // Calculate base scale to fit the multiplier, then multiply by 1.5 for larger effect
+            const baseScaleX = multiplierWidth / activeBgTexture.width;
+            const baseScaleY = spriteHeight / activeBgTexture.height;
+            const baseScale = Math.max(baseScaleX, baseScaleY);
+            const bgScale = baseScale * 2.5; // 2.5x larger than the multiplier size
+            
+            bgSprite.width = activeBgTexture.width * bgScale;
+            bgSprite.height = activeBgTexture.height * bgScale;
+            
+            container.addChild(bgSprite);
+            multiplierBackgrounds.push({ sprite: bgSprite, multiplier: mult });
+          }
+        }
+
         const sprite = new Sprite(texture);
         sprite.anchor.set(0.5);
         sprite.x = centerX;
@@ -344,15 +373,58 @@ export function useHeader(gameState) {
 
     // Layout configuration (same as build)
     const defaultMultiplierWidth = w * 0.12; // 12% width for default
-    const activeMultiplierWidth = w * 0.125; // 12.5% width for active
+    const activeMultiplierWidth = w * 0.14; // 14% width for active (increased from 12.5%)
 
     // Estimate bg02Height for spriteHeight calculation
     const bg02Height = h * 0.5; // Approximate
     const spriteHeight = Math.floor(bg02Height * 0.8);
 
+    // Remove all existing backgrounds
+    for (const bgItem of multiplierBackgrounds) {
+      if (bgItem.sprite.parent) {
+        container.removeChild(bgItem.sprite);
+      }
+    }
+    multiplierBackgrounds = [];
+
+    // Update multiplier sprites and add backgrounds for active ones
+
+    // Update multiplier sprites and add backgrounds for active ones
     for (const item of multiplierSprites) {
       const { sprite, multiplier } = item;
       const isActive = multiplier === displayedMult; // Only the current multiplier is active
+
+      // Add active status background if this multiplier is active
+      if (isActive) {
+        const activeBgTexture = ASSETS.loadedImages?.active_status_bg;
+        if (activeBgTexture) {
+          const bgSprite = new Sprite(activeBgTexture);
+          bgSprite.anchor.set(0.5);
+          bgSprite.x = sprite.x;
+          bgSprite.y = sprite.y - 50; // Move background up by 50px
+          
+          // Set blend mode to 'screen' for better blending with dark background
+          bgSprite.blendMode = 'screen';
+          
+          // Get width based on active state
+          const multiplierWidth = activeMultiplierWidth;
+          
+          // Scale background to fit the multiplier area (slightly larger for effect)
+          // Calculate base scale to fit the multiplier, then multiply by 1.5 for larger effect
+          const baseScaleX = multiplierWidth / activeBgTexture.width;
+          const baseScaleY = spriteHeight / activeBgTexture.height;
+          const baseScale = Math.max(baseScaleX, baseScaleY);
+          const bgScale = baseScale * 2.5; // 2.5x larger than the multiplier size
+          
+          bgSprite.width = activeBgTexture.width * bgScale;
+          bgSprite.height = activeBgTexture.height * bgScale;
+          
+          // Add background before the sprite
+          const spriteIndex = container.getChildIndex(sprite);
+          container.addChildAt(bgSprite, spriteIndex);
+          multiplierBackgrounds.push({ sprite: bgSprite, multiplier });
+        }
+      }
 
       // Update texture if it's a Sprite
       if (sprite instanceof Sprite) {

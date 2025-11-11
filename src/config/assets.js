@@ -26,6 +26,7 @@ export const ASSETS = {
     // Consecutive wins spritesheets
     header_multiplier_active: new URL('../assets/consecutiveWins/64.png', import.meta.url).href,
     header_multiplier_default: new URL('../assets/consecutiveWins/65.png', import.meta.url).href,
+    active_status_bg: new URL('../assets/consecutiveWins/active_status_bg.png', import.meta.url).href,
     // Footer
     footer_bg: new URL('../assets/footer_bg.png', import.meta.url).href,
     footer_notification_bg: new URL('../assets/notification_bg.png', import.meta.url).href,
