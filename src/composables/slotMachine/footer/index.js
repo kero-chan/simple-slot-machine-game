@@ -10,7 +10,7 @@ export function useFooter(gameState) {
     decreaseBet: () => {}
   }
 
-  let spinBtnArrowSprite, spinBtnSprite
+  let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiTextSprite, notiMask
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -33,6 +33,42 @@ export function useFooter(gameState) {
     if (spinBtnArrowSprite) spinBtnArrowSprite.texture = isSpinning ? texArrowSpinning : texArrowNormal
   }
 
+  const setNotification = (notiSubTex = null) => {
+    if (!notiTextSprite) return
+
+    if (!notiSubTex) {
+      const randomKey = `text${Math.ceil(Math.random() * 4)}`
+      const cfg = IMAGE_POSITIONS.footer_notification_texts[randomKey]
+      notiTextSprite.texture = subTex(loadBaseTexture('footer_notification_text'), cfg)
+    }
+
+    notiTextSprite.mask = null
+    notiTextSprite.scale.set(1)
+    notiTextSprite.scale.set(0.7 * notiBgSprite.height / notiTextSprite.height)
+    notiMask.clear()
+    if (notiTextSprite.width > notiBgSprite.width * 0.9) {
+      const visibleWidth = notiBgSprite.width * 0.8
+      const visibleHeight = notiBgSprite.height
+      notiMask.fill({ color: 0xffffff, alpha: 1 })
+      notiMask.drawRect(
+        notiBgSprite.x - notiBgSprite.width * 0.55 + notiBgSprite.width * 0.15,
+        notiBgSprite.y - notiBgSprite.height * 0.5,
+        visibleWidth,
+        visibleHeight
+      )
+      notiMask.fill()
+
+      notiTextSprite.mask = notiMask
+      const yCenter = notiBgSprite.y
+      const startX = notiBgSprite.x - notiBgSprite.width * 0.35 + notiTextSprite.width / 2
+      notiTextSprite.anchor.set(0.5)
+      notiTextSprite.position.set(startX, yCenter)
+    } else {
+      notiTextSprite.anchor.set(0.5)
+      notiTextSprite.position.set(notiBgSprite.position.x, notiBgSprite.position.y)
+    }
+  }
+
   let lastTs = 0
   const VALUE_NAME_PREFIX = 'footer-pill-value-'
 
@@ -40,6 +76,7 @@ export function useFooter(gameState) {
   function build(rect) {
     container.removeChildren()
     const { x, y, w, h } = rect
+    const setRectHeight = Math.floor(h * 0.5)
 
     // Centered spin button cluster
     const centerX = x + Math.floor(w / 2)
@@ -49,27 +86,27 @@ export function useFooter(gameState) {
     const bgSubTex = (rect) => subTex(loadBaseTexture('footer_bg'), rect)
     if (IMAGE_POSITIONS.footer_bg) {
       const bgSprite = new Sprite(bgSubTex(IMAGE_POSITIONS.footer_bg))
-      // bgSprite.scale.set(0.95)
+       const scale = Math.max(
+        w / bgSprite.width,
+        h / bgSprite.height
+      )
+      bgSprite.scale.set(scale)
       bgSprite.position.set(x, y + h*0.12)
       container.addChild(bgSprite)
     }
 
     if (IMAGE_POSITIONS.footer_bar) {
       const bgBarSprite = new Sprite(bgSubTex(IMAGE_POSITIONS.footer_bar))
-      bgBarSprite.scale.set(1.1)
+      bgBarSprite.scale.set(0.48 * setRectHeight / bgBarSprite.height)
       bgBarSprite.anchor.set(0.5)
-      bgBarSprite.position.set(centerX, y + h *0.05)
+      bgBarSprite.position.set(centerX, y + h * 0.052)
       container.addChild(bgBarSprite)
     }
 
-
-
-
     // Footer notification background
     if (IMAGE_POSITIONS.footer_notification_bg) {
-      const notiBgSprite = new Sprite(subTex(loadBaseTexture('footer_notification_bg'),IMAGE_POSITIONS.footer_notification_bg))
-      notiBgSprite.scale.set(0.96)
-      notiBgSprite.height = notiBgSprite.height + h*0.02
+      notiBgSprite = new Sprite(subTex(loadBaseTexture('footer_notification_bg'),IMAGE_POSITIONS.footer_notification_bg))
+      notiBgSprite.scale.set(0.95 * w / notiBgSprite.width)
       notiBgSprite.anchor.set(0.5)
       notiBgSprite.position.set(centerX, y + h *0.12)
       container.addChild(notiBgSprite)
@@ -78,16 +115,16 @@ export function useFooter(gameState) {
       const randomKey = `text${Math.ceil(Math.random() * 4)}`
       const cfg = IMAGE_POSITIONS.footer_notification_texts[randomKey]
       if (cfg) {
-        const notiTextSprite = new Sprite(subTex(loadBaseTexture('footer_notification_text'), cfg))
-        notiTextSprite.scale.set(0.75)
-        notiTextSprite.anchor.set(0.5)
-        notiTextSprite.position.set(notiBgSprite.position.x, notiBgSprite.position.y)
+        notiTextSprite = new Sprite(subTex(loadBaseTexture('footer_notification_text'), cfg))
+        notiMask = new Graphics()
+        container.addChild(notiMask)
+        setNotification(notiTextSprite)
         container.addChild(notiTextSprite)
       }
     }
 
     const iconSettingSubTex = (r) => subTex(loadBaseTexture('footer_icon_setting'), r)
-    // const iconSetting1SubTex = (r) => subTex(loadBaseTexture('footer_icon_setting1'), r)
+    const iconSetting1SubTex = (r) => subTex(loadBaseTexture('footer_icon_setting1'), r)
 
     // Credis / Bet / Win pills
     const pillGap = Math.floor(w * 0.01)
@@ -99,18 +136,21 @@ export function useFooter(gameState) {
     const amountColor = 0x85efff
     const recAlpha = 0.8
 
-    const buildRect = (r, i, text) => {
-      const baseRect = new Graphics()
-      baseRect.fill({color: recColor, alpha: recAlpha})
-      baseRect.roundRect(startX+i*(pillWidth+pillGap), y+h*0.33, pillWidth, pillHeight, 0.25*pillHeight)
-      baseRect.fill()
+    const buildRect = (subText, i, text) => {
+      const rectX = startX + i*(pillWidth+pillGap)
+      const rectY = y + setRectHeight*0.61
+
+      const baseRect = new Graphics().
+        roundRect(rectX, rectY, pillWidth, pillHeight, 0.25*pillHeight).
+        fill({color: recColor, alpha: recAlpha})
+
       container.addChild(baseRect)
 
-      const iconSprite = new Sprite(iconSettingSubTex(r))
+      const iconSprite = new Sprite(subText)
       iconSprite.anchor.set(0.5)
-      iconSprite.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.12, y+h*0.33+baseRect.height/2)
+      iconSprite.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.12, rectY+baseRect.height/2)
       iconSprite.tint = iconColor
-      fitSpriteToRect(iconSprite, baseRect)
+      fitSpriteToRect(iconSprite, pillHeight, 0.5)
       container.addChild(iconSprite)
 
       const label = new Text({text: text,
@@ -120,51 +160,96 @@ export function useFooter(gameState) {
           fill: amountColor,
         }
       })
-      fitTextToBox(label, pillWidth, 0.65)
+      fitTextToBox(label, pillHeight, 0.65)
       label.anchor.set(0.5)
-      label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, y+h*0.33+baseRect.height/2)
+      label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, rectY+baseRect.height/2)
       container.addChild(label)
     }
 
-
-    buildRect(IMAGE_POSITIONS.wallet_icon, 0,'100,000.00')
-    buildRect(IMAGE_POSITIONS.wallet_icon, 1, '12.00')
-    buildRect(IMAGE_POSITIONS.wallet_icon, 2, '0.00')
-
-
-    // bet rectangle
-    const betRect = new Graphics()
-    betRect.fill({color: recColor, alpha: recAlpha})
-    betRect.roundRect(startX+1*(pillWidth+pillGap), y+h*0.33, pillWidth, pillHeight, 15)
-    betRect.fill()
-    container.addChild(betRect)
-
-    // win amount rectangle
-    const winRect = new Graphics()
-    winRect.fill({color: recColor, alpha: recAlpha})
-    winRect.roundRect(startX+2*(pillWidth+pillGap), y+h*0.33, pillWidth, pillHeight, 15)
-    winRect.fill()
-    container.addChild(winRect)
+    buildRect(iconSettingSubTex(IMAGE_POSITIONS.wallet_icon), 0,'100,000.00')
+    buildRect(iconSetting1SubTex(IMAGE_POSITIONS.bet_amount_icon), 1, '12.00')
+    buildRect(iconSetting1SubTex(IMAGE_POSITIONS.win_amount_icon), 2, '0.00')
 
 
 
     // Bet Setting
     const setRect = new Graphics()
-    const setRectHeight = Math.floor(h * 0.48)
     setRect.fill({color: recColor, alpha: recAlpha})
     setRect.roundRect(x, y+(h-setRectHeight), w, setRectHeight, 0)
     setRect.fill()
     container.addChild(setRect)
 
+    const btnYPos = y+h*0.65
+    const targetButonHeightPer = 0.35
+    // Minus / Plus buttons
+    const minusSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.minus_icon))
+    minusSprite.anchor.set(0.5)
+    minusSprite.position.set(centerX - 0.45*centerX, btnYPos)
+    minusSprite.tint = iconColor
+    minusSprite.scale.set(setRectHeight * targetButonHeightPer / minusSprite.height)
+    container.addChild(minusSprite)
+
+    const plusSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.plus_icon))
+    plusSprite.anchor.set(0.5)
+    plusSprite.position.set(centerX + 0.45*centerX, btnYPos)
+    plusSprite.tint = iconColor
+    plusSprite.scale.set(setRectHeight * targetButonHeightPer / plusSprite.height)
+    container.addChild(plusSprite)
+
+    // lightning icon
+    const lightningBgSprite = new Sprite(iconSetting1SubTex(IMAGE_POSITIONS.lightning_bg_icon))
+    lightningBgSprite.anchor.set(0.5)
+    lightningBgSprite.position.set(centerX - 0.75*centerX, btnYPos)
+    lightningBgSprite.tint = iconColor
+    lightningBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / lightningBgSprite.height)
+    container.addChild(lightningBgSprite)
+    const lightningSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.lightning_icon))
+    lightningSprite.anchor.set(0.5)
+    lightningSprite.position.set(lightningBgSprite.position.x, btnYPos)
+    lightningSprite.tint = iconColor
+    lightningSprite.scale.set(0.8 * 0.6 * setRectHeight * targetButonHeightPer / lightningSprite.height)
+    container.addChild(lightningSprite)
+
+    // auto spin icon
+    const autoSpinBgSprite = new Sprite(iconSetting1SubTex(IMAGE_POSITIONS.auto_spin_bg_icon))
+    autoSpinBgSprite.anchor.set(0.5)
+    autoSpinBgSprite.position.set(centerX + 0.75*centerX, btnYPos)
+    autoSpinBgSprite.tint = iconColor
+    autoSpinBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / autoSpinBgSprite.height)
+    container.addChild(autoSpinBgSprite)
+
+    const autoSpinArrowSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.auto_spin_arrow_icon))
+    autoSpinArrowSprite.anchor.set(0.5)
+    autoSpinArrowSprite.position.set(autoSpinBgSprite.position.x, btnYPos)
+    autoSpinArrowSprite.tint = iconColor
+    autoSpinArrowSprite.scale.set(0.8 * 0.7 * setRectHeight * targetButonHeightPer / autoSpinArrowSprite.height)
+    autoSpinArrowSprite.rotation = Math.random() * Math.PI * 2
+    container.addChild(autoSpinArrowSprite)
+
+    const autoSpinSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.auto_spin_icon))
+    autoSpinSprite.anchor.set(0.5)
+    autoSpinSprite.position.set(autoSpinBgSprite.position.x, btnYPos)
+    autoSpinSprite.tint = iconColor
+    autoSpinSprite.scale.set(0.8 * 0.32 * setRectHeight * targetButonHeightPer / autoSpinSprite.height)
+    autoSpinSprite.rotation = -(Math.PI / 2)
+    container.addChild(autoSpinSprite)
+
+    // Menu icon
+    const menuIconSprite = new Sprite(iconSettingSubTex(IMAGE_POSITIONS.menu_icon))
+    menuIconSprite.anchor.set(0.5)
+    menuIconSprite.position.set(centerX + 0.98*centerX, btnYPos)
+    menuIconSprite.scale.set(0.6 * setRectHeight * targetButonHeightPer / menuIconSprite.height)
+    menuIconSprite.rotation = -(Math.PI / 2)
+    container.addChild(menuIconSprite)
 
     // Spin button
     const spinBtnBaseTex = loadBaseTexture('spin')
-    const spinBtnScale = w * 0.0016
+    const targetSpinBtnHeightPer = 0.8
     if (IMAGE_POSITIONS.spin_btn_bg) {
       spinBtnSprite = new Sprite(subTex(spinBtnBaseTex, IMAGE_POSITIONS.spin_btn_bg))
       spinBtnSprite.anchor.set(0.5)
-      spinBtnSprite.position.set(centerX, y+h*0.65)
-      spinBtnSprite.scale.set(spinBtnScale)
+      spinBtnSprite.position.set(centerX, btnYPos)
+      spinBtnSprite.scale.set(targetSpinBtnHeightPer * setRectHeight / spinBtnSprite.height)
       spinBtnSprite.rotation = -(Math.PI / 2)
 
       spinBtnSprite.eventMode = 'static'
@@ -184,119 +269,25 @@ export function useFooter(gameState) {
       if (IMAGE_POSITIONS.spin_btn_arrows.normal) {
         spinBtnArrowSprite = new Sprite(subTex(spinBtnBaseTex,IMAGE_POSITIONS.spin_btn_arrows.normal))
         spinBtnArrowSprite.anchor.set(0.5)
-        spinBtnArrowSprite.position.set(spinBtnSprite.position.x, spinBtnSprite.position.y)
-        spinBtnArrowSprite.scale.set(spinBtnScale)
+        spinBtnArrowSprite.position.set(spinBtnSprite.position.x, btnYPos)
+        spinBtnArrowSprite.scale.set(0.65 * targetSpinBtnHeightPer * setRectHeight / spinBtnArrowSprite.height)
         container.addChild(spinBtnArrowSprite)
       }
     }
-
-    // setNotification(1, container)
-
-    // Top row: Credits / Bet / Win pills
-    // {
-    //   const pillGap = Math.floor(w * 0.02)
-    //   const pillWidth = Math.floor((w - pillGap * 4) / 3)
-    //   const pillHeight = Math.floor(h * 0.28)
-    //   const labels = ['CREDITS', 'BET', 'WIN']
-    //   const vals = [
-    //     Number(gameState.credits.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    //     Number(gameState.bet.value).toFixed(2),
-    //     Number(gameState.currentWin.value).toFixed(2)
-    //   ]
-
-    //   for (let i = 0; i < 3; i++) {
-    //     const px = x + pillGap + i * (pillWidth + pillGap)
-    //     const py = y + pillGap
-    //     const pill = new Graphics()
-    //     pill.roundRect(px, py, pillWidth, pillHeight, Math.floor(pillHeight / 3))
-    //     pill.fill(0xb2784f)
-    //     container.addChild(pill)
-
-    //     const label = new Text(labels[i], { fill: 0xffffff, fontSize: Math.floor(pillHeight * 0.25) })
-    //     label.x = px + Math.floor(pillWidth * 0.06)
-    //     label.y = py + Math.floor(pillHeight * 0.10)
-    //     container.addChild(label)
-
-    //     const valueText = new Text(vals[i], { fill: 0xffffff, fontSize: Math.floor(pillHeight * 0.35), fontWeight: 'bold' })
-    //     valueText.x = px + Math.floor(pillWidth * 0.06)
-    //     valueText.y = py + Math.floor(pillHeight * 0.50)
-    //     valueText.name = `${VALUE_NAME_PREFIX}${i}`
-    //     container.addChild(valueText)
-    //   }
-    // }
-
-
-
-    // const BTN_SCALE_W = 0.42
-    // const BTN_SCALE_H = 0.95
-    // const btnSize = Math.floor(Math.min(h * BTN_SCALE_H, w * BTN_SCALE_W))
-
-
-
-    // // Bet controls
-    // const ctrlW = Math.floor(btnSize * 0.6)
-    // const ctrlH = Math.floor(btnSize * 0.42)
-    // const gap = Math.floor(btnSize * 0.5)
-
-    // const minusX = centerX - Math.floor(btnSize / 2) - gap - ctrlW
-    // const minusY = centerY - Math.floor(ctrlH / 2)
-    // minusBtn = new Graphics()
-    // minusBtn.roundRect(minusX, minusY, ctrlW, ctrlH, Math.floor(ctrlH / 3))
-    // minusBtn.fill(0x3b6d48)
-    // minusBtn.eventMode = 'static'
-    // minusBtn.cursor = 'pointer'
-    // minusBtn.on('pointerdown', () => {
-    //   if (gameState.isSpinning?.value) return
-    //   handlers.decreaseBet && handlers.decreaseBet()
-    // })
-    // container.addChild(minusBtn)
-
-    // const minusText = new Text('−', {
-    //   fill: 0xffffff,
-    //   fontSize: Math.floor(ctrlH * 0.6),
-    //   fontWeight: 'bold'
-    // })
-    // minusText.anchor.set(0.5)
-    // minusText.x = minusX + Math.floor(ctrlW / 2)
-    // minusText.y = minusY + Math.floor(ctrlH / 2)
-    // container.addChild(minusText)
-
-    // const plusX = centerX + Math.floor(btnSize / 2) + gap
-    // const plusY = centerY - Math.floor(ctrlH / 2)
-    // plusBtn = new Graphics()
-    // plusBtn.roundRect(plusX, plusY, ctrlW, ctrlH, Math.floor(ctrlH / 3))
-    // plusBtn.fill(0x3b6d48)
-    // plusBtn.eventMode = 'static'
-    // plusBtn.cursor = 'pointer'
-    // plusBtn.on('pointerdown', () => {
-    //   if (gameState.isSpinning?.value) return
-    //   handlers.increaseBet && handlers.increaseBet()
-    // })
-    // container.addChild(plusBtn)
-
-    // const plusText = new Text('+', {
-    //   fill: 0xffffff,
-    //   fontSize: Math.floor(ctrlH * 0.6),
-    //   fontWeight: 'bold'
-    // })
-    // plusText.anchor.set(0.5)
-    // plusText.x = plusX + Math.floor(ctrlW / 2)
-    // plusText.y = plusY + Math.floor(ctrlH / 2)
-    // container.addChild(plusText)
   }
 
-  function fitTextToBox(textObj, boxWidth, widthPercent = 0.8) {
-    const targetWidth = boxWidth * widthPercent
+  function fitTextToBox(textObj, boxHeight, heightPercent = 0.8) {
+    const targetHeight = boxHeight * heightPercent
     const baseSize = textObj.style.fontSize
-    let scaleFactor = targetWidth / textObj.width
+    let scaleFactor = targetHeight / textObj.height
     textObj.style.fontSize = baseSize * scaleFactor
   }
 
-  function fitSpriteToRect(sprite, rect) {
-    if (!sprite || !rect) return
-    const h = rect.height
-    const scale =(h / sprite.height) * 0.5
-    sprite.scale.set(scale)
+  function fitSpriteToRect(sprite, boxHeight, heightPercent = 0.5) {
+    const targetHeight = boxHeight * heightPercent
+    let scaleFactor = targetHeight / sprite.height
+    sprite.scale.set(1)
+    sprite.scale.set(scaleFactor)
   }
 
   // Refresh pill values each frame so they reflect game state
@@ -315,27 +306,67 @@ export function useFooter(gameState) {
     }
   }
 
-  // Animate arrow rotation and button states
+  let notiState = 'idle'; // 'idle' = đứng yên trước scroll, 'scroll' = chạy text, 'waitAfterScroll' = chờ sau scroll
+  let notiTimer = 0;
+  const idleDuration = 1; // giây đứng yên trước scroll
+  const afterScrollDuration = 1; // giây chờ sau scroll
+  const scrollSpeed = 70; // px/giây
+
   function update(timestamp = 0) {
-    const canSpin = !!gameState.canSpin?.value
+    const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0;
+    lastTs = timestamp;
+
+    // Spin button
+    const canSpin = !!gameState.canSpin?.value;
     if (spinBtnSprite) {
-      spinBtnSprite.alpha = canSpin ? 1 : 0.5
-      spinBtnSprite.cursor = canSpin ? 'pointer' : 'not-allowed'
+      spinBtnSprite.alpha = canSpin ? 1 : 0.5;
+      spinBtnSprite.cursor = canSpin ? 'pointer' : 'not-allowed';
     }
 
     if (spinBtnArrowSprite) {
-      const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0
-      lastTs = timestamp
-      const spinning = !!gameState.isSpinning?.value
-      if (spinning) {
-        setToSpinning(true)
-      } else {
-        setToSpinning(false)
+      const spinning = !!gameState.isSpinning?.value;
+      setToSpinning(spinning);
+      const speed = spinning ? (Math.PI * 5) : (Math.PI * 0.5);
+      spinBtnArrowSprite.rotation += speed * dt;
+    }
+
+    if (!notiTextSprite) return;
+
+    if (!notiTextSprite.mask || notiTextSprite.width <= notiBgSprite.width*0.8) {
+      // short notification, don't animate
+      notiTimer += dt;
+      if (notiTimer >= 3) {
+        setNotification();
+        notiTimer = 0;
       }
-      const speed = spinning ? (Math.PI * 5) : (Math.PI * 0.5) // rad/sec
-      spinBtnArrowSprite.rotation += speed * dt
+      return;
+    }
+
+    // long animation with mask
+    if (notiState === 'idle') {
+      notiTimer += dt;
+      if (notiTimer >= idleDuration) {
+        notiState = 'scroll';
+        notiTimer = 0;
+      }
+    } else if (notiState === 'scroll') {
+      notiTextSprite.x -= scrollSpeed * dt;
+
+      const maskLeft = notiBgSprite.x - notiBgSprite.width*0.4;
+      if (notiTextSprite.x < maskLeft - notiTextSprite.width/2) {
+        notiState = 'waitAfterScroll';
+        notiTimer = 0;
+      }
+    } else if (notiState === 'waitAfterScroll') {
+      notiTimer += dt;
+      if (notiTimer >= afterScrollDuration) {
+        setNotification();
+        notiState = 'idle';
+        notiTimer = 0;
+      }
     }
   }
+
 
   return { container, build, setHandlers, update, updateValues, setToSpinning }
 }
