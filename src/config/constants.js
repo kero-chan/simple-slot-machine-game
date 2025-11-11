@@ -26,7 +26,7 @@ export const CONFIG = {
   freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
   animation: {
     spinDuration: 1600,
-    cascadeDuration: 500,
+    cascadeDuration: 1000, // DEPRECATED: No longer used - now waits for actual drop animations to complete
     reelStagger: 150
   },
   game: {

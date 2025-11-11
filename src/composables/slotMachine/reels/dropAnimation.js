@@ -2,20 +2,48 @@
  * Manages drop animations for tiles cascading down
  */
 export function createDropAnimationManager() {
-  const dropStates = new Map() // key -> { fromY, toY, startTime, duration }
+  const dropStates = new Map() // key -> { fromY, toY, startTime, duration, symbol }
+  const completedStates = new Map() // key -> { symbol, completedAt } - Keep symbols after animation completes
 
   /**
    * Start a drop animation for a tile
+   * @param {string} key - The cellKey (col:visualRow)
+   * @param {Sprite} sprite - The sprite to animate
+   * @param {number} fromY - Starting Y position
+   * @param {number} toY - Target Y position
+   * @param {string} symbol - The symbol this sprite should display during animation
+   * @param {Function} getTexture - Function to get texture for a symbol
    */
-  function startDrop(key, sprite, fromY, toY) {
+  function startDrop(key, sprite, fromY, toY, symbol, getTexture) {
     if (!sprite) return
+
+    // Log BEFORE starting animation
+    const spriteCurrentSymbol = sprite.texture?.textureCacheIds?.[0] || 'none'
+    console.log(`🟢 [${key}] BEFORE DROP: sprite=${spriteCurrentSymbol} → willSet=${symbol}`)
+
+    // CRITICAL: Set the sprite's texture AND position IMMEDIATELY to prevent visible flashing
+    // The sprite must show the correct symbol at the correct starting position
+    if (getTexture) {
+      const tex = getTexture(symbol)
+      if (tex && sprite.texture !== tex) {
+        console.log(`   ↳ Setting texture: ${spriteCurrentSymbol} → ${symbol}`)
+        sprite.texture = tex
+      }
+    }
+
+    // Set sprite to starting Y position immediately
+    sprite.y = fromY
 
     dropStates.set(key, {
       fromY,
       toY,
       startTime: Date.now(),
-      duration: 300 // 300ms drop
+      duration: 300, // 300ms drop
+      symbol // Store the symbol for this animation
     })
+
+    // Clear from completed states if it was there
+    completedStates.delete(key)
   }
 
   /**
@@ -24,15 +52,24 @@ export function createDropAnimationManager() {
   function update() {
     const now = Date.now()
 
+    // Update active animations
     for (const [key, drop] of dropStates.entries()) {
       const elapsed = now - drop.startTime
       const progress = Math.min(elapsed / drop.duration, 1)
 
       if (progress >= 1) {
-        // Animation complete
+        // Animation complete - move to completed states to preserve symbol
+        console.log(`🏁 [${key}] Animation COMPLETE - preserving symbol: ${drop.symbol}`)
+        completedStates.set(key, {
+          symbol: drop.symbol,
+          completedAt: now
+        })
         dropStates.delete(key)
       }
     }
+
+    // DON'T auto-clear completed states - they will be cleared when next cascade starts
+    // This prevents sprites from reading wrong grid values if grid changes before next cascade
   }
 
   /**
@@ -60,10 +97,56 @@ export function createDropAnimationManager() {
   }
 
   /**
+   * Check if ANY tiles are currently dropping OR in grace period
+   * Returns true if animations are active or recently completed
+   */
+  function hasActiveDrops() {
+    const active = dropStates.size > 0 || completedStates.size > 0
+    if (active && Date.now() % 500 < 16) { // Log occasionally
+      console.log(`💧 hasActiveDrops: active=${active}, dropping=${dropStates.size}, completed=${completedStates.size}`)
+    }
+    return active
+  }
+
+  /**
+   * Get the symbol for an animating sprite
+   * Returns null if not animating
+   */
+  function getAnimatingSymbol(key) {
+    const drop = dropStates.get(key)
+    return drop ? drop.symbol : null
+  }
+
+  /**
+   * Get the symbol for a sprite that just completed its animation
+   * Returns null if not recently completed
+   */
+  function getCompletedSymbol(key) {
+    const completed = completedStates.get(key)
+    return completed ? completed.symbol : null
+  }
+
+  /**
+   * Check if a sprite recently completed its drop animation
+   */
+  function isRecentlyCompleted(key) {
+    return completedStates.has(key)
+  }
+
+  /**
    * Clear all animations
    */
   function clear() {
     dropStates.clear()
+    completedStates.clear()
+  }
+
+  /**
+   * Clear only completed states (used when new cascade starts)
+   */
+  function clearCompleted() {
+    console.log(`🧹 Clearing ${completedStates.size} completed animation states for new cascade`)
+    completedStates.clear()
   }
 
   return {
@@ -71,6 +154,11 @@ export function createDropAnimationManager() {
     update,
     getDropY,
     isDropping,
-    clear
+    hasActiveDrops,
+    getAnimatingSymbol,
+    getCompletedSymbol,
+    isRecentlyCompleted,
+    clear,
+    clearCompleted
   }
 }

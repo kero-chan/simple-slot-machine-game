@@ -25,7 +25,6 @@ export function useReels(gameState, gridState) {
     let savedWinningPositions = [] // Save winning positions when highlights appear
     let lastCascadeTime = 0 // Track when cascade last happened
     const CASCADE_RESET_WINDOW = 300 // Reset sprites within 300ms of cascade
-    let previousGrid = null // Track previous grid state to detect tile movements
 
     // Add containers in order: background, tiles, frames
     container.addChild(tilesContainer)
@@ -65,6 +64,9 @@ export function useReels(gameState, gridState) {
         flipAnimations.update()
         dropAnimations.update()
 
+        // Update drop animation state for game logic to wait on
+        gridState.isDropAnimating.value = dropAnimations.hasActiveDrops()
+
         const hasHighlights = gridState.highlightWins?.value?.length > 0
 
         // Clear flip animations and tracking when spinning starts
@@ -76,19 +78,33 @@ export function useReels(gameState, gridState) {
             readyToFlip = false
             savedWinningPositions = []
             lastCascadeTime = 0
-            previousGrid = null
+            gridState.previousGridSnapshot = null
         }
 
         // Detect when cascade completes (grid just changed)
-        const cascadeTime = gridState.lastCascadeTime || 0
+        const cascadeTime = gridState.lastCascadeTime?.value || 0
         if (cascadeTime > lastCascadeTime) {
+            // CRITICAL: Clear all completed animation states from previous cascade
+            // When a new cascade starts, old completed states are no longer valid
+            // This prevents sprites from changing to wrong symbols after grace period expires
+            dropAnimations.clearCompleted()
+
             // Detect which tiles moved and start drop animations
             // Use the stored removed positions from cascade
-            const removedPositions = gridState.lastRemovedPositions || new Set()
+            const removedPositions = gridState.lastRemovedPositions?.value || new Set()
 
-            if (previousGrid && removedPositions.size > 0) {
+            console.log('\n🎬 ========== DROP ANIMATION START ==========')
+            console.log('📊 removedPositions size:', removedPositions.size)
+            console.log('📊 removedPositions:', Array.from(removedPositions).join(', '))
+            console.log('📊 previousGridSnapshot exists:', !!gridState.previousGridSnapshot)
+            if (gridState.previousGridSnapshot) {
+                console.log('📊 previousGridSnapshot[0][4-9]:', gridState.previousGridSnapshot[0]?.slice(4, 10))
+                console.log('📊 currentGrid[0][4-9]:', gridState.grid.value[0]?.slice(4, 10))
+            }
+
+            if (gridState.previousGridSnapshot && removedPositions.size > 0) {
                 for (let col = 0; col < COLS; col++) {
-                    const oldCol = previousGrid[col] || []
+                    const oldCol = gridState.previousGridSnapshot[col] || []
                     const newCol = gridState.grid.value[col] || []
                     const totalRows = oldCol.length
 
@@ -102,8 +118,16 @@ export function useReels(gameState, gridState) {
 
                     if (removedCount === 0) continue
 
+                    console.log(`\n🎬 ===== COLUMN ${col} ===== (${removedCount} tiles removed)`)
+
                     // Replicate cascade logic to track tile movements:
-                    // 1. Collect kept GAME tiles (rows BUFFER_OFFSET to totalRows-1, excluding removed)
+                    // NOTE: Grid row 3 (visual -1) is the top partial visible row and needs animation!
+
+                    // Read symbols from NEW grid (after cascade)
+                    // The NEW grid has the correct symbols at each position after cascade
+                    // We just need to track which sprites animate from old positions to new positions
+
+                    // 1. Collect kept GAME tiles
                     const keptGameTiles = [] // [{oldGridRow, symbol}]
                     for (let row = totalRows - 1; row >= BUFFER_OFFSET; row--) {
                         if (!removedPositions.has(`${col},${row}`)) {
@@ -125,6 +149,10 @@ export function useReels(gameState, gridState) {
                         remainingBuffer.push({ oldGridRow: i, symbol: oldCol[i] })
                     }
 
+                    console.log(`  🔄 Kept game tiles: ${keptGameTiles.length}`)
+                    console.log(`  🔄 Take from buffer: ${takeFromBuffer.length}`)
+                    console.log(`  🔄 Remaining buffer: ${remainingBuffer.length}`)
+
                     // Now map to new positions:
                     // [removedCount new tiles][remainingBuffer][takeFromBuffer][keptGameTiles]
                     let newGridRow = 0
@@ -140,14 +168,22 @@ export function useReels(gameState, gridState) {
                             const oldVisualRow = oldGridRow - BUFFER_OFFSET
                             const newVisualRow = newGridRow - BUFFER_OFFSET
 
-                            // Only animate if visible
-                            if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                            // Only animate if we have sprites rendered (visual rows -4 to 5)
+                            if (newVisualRow >= -BUFFER_OFFSET && newVisualRow <= ROWS_FULL + 1) {
                                 const cellKey = `${col}:${newVisualRow}`
                                 const sprite = spriteCache.get(cellKey)
                                 if (sprite) {
                                     const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
                                     const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
-                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                                    // Sprites use center anchor, so expectedX should be at center
+                                    const expectedX = originX + col * stepX + scaledTileW / 2
+                                    const xMatch = Math.abs(sprite.x - expectedX) < 2 ? '✓' : '❌'
+                                    const gridSymbol = newCol[newGridRow]
+                                    const symbolMatch = tile.symbol === gridSymbol ? '✓' : '❌MISMATCH'
+                                    console.log(`    💧 BUFFER SHIFT [COL ${col}]: tile=${tile.symbol} grid=${gridSymbol} ${symbolMatch} | ${xMatch} spriteX=${sprite.x.toFixed(1)} expectedX=${expectedX.toFixed(1)} | grid(${col},${oldGridRow})[v${oldVisualRow}] → grid(${col},${newGridRow})[v${newVisualRow}]`)
+                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY, tile.symbol, getTextureForSymbol)
+                                } else {
+                                    console.log(`    ⚠️  NO SPRITE for ${cellKey} - ${tile.symbol} from grid(${col},${oldGridRow})[v${oldVisualRow}] to grid(${col},${newGridRow})[v${newVisualRow}]`)
                                 }
                             }
                         }
@@ -160,14 +196,22 @@ export function useReels(gameState, gridState) {
                         const oldVisualRow = oldGridRow - BUFFER_OFFSET
                         const newVisualRow = newGridRow - BUFFER_OFFSET
 
-                        // Always animate these (buffer to game)
-                        if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                        // Animate buffer→game drops (we now have sprites for all visual rows -4 to 5)
+                        if (newVisualRow >= -BUFFER_OFFSET && newVisualRow <= ROWS_FULL + 1) {
                             const cellKey = `${col}:${newVisualRow}`
                             const sprite = spriteCache.get(cellKey)
                             if (sprite) {
                                 const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
                                 const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
-                                dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                                // Sprites use center anchor, so expectedX should be at center
+                                const expectedX = originX + col * stepX + scaledTileW / 2
+                                const xMatch = Math.abs(sprite.x - expectedX) < 2 ? '✓' : '❌'
+                                const gridSymbol = newCol[newGridRow]
+                                const symbolMatch = tile.symbol === gridSymbol ? '✓' : '❌MISMATCH'
+                                console.log(`    💧 BUFFER→GAME [COL ${col}]: tile=${tile.symbol} grid=${gridSymbol} ${symbolMatch} | ${xMatch} spriteX=${sprite.x.toFixed(1)} expectedX=${expectedX.toFixed(1)} | grid(${col},${oldGridRow})[v${oldVisualRow}] → grid(${col},${newGridRow})[v${newVisualRow}]`)
+                                dropAnimations.startDrop(cellKey, sprite, oldY, newY, tile.symbol, getTextureForSymbol)
+                            } else {
+                                console.log(`    ⚠️  NO SPRITE for ${cellKey} - ${tile.symbol} from grid(${col},${oldGridRow})[v${oldVisualRow}] to grid(${col},${newGridRow})[v${newVisualRow}]`)
                             }
                         }
                         newGridRow++
@@ -180,13 +224,22 @@ export function useReels(gameState, gridState) {
                             const oldVisualRow = oldGridRow - BUFFER_OFFSET
                             const newVisualRow = newGridRow - BUFFER_OFFSET
 
-                            if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                            if (newVisualRow >= -BUFFER_OFFSET && newVisualRow <= ROWS_FULL + 1) {
                                 const cellKey = `${col}:${newVisualRow}`
                                 const sprite = spriteCache.get(cellKey)
                                 if (sprite) {
                                     const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
                                     const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
-                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                                    // Sprites use center anchor, so expectedX should be at center
+                                    const expectedX = originX + col * stepX + scaledTileW / 2
+                                    const xMatch = Math.abs(sprite.x - expectedX) < 2 ? '✓' : '❌'
+                                    const gridSymbol = newCol[newGridRow]
+                                    const symbolMatch = tile.symbol === gridSymbol ? '✓' : '❌MISMATCH'
+                                    console.log(`    💧 GAME DROP [COL ${col}]: tile=${tile.symbol} grid=${gridSymbol} ${symbolMatch} | ${xMatch} spriteX=${sprite.x.toFixed(1)} expectedX=${expectedX.toFixed(1)} | grid(${col},${oldGridRow})[v${oldVisualRow}] → grid(${col},${newGridRow})[v${newVisualRow}]`)
+                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY, tile.symbol, getTextureForSymbol)
+
+                                } else {
+                                    console.log(`    ⚠️  NO SPRITE for ${cellKey} - ${tile.symbol} from grid(${col},${oldGridRow})[v${oldVisualRow}] to grid(${col},${newGridRow})[v${newVisualRow}]`)
                                 }
                             }
                         }
@@ -194,6 +247,8 @@ export function useReels(gameState, gridState) {
                     })
                 }
             }
+
+            console.log('🎬 ========== DROP ANIMATION END ==========\n')
 
             lastCascadeTime = cascadeTime
             flipAnimations.clear()
@@ -216,9 +271,6 @@ export function useReels(gameState, gridState) {
 
             if (positionsChanged) {
                 highlightsAppeared = true
-
-                // Save current grid before cascade happens (for drop animation comparison)
-                previousGrid = gridState.grid.value.map(col => [...col])
 
                 // Clear previous flip state for new highlights
                 // This is crucial because after cascade, new tiles occupy the same positions
@@ -260,16 +312,33 @@ export function useReels(gameState, gridState) {
             const reelStrip = gridState.reelStrips?.value?.[col] || []
             const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
 
-            // Draw 0..5: top partial, 4 full rows, bottom partial
-            // r is visual row (0-5), maps to grid row (r + BUFFER_OFFSET)
-            for (let r = 0; r <= ROWS_FULL + 1; r++) {
+            // Draw ALL rows including full buffer: visual rows -4 to 5 (grid rows 0 to 9)
+            // This ensures we have sprites for ALL positions so drop animations work correctly
+            // Visual rows -4 to -1 are buffer (offscreen), 0-3 are fully visible, 4-5 are partial (bottom)
+            for (let r = -BUFFER_OFFSET; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
                 const yCell = startY + r * stepY + offsetTiles * stepY
 
                 const gridRow = r + BUFFER_OFFSET // Convert visual row to grid row
 
+                const cellKey = `${col}:${r}` // Use visual row for cellKey
+
                 let symbol
-                if (spinning) {
+                // Check if this sprite is being animated (drop animation)
+                const animatingSymbol = dropAnimations.getAnimatingSymbol(cellKey)
+                // Check if this sprite just completed its animation
+                const completedSymbol = dropAnimations.getCompletedSymbol(cellKey)
+
+                if (animatingSymbol) {
+                    // During drop animation, use the symbol stored with the animation
+                    // This prevents texture changes while the sprite is moving
+                    symbol = animatingSymbol
+                } else if (completedSymbol) {
+                    // Just completed animation - preserve the symbol that was animating
+                    // Don't read from grid yet because next cascade may have updated it
+                    symbol = completedSymbol
+                    console.log(`🔒 [${cellKey}] Using COMPLETED symbol: ${completedSymbol} (grid has: ${gridState.grid?.value?.[col]?.[gridRow]})`)
+                } else if (spinning) {
                     if (reelStrip.length === 0) continue
                     // During spin, we need to show the same strip positions that will be committed to the grid
                     // Visual row r corresponds to grid row (r + BUFFER_OFFSET)
@@ -278,10 +347,13 @@ export function useReels(gameState, gridState) {
                     const idx = ((reelTop + r + BUFFER_OFFSET) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
                 } else {
+                    // Normal state: read from grid
                     symbol = gridState.grid?.value?.[col]?.[gridRow]
+                    // Log when reading from grid in normal state during cascade window
+                    if (lastCascadeTime > 0 && (timestamp - lastCascadeTime < 2000)) {
+                        console.log(`📖 [${cellKey}] NORMAL STATE reading from grid: symbol=${symbol}, gridRow=${gridRow}`)
+                    }
                 }
-
-                const cellKey = `${col}:${r}` // Use visual row for cellKey
 
                 // Texture function will automatically detect "_gold" suffix in symbol
                 const tex = getTextureForSymbol(symbol)
@@ -290,9 +362,23 @@ export function useReels(gameState, gridState) {
                 let sp = spriteCache.get(cellKey)
                 let symbolChanged = false
 
+                // Log only during cascades (after winning is detected)
+                const isDropAnimating = animatingSymbol !== null
+                const inCascadeWindow = lastCascadeTime > 0 && (timestamp - lastCascadeTime < 2000)
+
+                if (inCascadeWindow && isDropAnimating) {
+                    const gridSymbol = gridState.grid?.value?.[col]?.[gridRow]
+                    const spriteCurrentSymbol = sp ? (sp.texture?.textureCacheIds?.[0] || 'none') : 'no-sprite'
+                    console.log(`🎬 [${cellKey}] DURING: animSymbol=${animatingSymbol}, gridSymbol=${gridSymbol}, spriteHas=${spriteCurrentSymbol}`)
+                }
+
                 // Check if symbol changed (after cascade) - reset sprite state
                 if (sp && sp.texture !== tex) {
                     symbolChanged = true
+                    if (inCascadeWindow) {
+                        const spriteCurrentSymbol = sp.texture?.textureCacheIds?.[0] || 'none'
+                        console.log(`🔄 [${cellKey}] TEXTURE CHANGE: from=${spriteCurrentSymbol} to=${symbol}`)
+                    }
                     // Reset any flip animation state for this tile
                     if (flipAnimations.isAnimating(cellKey) || flipAnimations.hasCompleted(cellKey)) {
                         flipAnimations.reset(cellKey, sp)
@@ -325,6 +411,8 @@ export function useReels(gameState, gridState) {
                     sp.anchor.set(0.5, 0.5) // Center anchor for proper flip
                     spriteCache.set(cellKey, sp)
                 } else {
+                    // Update texture - symbol is already correctly determined above
+                    // (either from animation, completed state, or grid)
                     sp.texture = tex
                 }
 

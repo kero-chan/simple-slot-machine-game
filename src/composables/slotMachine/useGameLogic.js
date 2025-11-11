@@ -309,7 +309,12 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     })
 
     // Store removed positions for renderer to use in drop animation detection
-    gridState.lastRemovedPositions = toRemove
+    gridState.lastRemovedPositions.value = toRemove
+
+    // CRITICAL: Save grid snapshot BEFORE cascade modifies it
+    // This ensures drop animations have the correct "before" state
+    gridState.previousGridSnapshot = gridState.grid.value.map(col => [...col])
+    console.log('💾 Saved previousGridSnapshot before cascade')
 
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
 
@@ -432,7 +437,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
 
     // Mark cascade completion time for renderer
-    gridState.lastCascadeTime = Date.now()
+    gridState.lastCascadeTime.value = Date.now()
 
     // LOG 4: ACTUAL RESULT AFTER CASCADE
     console.log('\n✅ STEP 4: ACTUAL RESULT (after cascade with new tiles)')
@@ -460,16 +465,33 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   }
 
   const animateCascade = () => {
-    const duration = CONFIG.animation.cascadeDuration
     const startTime = Date.now()
+    const MAX_WAIT = 5000 // 5 second safety timeout
+    let framesPassed = 0
+
+    console.log('⏳ animateCascade: Starting wait for drop animations')
 
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
-        // Removed duplicate render(); main renderer is already active
-        if (elapsed < duration) {
+        framesPassed++
+
+        // Wait at least 2 frames to ensure renderer has detected cascade and started animations
+        // Then wait for drop animations (including grace period) to complete
+        // Also have a safety timeout in case something goes wrong
+        const shouldWait = framesPassed < 2 || gridState.isDropAnimating.value
+
+        if (framesPassed % 30 === 0) { // Log every 30 frames
+          console.log(`⏳ animateCascade: frame=${framesPassed}, elapsed=${elapsed}ms, isDropAnimating=${gridState.isDropAnimating.value}`)
+        }
+
+        if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
         } else {
+          if (elapsed >= MAX_WAIT) {
+            console.warn('⚠️ animateCascade: Hit max wait time, proceeding anyway')
+          }
+          console.log(`✅ animateCascade complete after ${elapsed}ms (${framesPassed} frames), isDropAnimating=${gridState.isDropAnimating.value}`)
           render()
           resolve()
         }
