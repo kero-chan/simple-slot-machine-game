@@ -49,14 +49,13 @@ export function useFooter(gameState) {
     if (notiTextSprite.width > notiBgSprite.width * 0.9) {
       const visibleWidth = notiBgSprite.width * 0.8
       const visibleHeight = notiBgSprite.height
-      notiMask.fill({ color: 0xffffff, alpha: 1 })
-      notiMask.drawRect(
+      notiMask.rect(
         notiBgSprite.x - notiBgSprite.width * 0.55 + notiBgSprite.width * 0.15,
         notiBgSprite.y - notiBgSprite.height * 0.5,
         visibleWidth,
         visibleHeight
       )
-      notiMask.fill()
+      notiMask.fill({ color: 0xffffff, alpha: 1 })
 
       notiTextSprite.mask = notiMask
       const yCenter = notiBgSprite.y
