@@ -59,20 +59,15 @@ export function useCanvas(canvasRef) {
     ensureAspectLoaded()
 
     // Visible viewport
-    const vw = document.documentElement.clientWidth
     const vh = document.documentElement.clientHeight
 
-    const isMobile = vw <= 768
-
-    let width
-    let height
-    if (isMobile) {
-      // SP: full viewport width
-      width = vw
-      height = vh
-    } else {
-      width = Math.floor(vw * 0.3)
-      height = vh
+    // Always use same logic: height = screen height, width = 9/16 * height (max 700px)
+    let height = vh
+    let width = Math.floor(height * (9 / 16))
+    
+    // Cap maximum width at 700px
+    if (width > 700) {
+      width = 700
     }
 
     const dpr = window.devicePixelRatio || 1

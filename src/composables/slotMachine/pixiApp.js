@@ -11,26 +11,13 @@ export function usePixiApp(canvasState) {
             app = new Application()
             canvasEl = document.createElement('canvas')
 
-            const cw = document.documentElement.clientWidth
-            const ch = document.documentElement.clientHeight
-            const isFullscreen = Math.abs(width - cw) < 2 && Math.abs(height - ch) < 2
-
+            // Always centered horizontally, full height
             canvasEl.style.position = 'fixed'
-            if (isFullscreen) {
-                // SP: full viewport
-                canvasEl.style.left = '0'
-                canvasEl.style.top = '0'
-                canvasEl.style.transform = 'none'
-                canvasEl.style.width = '100vw'
-                canvasEl.style.height = '100vh'
-            } else {
-                // PC: full page height, center horizontally
-                canvasEl.style.left = '50%'
-                canvasEl.style.top = '0'
-                canvasEl.style.transform = 'translateX(-50%)'
-                canvasEl.style.width = `${width}px`
-                canvasEl.style.height = '100vh'
-            }
+            canvasEl.style.left = '50%'
+            canvasEl.style.top = '0'
+            canvasEl.style.transform = 'translateX(-50%)'
+            canvasEl.style.width = `${width}px`
+            canvasEl.style.height = '100vh'
             canvasEl.style.pointerEvents = 'auto'
             canvasEl.style.zIndex = '9999'
             document.body.appendChild(canvasEl)
@@ -62,25 +49,14 @@ export function usePixiApp(canvasState) {
                 pendingSize = { width, height }
             }
 
-            const cw = document.documentElement.clientWidth
-            const ch = document.documentElement.clientHeight
-            const isFullscreen = Math.abs(width - cw) < 2 && Math.abs(height - ch) < 2
-
+            // Always centered horizontally, full height
             if (canvasEl) {
                 canvasEl.style.position = 'fixed'
-                if (isFullscreen) {
-                    canvasEl.style.left = '0'
-                    canvasEl.style.top = '0'
-                    canvasEl.style.transform = 'none'
-                    canvasEl.style.width = '100vw'
-                    canvasEl.style.height = '100vh'
-                } else {
-                    canvasEl.style.left = '50%'
-                    canvasEl.style.top = '0'
-                    canvasEl.style.transform = 'translateX(-50%)'
-                    canvasEl.style.width = `${width}px`
-                    canvasEl.style.height = '100vh'
-                }
+                canvasEl.style.left = '50%'
+                canvasEl.style.top = '0'
+                canvasEl.style.transform = 'translateX(-50%)'
+                canvasEl.style.width = `${width}px`
+                canvasEl.style.height = '100vh'
                 canvasEl.style.zIndex = '9999'
             }
         }
