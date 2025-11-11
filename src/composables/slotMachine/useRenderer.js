@@ -5,7 +5,6 @@ import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
 import { ASSETS } from '../../config/assets'
-import { composeTilesTextures } from './reels/tiles/tilesComposer'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
 
@@ -92,8 +91,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(winOverlay.container)
         }
 
-        // Compose all configured tiles from tiles_50 (idempotent)
-        composeTilesTextures(app)
         // Initialize consecutive wins composed textures
         if (header?.initializeComposedTextures) {
             header.initializeComposedTextures(app)

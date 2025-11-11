@@ -135,7 +135,7 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
     const boardH = ROWS_FULL * tileH + TOP_PARTIAL * tileH
     if (!maskGraphics) {
       maskGraphics = new Graphics()
-      container.addChild(maskGraphics)
+      // Don't add to container children - just set as mask directly
       container.mask = maskGraphics
     }
     maskGraphics.clear()
