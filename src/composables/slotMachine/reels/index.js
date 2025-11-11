@@ -1,185 +1,32 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { ASSETS } from '../../../config/assets'
-import { TILE_SLICES } from './tiles/config'
+import { Container, Sprite } from 'pixi.js'
+import { createBackdrop } from './backdrop'
+import { getTextureForSymbol } from './textures'
+import { applyTileVisuals } from './visuals'
+import { createGoldManager } from './goldManager'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
-    const backdrop = new Graphics()
-    const mask = new Graphics()
-    container.addChild(backdrop)
-    container.addChild(mask)
+    const { ensureBackdrop } = createBackdrop(container)
 
     const MARGIN_X = 10
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
-    const BLEED = 2 // increase to remove gaps between tiles
+    const BLEED = 2
 
     const spriteCache = new Map() // `${col}:${row}`
-    let backdropSprite = null
 
-    function ensureBackdrop(rect, canvasW) {
-        backdrop.clear()
-
-        // Background image for the reel area
-        const src = ASSETS.loadedImages?.reels_bg || ASSETS.imagePaths?.reels_bg
-        if (src) {
-            const tex = src instanceof Texture ? src : Texture.from(src)
-            if (!backdropSprite) {
-                backdropSprite = new Sprite(tex)
-                backdropSprite.anchor.set(0, 0)
-                container.addChildAt(backdropSprite, 0)
-            } else {
-                backdropSprite.texture = tex
-            }
-            backdropSprite.x = 0
-            backdropSprite.y = rect.y
-            backdropSprite.width = canvasW
-            backdropSprite.height = rect.h
-        }
-
-        // Clip main area cleanly
-        mask.clear()
-        mask.rect(0, rect.y, canvasW, rect.h + 1)
-        mask.fill(0xffffff)
-        container.mask = mask
-    }
-
-    // Gold selection state and limits
+    // Gold manager encapsulates selection and sync to gridState
     const GOLD_ALLOWED_COLS = [1, 2, 3]       // allow showing gold in columns 2–4 (zero-based)
     const VISIBLE_ROWS = [1, 2, 3, 4]          // visible rows
     const HIDDEN_ROWS = [0, ROWS_FULL + 1]     // top and bottom partial rows
-    let goldBaseTiles = new Set()
-
-    // Utility: count current visible gold tiles
-    function countVisibleGold() {
-        let cnt = 0
-        for (const key of goldBaseTiles) {
-            const [cStr, rStr] = key.split(':')
-            const col = Number(cStr), row = Number(rStr)
-            if (VISIBLE_ROWS.includes(row)) cnt++
-        }
-        return cnt
-    }
-
-    // Utility: remove any gold from disallowed columns and trim visible gold to max=2
-    function enforceGoldRules() {
-        const keep = new Set()
-        let visibleKept = 0
-        for (const key of goldBaseTiles) {
-            const [cStr, rStr] = key.split(':')
-            const col = Number(cStr), row = Number(rStr)
-            if (!GOLD_ALLOWED_COLS.includes(col)) continue
-            if (VISIBLE_ROWS.includes(row)) {
-                if (visibleKept >= 2) continue
-                visibleKept++
-            }
-            keep.add(key)
-        }
-        goldBaseTiles = keep
-    }
-
-    // Pick visible additions to reach up to 2; hidden rows are optional and not capped here
-    function pickGoldVisible(need = 0) {
-        if (need <= 0) return new Set()
-        const candidates = []
-        for (const col of GOLD_ALLOWED_COLS) {
-            for (const r of VISIBLE_ROWS) {
-                const key = `${col}:${r}`
-                if (!goldBaseTiles.has(key)) candidates.push(key)
-            }
-        }
-        // Shuffle candidates
-        for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1))
-            const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
-        }
-        const chosen = new Set()
-        for (let i = 0; i < candidates.length && chosen.size < need; i++) {
-            chosen.add(candidates[i])
-        }
-        return chosen
-    }
-
-    // Optionally add some hidden golds (no cap specified; keep modest)
-    function pickGoldHidden(maxAdd = 0) {
-        if (maxAdd <= 0) return new Set()
-        const candidates = []
-        for (const col of GOLD_ALLOWED_COLS) {
-            for (const r of HIDDEN_ROWS) {
-                const key = `${col}:${r}`
-                if (!goldBaseTiles.has(key)) candidates.push(key)
-            }
-        }
-        for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1))
-            const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
-        }
-        const chosen = new Set()
-        for (let i = 0; i < candidates.length && chosen.size < maxAdd; i++) {
-            chosen.add(candidates[i])
-        }
-        return chosen
-    }
-
-    // API to manage gold selection (persist across spins, enforce rules)
-    function preselectGoldTiles() {
-        enforceGoldRules()
-        const visibleCnt = countVisibleGold()
-        const needVisible = Math.max(0, 2 - visibleCnt)
-        // Fill visible up to 2
-        const addVisible = pickGoldVisible(needVisible)
-        addVisible.forEach(k => goldBaseTiles.add(k))
-        // Optionally add up to 1 hidden gold per preselect; adjust as desired
-        const addHidden = pickGoldHidden(1)
-        addHidden.forEach(k => goldBaseTiles.add(k))
-        enforceGoldRules()
-    }
-    function preselectGoldCols() {
-        preselectGoldTiles()
-    }
-    function setGoldBaseTiles(items) {
-        const push = (col, row) => {
-            if (!GOLD_ALLOWED_COLS.includes(col)) return
-            const key = `${col}:${row}`
-            if (VISIBLE_ROWS.includes(row)) {
-                if (countVisibleGold() >= 2) return
-            }
-            goldBaseTiles.add(key)
-        }
-        if (Array.isArray(items)) {
-            for (const it of items) {
-                if (Array.isArray(it) && it.length === 2) {
-                    const [c, r] = it.map(Number); push(c, r)
-                } else if (typeof it === 'string') {
-                    const [cs, rs] = it.split(':'); push(Number(cs), Number(rs))
-                }
-            }
-        }
-        enforceGoldRules()
-    }
-    function clearGoldBaseTiles() {
-        goldBaseTiles.clear()
-    }
-
-    // Resolve Pixi Texture for a symbol key, preferring *_gold variant if requested
-    function getTextureForSymbol(symbol, useGold = false) {
-        const alias = useGold ? `${symbol}_gold` : symbol
-        const src = ASSETS.loadedImages?.[alias] || ASSETS.imagePaths?.[alias]
-        if (src) return src instanceof Texture ? src : Texture.from(src)
-        if (useGold) {
-            const normal = ASSETS.loadedImages?.[symbol] || ASSETS.imagePaths?.[symbol]
-            return normal ? (normal instanceof Texture ? normal : Texture.from(normal)) : null
-        }
-        return null
-    }
-
-    // Basic tile visuals: alpha and optional highlight tint
-    function applyTileVisuals(sprite, alpha = 1, highlight = false) {
-        if (!sprite) return
-        sprite.alpha = alpha
-        sprite.tint = highlight ? 0xffffcc : 0xffffff
-    }
+    const gold = createGoldManager({
+        gridState,
+        allowedCols: GOLD_ALLOWED_COLS,
+        visibleRows: VISIBLE_ROWS,
+        hiddenRows: HIDDEN_ROWS,
+        maxVisible: 2
+    })
 
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
@@ -219,15 +66,26 @@ export function useReels(gameState, gridState) {
                 // Show gold even while spinning
                 const goldVisible = true
 
-                // Use gold for preselected tiles regardless of spin state
-                const useGold = goldVisible && goldBaseTiles.has(`${col}:${r}`)
+                const cellKey = `${col}:${r}`
+                const isAllowedCol = GOLD_ALLOWED_COLS.includes(col)
+                const isVisibleRow = VISIBLE_ROWS.includes(r)
+                const isSpecialSymbol = symbol === 'liangsuo' || symbol === 'liangtong'
+
+                // Visuals driven by internal gold base selection (as requested)
+                const isGoldenVisual = gold.goldBaseTiles.has(cellKey)
+
+                // Only show gold on visible rows, allowed columns, and not special symbols
+                const useGold = goldVisible
+                    && isGoldenVisual
+                    && isAllowedCol
+                    && isVisibleRow
+                    && !isSpecialSymbol
+
                 const tex = getTextureForSymbol(symbol, useGold)
                 if (!tex) continue
 
-                const key = `${col}:${r}`
-                let sp = spriteCache.get(key)
+                let sp = spriteCache.get(cellKey)
 
-                // Edge-to-edge with slight overscan to hide transparent edges
                 const w = tileW + BLEED * 2
                 const h = tileH + BLEED * 2
 
@@ -236,7 +94,7 @@ export function useReels(gameState, gridState) {
                     sp.anchor.set(0, 0)
                     sp.width = w
                     sp.height = h
-                    spriteCache.set(key, sp)
+                    spriteCache.set(cellKey, sp)
                 } else {
                     sp.texture = tex
                     sp.anchor.set(0, 0)
@@ -249,13 +107,13 @@ export function useReels(gameState, gridState) {
                         win.positions.some(([c, rr]) => c === col && rr === r))
                     : false
 
-                applyTileVisuals(sp, tileH, winning, velocityPx, timestamp)
+                applyTileVisuals(sp, 1, winning)
 
                 sp.x = Math.round(xCell) - BLEED
                 sp.y = yCell - BLEED
 
                 if (!sp.parent) container.addChild(sp)
-                usedKeys.add(key)
+                usedKeys.add(cellKey)
             }
         }
 
@@ -269,12 +127,12 @@ export function useReels(gameState, gridState) {
         }
     }
 
+    // Expose API consistent with previous version
     return {
         container,
         draw,
-        // expose for renderer orchestration
-        preselectGoldCols,
-        setGoldBaseTiles,
-        clearGoldBaseTiles
+        preselectGoldCols: gold.preselectGoldCols,
+        setGoldBaseTiles: gold.setGoldBaseTiles,
+        clearGoldBaseTiles: gold.clearGoldBaseTiles
     }
 }

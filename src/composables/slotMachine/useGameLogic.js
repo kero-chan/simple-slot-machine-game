@@ -13,7 +13,7 @@ export function useGameLogic(gameState, gridState, render) {
   const findWinningCombinations = () => {
     const wins = []
 
-    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'scatter')
+    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong')
     for (const symbol of symbolsToCheck) {
       const countsPerReel = []
       const positionsPerReel = []
@@ -22,9 +22,9 @@ export function useGameLogic(gameState, gridState, render) {
         const matches = []
         for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
           const cell = gridState.grid.value[col][row]
-          const isMatch = symbol === 'wild'
-            ? cell === 'wild'
-            : (cell === symbol || cell === 'wild')
+          const isMatch = symbol === 'liangsuo'
+            ? cell === 'liangsuo'
+            : (cell === symbol || cell === 'liangsuo')
           if (isMatch) {
             matches.push([col, row])
           }
@@ -50,7 +50,7 @@ export function useGameLogic(gameState, gridState, render) {
     let count = 0
     for (let col = 0; col < CONFIG.reels.count; col++) {
       for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-        if (gridState.grid.value[col][row] === 'scatter') count++
+        if (gridState.grid.value[col][row] === 'liangtong') count++
       }
     }
     return count
@@ -217,7 +217,7 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
-  const convertGoldenToWilds = (wins) => {
+  const convertGoldenToLiangsuo = (wins) => {
     const winPositions = new Set()
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
@@ -228,7 +228,7 @@ export function useGameLogic(gameState, gridState, render) {
     winPositions.forEach(pos => {
       if (gridState.goldenSymbols.value.has(pos)) {
         const [col, row] = pos.split(',').map(Number)
-        gridState.grid.value[col][row] = 'wild'
+        gridState.grid.value[col][row] = 'liangsuo'
         gridState.goldenSymbols.value.delete(pos)
       }
     })
@@ -282,6 +282,20 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
+  function convertOneGoldenAfterCascade() {
+    const candidates = Array.from(gridState.goldenSymbols.value || [])
+      .map(p => p.split(',').map(Number))
+      .filter(([col, row]) => {
+        const cell = gridState.grid.value[col][row]
+        return cell !== 'liangsuo' && cell !== 'liangtong' // exclude specials
+      })
+    if (candidates.length === 0) return
+    const [col, row] = candidates[Math.floor(Math.random() * candidates.length)]
+    gridState.grid.value[col][row] = 'liangsuo'
+    gridState.goldenSymbols.value.delete(`${col},${row}`)
+    gridState.grid.value = [...gridState.grid.value] // trigger reactivity
+  }
+
   const checkWinsAndCascade = async () => {
     let totalWin = 0
     let hasWins = true
@@ -301,12 +315,14 @@ export function useGameLogic(gameState, gridState, render) {
       gameState.consecutiveWins.value++
 
       await highlightWinsAnimation(wins)
-      convertGoldenToWilds(wins)
 
       // Run disappear before cascading
       await animateDisappear(wins)
 
       await cascadeSymbols(wins)
+
+      // After cascade: transform one random golden into liangsuo (wild)
+      convertOneGoldenAfterCascade()
     }
 
     if (totalWin > 0) {
