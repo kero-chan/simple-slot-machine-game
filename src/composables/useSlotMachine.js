@@ -11,7 +11,7 @@ export function useSlotMachine(canvasRef) {
   const gridState = useGridState()
   const canvasState = useCanvas(canvasRef)
   const renderer = useRenderer(canvasState, gameState, gridState)
-  const gameLogic = useGameLogic(gameState, gridState, renderer.render)
+  const gameLogic = useGameLogic(gameState, gridState, renderer.render, renderer.showWinOverlay)
 
   // Wire Pixi footer controls to game logic actions
   renderer.setControls({

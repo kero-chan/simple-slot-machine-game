@@ -3,10 +3,12 @@ import { createBackdrop } from './backdrop'
 import { getTextureForSymbol } from './textures'
 import { applyTileVisuals } from './visuals'
 import { createGoldManager } from './goldManager'
+import { createWinningEffects } from './winning/effects'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
     const { ensureBackdrop } = createBackdrop(container)
+    const winningEffects = createWinningEffects()
 
     const MARGIN_X = 10
     const COLS = 5
@@ -40,6 +42,16 @@ export function useReels(gameState, gridState) {
         const spinning = !!gameState.isSpinning?.value
 
         const usedKeys = new Set()
+
+        // Position particle container at mainRect origin
+        winningEffects.container.x = 0
+        winningEffects.container.y = mainRect.y
+
+        // Particle effects disabled - using simple border only
+        // Clear any active effects
+        if (winningEffects.isActive()) {
+            winningEffects.clear()
+        }
 
         for (let col = 0; col < COLS; col++) {
             const offsetTiles = gridState.spinOffsets?.value?.[col] ?? 0
@@ -102,11 +114,14 @@ export function useReels(gameState, gridState) {
                     sp.height = h
                 }
 
-                const winning = (!spinning && r < ROWS_FULL)
+                // Check if this tile is in the winning positions
+                // Don't check spinning - we want to show highlights during win animation
+                const winning = (r < ROWS_FULL)
                     ? (gridState.highlightWins?.value || []).some(win =>
                         win.positions.some(([c, rr]) => c === col && rr === r))
                     : false
 
+                // Always apply tile visuals - this handles the winning frame overlay and tint
                 applyTileVisuals(sp, 1, winning)
 
                 sp.x = Math.round(xCell) - BLEED
@@ -127,12 +142,16 @@ export function useReels(gameState, gridState) {
         }
     }
 
+    // Add winning effects container to the scene
+    container.addChild(winningEffects.container)
+
     // Expose API consistent with previous version
     return {
         container,
         draw,
         preselectGoldCols: gold.preselectGoldCols,
         setGoldBaseTiles: gold.setGoldBaseTiles,
-        clearGoldBaseTiles: gold.clearGoldBaseTiles
+        clearGoldBaseTiles: gold.clearGoldBaseTiles,
+        winningEffects
     }
 }
