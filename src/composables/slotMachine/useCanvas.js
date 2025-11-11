@@ -60,10 +60,16 @@ export function useCanvas(canvasRef) {
 
     // Visible viewport
     const vh = document.documentElement.clientHeight
+    const vw = document.documentElement.clientWidth
 
     // Always use same logic: height = screen height, width = 9/16 * height (max 1000px)
     let height = vh
     let width = Math.floor(height * (9 / 16))
+
+    if (vw / vh < 9 / 16) {
+      width = vw
+      height = Math.floor(width * (16 / 9))
+    }
     
     // Cap maximum width at 1000px
     if (width > 1000) {
