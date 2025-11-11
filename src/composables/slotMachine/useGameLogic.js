@@ -237,6 +237,33 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     })
   }
 
+  const transformGoldTilesToGold = (wins) => {
+    // Transform _gold tiles in winning combinations to actual "gold" symbol
+    // and remove those positions from wins so they don't disappear
+    const transformedPositions = new Set()
+
+    wins.forEach(win => {
+      // Filter out positions that will be transformed to gold
+      win.positions = win.positions.filter(([col, row]) => {
+        const currentSymbol = gridState.grid.value[col][row]
+        // Check if this is a _gold variant (but not already "gold")
+        if (currentSymbol && currentSymbol.endsWith('_gold') && currentSymbol !== 'gold') {
+          // Transform to gold tile - this tile will STAY on the grid
+          gridState.grid.value[col][row] = 'gold'
+          transformedPositions.add(`${col},${row}`)
+          return false // Remove from win positions so it won't disappear
+        }
+        return true // Keep in win positions - will disappear normally
+      })
+    })
+
+    // Trigger reactivity for Vue to detect changes
+    gridState.grid.value = [...gridState.grid.value]
+
+    // Force a small delay to ensure grid update is processed
+    return new Promise(resolve => setTimeout(resolve, 100))
+  }
+
   const animateDisappear = (wins) => {
     const DISAPPEAR_MS = 300
     const startTime = Date.now()
@@ -395,6 +422,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
       playConsecutiveWinSound(gameState.consecutiveWins.value)
 
       await highlightWinsAnimation(wins)
+
+      // Transform _gold tiles to gold after flip animation completes
+      await transformGoldTilesToGold(wins)
+      render() // Force render to update sprite textures
 
       // Run disappear before cascading
       await animateDisappear(wins)
