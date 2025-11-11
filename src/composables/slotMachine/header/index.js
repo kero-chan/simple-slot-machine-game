@@ -249,30 +249,37 @@ export function useHeader(gameState) {
     const multipliers = [1, 2, 3, 5];
 
     // Layout configuration:
-    // - Each multiplier: 10% of header width
-    // - Gap between multipliers: 7% of header width
-    const multiplierWidth = w * 0.1; // 10% width for each multiplier
-    const gapWidth = w * 0.07; // 7% gap between multipliers
+    // - Each multiplier: 13% default, 14% active
+    // - Gap between multipliers: 5% of header width
+    const defaultMultiplierWidth = w * 0.12; // 12% width for default
+    const activeMultiplierWidth = w * 0.125; // 12.5% width for active
+    const gapWidth = w * 0.06; // 6% gap between multipliers
 
-    // Calculate total content width and center it horizontally
-    const totalContentWidth =
-      multipliers.length * multiplierWidth +
-      (multipliers.length - 1) * gapWidth;
-    const startX = x + (w - totalContentWidth) / 2; // Center the entire group horizontally
+    // Determine current active multiplier
+    const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
+    const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
+
+    // Calculate total content width (sum of all multiplier widths + gaps)
+    let totalContentWidth = (multipliers.length - 1) * gapWidth;
+    for (const mult of multipliers) {
+      const isActive = mult === displayedMult;
+      totalContentWidth += isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+    }
+    
+    // Start position to center the group horizontally
+    let currentX = x + (w - totalContentWidth) / 2;
 
     // Position multipliers in the bg_02 area (bottom section)
     const spriteHeight = Math.floor(bg02Height * 0.8); // Size relative to bg_02 height
 
     for (let i = 0; i < multipliers.length; i++) {
       const mult = multipliers[i];
-      const centerX =
-        startX + i * (multiplierWidth + gapWidth) + multiplierWidth / 2;
-      const centerY = bg02Y + bg02Height / 2; // Center within bg_02 area
-
-      // Determine if this multiplier should be active
-      const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
-      const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
       const isActive = mult === displayedMult; // Only the current multiplier is active
+
+      // Get width based on active state
+      const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      const centerX = currentX + multiplierWidth / 2;
+      const centerY = bg02Y + bg02Height / 2; // Center within bg_02 area
 
       // Get texture and config scale for active/inactive state
       const { texture, scale: configScale } = getMultiplierTextureAndScale(
@@ -319,6 +326,9 @@ export function useHeader(gameState) {
         container.addChild(text);
         multiplierSprites.push({ sprite: text, multiplier: mult });
       }
+
+      // Move to next position
+      currentX += multiplierWidth + gapWidth;
     }
   }
 
@@ -326,6 +336,19 @@ export function useHeader(gameState) {
     // Update multiplier sprites based on current consecutive wins
     const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
     const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
+
+    // Get header dimensions from container bounds
+    const containerBounds = container.getBounds();
+    const w = containerBounds.width;
+    const h = containerBounds.height;
+
+    // Layout configuration (same as build)
+    const defaultMultiplierWidth = w * 0.12; // 12% width for default
+    const activeMultiplierWidth = w * 0.125; // 12.5% width for active
+
+    // Estimate bg02Height for spriteHeight calculation
+    const bg02Height = h * 0.5; // Approximate
+    const spriteHeight = Math.floor(bg02Height * 0.8);
 
     for (const item of multiplierSprites) {
       const { sprite, multiplier } = item;
@@ -344,20 +367,24 @@ export function useHeader(gameState) {
           const baseWidth = texture.width * configScale;
           const baseHeight = texture.height * configScale;
 
-          // Get container constraints from original build
-          const multiplierWidth = sprite.parent.getBounds().width * 0.1; // Approximate
-          const spriteHeight = sprite.parent.getBounds().height * 0.8; // Approximate
+          // Get width based on active state (important!)
+          const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+          const maxWidth = multiplierWidth;
+          const maxHeight = spriteHeight;
 
-          const additionalScaleX = Math.min(1, multiplierWidth / baseWidth);
-          const additionalScaleY = Math.min(1, spriteHeight / baseHeight);
+          // Calculate additional scale if base size exceeds container
+          const additionalScaleX = Math.min(1, maxWidth / baseWidth);
+          const additionalScaleY = Math.min(1, maxHeight / baseHeight);
           const additionalScale = Math.min(additionalScaleX, additionalScaleY);
 
           sprite.width = baseWidth * additionalScale;
           sprite.height = baseHeight * additionalScale;
         }
       } else if (sprite instanceof Text) {
-        // Update text color for fallback
+        // Update text color and size for fallback
+        const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
         sprite.style.fill = isActive ? 0xffd04d : 0x666666;
+        sprite.style.fontSize = Math.floor(Math.min(multiplierWidth, spriteHeight) * 0.4);
       }
     }
   }

@@ -42,15 +42,15 @@ export function useCanvas(canvasRef) {
     if (hostEl instanceof HTMLCanvasElement) {
       canvasEl = hostEl
     } else {
-      if (!ownedCanvas.value) {
-        ownedCanvas.value = document.createElement('canvas')
-        ownedCanvas.value.style.display = 'block'
-        ownedCanvas.value.style.touchAction = 'none'
-        // Replace any previous children to ensure clean rendering target
-        hostEl.innerHTML = ''
-        hostEl.appendChild(ownedCanvas.value)
-      }
-      canvasEl = ownedCanvas.value
+      // Always recreate canvas to avoid ghost images on resize
+      const newCanvas = document.createElement('canvas')
+      newCanvas.style.display = 'block'
+      newCanvas.style.touchAction = 'none'
+      // Replace any previous children to ensure clean rendering target
+      hostEl.innerHTML = ''
+      hostEl.appendChild(newCanvas)
+      ownedCanvas.value = newCanvas
+      canvasEl = newCanvas
     }
 
     canvas.value = canvasEl
@@ -61,13 +61,13 @@ export function useCanvas(canvasRef) {
     // Visible viewport
     const vh = document.documentElement.clientHeight
 
-    // Always use same logic: height = screen height, width = 9/16 * height (max 700px)
+    // Always use same logic: height = screen height, width = 9/16 * height (max 1000px)
     let height = vh
     let width = Math.floor(height * (9 / 16))
     
-    // Cap maximum width at 700px
-    if (width > 700) {
-      width = 700
+    // Cap maximum width at 1000px
+    if (width > 1000) {
+      width = 1000
     }
 
     const dpr = window.devicePixelRatio || 1
