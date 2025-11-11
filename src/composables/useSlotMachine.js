@@ -16,8 +16,7 @@ export function useSlotMachine(canvasRef) {
   // Wire Pixi footer controls to game logic actions
   renderer.setControls({
     spin: () => {
-      // Preselect gold tiles right before spin so they apply to this round
-      renderer.preselectGoldBase()
+      // Note: Gold tiles are now selected AFTER spin completes in useGameLogic
       gameLogic.spin()
     },
     increaseBet: gameLogic.increaseBet,
@@ -67,8 +66,7 @@ export function useSlotMachine(canvasRef) {
     const dy = y - spin.y
     const insideSpin = dx * dx + dy * dy <= spin.radius * spin.radius
     if (insideSpin) {
-      // Also preselect on canvas spin button
-      renderer.preselectGoldBase()
+      // Note: Gold tiles are now selected AFTER spin completes in useGameLogic
       gameLogic.spin()
       return
     }

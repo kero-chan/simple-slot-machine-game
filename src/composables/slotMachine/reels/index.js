@@ -2,7 +2,6 @@ import { Container, Sprite } from 'pixi.js'
 import { createBackdrop } from './backdrop'
 import { getTextureForSymbol } from './textures'
 import { applyTileVisuals } from './visuals'
-import { createGoldManager } from './goldManager'
 import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
 import { createFlipAnimationManager } from './winning/flipAnimation'
@@ -42,18 +41,6 @@ export function useReels(gameState, gridState) {
     const BUFFER_OFFSET = getBufferOffset()
 
     const spriteCache = new Map() // `${col}:${row}`
-
-    // Gold manager encapsulates selection and sync to gridState
-    const GOLD_ALLOWED_COLS = [1, 2, 3]       // allow showing gold in columns 2–4 (zero-based)
-    const VISIBLE_ROWS = [1, 2, 3, 4]          // visible rows
-    const HIDDEN_ROWS = [0, ROWS_FULL + 1]     // top and bottom partial rows
-    const gold = createGoldManager({
-        gridState,
-        allowedCols: GOLD_ALLOWED_COLS,
-        visibleRows: VISIBLE_ROWS,
-        hiddenRows: HIDDEN_ROWS,
-        maxVisible: 2
-    })
 
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
@@ -103,22 +90,9 @@ export function useReels(gameState, gridState) {
                 for (let col = 0; col < COLS; col++) {
                     const oldCol = previousGrid[col] || []
                     const newCol = gridState.grid.value[col] || []
-
-                    // Build list of ALL kept tiles (buffer + game) that weren't removed
-                    const keptTiles = [] // [{oldGridRow, symbol}]
                     const totalRows = oldCol.length
 
-                    // Collect ALL tiles (including buffer) except removed ones
-                    for (let gridRow = totalRows - 1; gridRow >= 0; gridRow--) {
-                        if (!removedPositions.has(`${col},${gridRow}`)) {
-                            keptTiles.unshift({
-                                oldGridRow: gridRow,
-                                symbol: oldCol[gridRow]
-                            })
-                        }
-                    }
-
-                    // Count removed tiles to know how many new ones were added at top
+                    // Count how many tiles were removed from GAME area
                     let removedCount = 0
                     for (let gridRow = BUFFER_OFFSET; gridRow < totalRows; gridRow++) {
                         if (removedPositions.has(`${col},${gridRow}`)) {
@@ -126,30 +100,97 @@ export function useReels(gameState, gridState) {
                         }
                     }
 
-                    // Map each kept tile to its new position
-                    // After cascade: [new tiles at 0..removedCount-1][kept tiles at removedCount..totalRows-1]
-                    keptTiles.forEach((tile, index) => {
-                        const oldGridRow = tile.oldGridRow
-                        const newGridRow = removedCount + index
-                        const symbol = tile.symbol
+                    if (removedCount === 0) continue
 
-                        // Convert grid rows to visual rows
+                    // Replicate cascade logic to track tile movements:
+                    // 1. Collect kept GAME tiles (rows BUFFER_OFFSET to totalRows-1, excluding removed)
+                    const keptGameTiles = [] // [{oldGridRow, symbol}]
+                    for (let row = totalRows - 1; row >= BUFFER_OFFSET; row--) {
+                        if (!removedPositions.has(`${col},${row}`)) {
+                            keptGameTiles.unshift({ oldGridRow: row, symbol: oldCol[row] })
+                        }
+                    }
+
+                    // 2. Tiles from bottom of buffer (these move into game area)
+                    const takeFromBuffer = [] // [{oldGridRow, symbol}]
+                    for (let i = BUFFER_OFFSET - removedCount; i < BUFFER_OFFSET; i++) {
+                        if (i >= 0) {
+                            takeFromBuffer.push({ oldGridRow: i, symbol: oldCol[i] })
+                        }
+                    }
+
+                    // 3. Remaining buffer tiles (these shift but stay in buffer)
+                    const remainingBuffer = [] // [{oldGridRow, symbol}]
+                    for (let i = 0; i < BUFFER_OFFSET - removedCount; i++) {
+                        remainingBuffer.push({ oldGridRow: i, symbol: oldCol[i] })
+                    }
+
+                    // Now map to new positions:
+                    // [removedCount new tiles][remainingBuffer][takeFromBuffer][keptGameTiles]
+                    let newGridRow = 0
+
+                    // Skip new random tiles
+                    newGridRow += removedCount
+
+                    // Remaining buffer tiles
+                    remainingBuffer.forEach((tile) => {
+                        const oldGridRow = tile.oldGridRow
+                        // These moved from oldGridRow to newGridRow
+                        if (oldGridRow !== newGridRow) {
+                            const oldVisualRow = oldGridRow - BUFFER_OFFSET
+                            const newVisualRow = newGridRow - BUFFER_OFFSET
+
+                            // Only animate if visible
+                            if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                                const cellKey = `${col}:${newVisualRow}`
+                                const sprite = spriteCache.get(cellKey)
+                                if (sprite) {
+                                    const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+                                    const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                                }
+                            }
+                        }
+                        newGridRow++
+                    })
+
+                    // Buffer tiles moving into game
+                    takeFromBuffer.forEach((tile) => {
+                        const oldGridRow = tile.oldGridRow
                         const oldVisualRow = oldGridRow - BUFFER_OFFSET
                         const newVisualRow = newGridRow - BUFFER_OFFSET
 
-                        // Animate if tile moved AND new position is visible (or about to enter visible area)
-                        if (oldGridRow !== newGridRow && newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                        // Always animate these (buffer to game)
+                        if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
                             const cellKey = `${col}:${newVisualRow}`
                             const sprite = spriteCache.get(cellKey)
-
                             if (sprite) {
-                                // Calculate Y positions (use visual coords for positioning)
                                 const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
                                 const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
-
                                 dropAnimations.startDrop(cellKey, sprite, oldY, newY)
                             }
                         }
+                        newGridRow++
+                    })
+
+                    // Kept game tiles
+                    keptGameTiles.forEach((tile) => {
+                        const oldGridRow = tile.oldGridRow
+                        if (oldGridRow !== newGridRow) {
+                            const oldVisualRow = oldGridRow - BUFFER_OFFSET
+                            const newVisualRow = newGridRow - BUFFER_OFFSET
+
+                            if (newVisualRow >= -1 && newVisualRow <= ROWS_FULL + 1) {
+                                const cellKey = `${col}:${newVisualRow}`
+                                const sprite = spriteCache.get(cellKey)
+                                if (sprite) {
+                                    const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+                                    const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+                                    dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                                }
+                            }
+                        }
+                        newGridRow++
                     })
                 }
             }
@@ -236,25 +277,10 @@ export function useReels(gameState, gridState) {
                     symbol = gridState.grid?.value?.[col]?.[gridRow]
                 }
 
-                // Show gold even while spinning
-                const goldVisible = true
-
                 const cellKey = `${col}:${r}` // Use visual row for cellKey
-                const isAllowedCol = GOLD_ALLOWED_COLS.includes(col)
-                const isVisibleRow = VISIBLE_ROWS.includes(r)
-                const isSpecialSymbol = symbol === 'liangsuo' || symbol === 'liangtong'
 
-                // Visuals driven by internal gold base selection (as requested)
-                const isGoldenVisual = gold.goldBaseTiles.has(cellKey)
-
-                // Only show gold on visible rows, allowed columns, and not special symbols
-                const useGold = goldVisible
-                    && isGoldenVisual
-                    && isAllowedCol
-                    && isVisibleRow
-                    && !isSpecialSymbol
-
-                const tex = getTextureForSymbol(symbol, useGold)
+                // Texture function will automatically detect "_gold" suffix in symbol
+                const tex = getTextureForSymbol(symbol)
                 if (!tex) continue
 
                 let sp = spriteCache.get(cellKey)
@@ -381,13 +407,10 @@ export function useReels(gameState, gridState) {
     container.addChild(winningEffects.container)
     framesContainer.addChild(winningFrames.container)
 
-    // Expose API consistent with previous version
+    // Expose API
     return {
         container,
         draw,
-        preselectGoldCols: gold.preselectGoldCols,
-        setGoldBaseTiles: gold.setGoldBaseTiles,
-        clearGoldBaseTiles: gold.clearGoldBaseTiles,
         winningEffects
     }
 }

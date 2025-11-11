@@ -4,7 +4,6 @@ import { CONFIG } from '../../config/constants'
 
 export function useGridState() {
   const grid = ref(createEmptyGrid())
-  const goldenSymbols = ref(new Set())
   const highlightWins = ref(null)
   const spinOffsets = ref(Array(CONFIG.reels.count).fill(0))
   const spinVelocities = ref(Array(CONFIG.reels.count).fill(0))
@@ -18,7 +17,6 @@ export function useGridState() {
 
   return {
     grid,
-    goldenSymbols,
     highlightWins,
     spinOffsets,
     spinVelocities,
