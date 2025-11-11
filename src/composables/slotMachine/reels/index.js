@@ -271,7 +271,11 @@ export function useReels(gameState, gridState) {
                 let symbol
                 if (spinning) {
                     if (reelStrip.length === 0) continue
-                    const idx = ((reelTop + r) % reelStrip.length + reelStrip.length) % reelStrip.length
+                    // During spin, we need to show the same strip positions that will be committed to the grid
+                    // Visual row r corresponds to grid row (r + BUFFER_OFFSET)
+                    // Grid row (r + BUFFER_OFFSET) will get strip position (reelTop + r + BUFFER_OFFSET)
+                    // So during spin, we should also read from strip position (reelTop + r + BUFFER_OFFSET)
+                    const idx = ((reelTop + r + BUFFER_OFFSET) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
                 } else {
                     symbol = gridState.grid?.value?.[col]?.[gridRow]
