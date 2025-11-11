@@ -17,9 +17,13 @@ export function getRandomSymbol() {
 
 export function createEmptyGrid() {
   const grid = []
+  const bufferRows = CONFIG.reels.bufferRows || 0
+  const totalRows = CONFIG.reels.rows + bufferRows
+
   for (let col = 0; col < CONFIG.reels.count; col++) {
     grid[col] = []
-    for (let row = 0; row < CONFIG.reels.rows; row++) {
+    // Create buffer rows + game rows
+    for (let row = 0; row < totalRows; row++) {
       grid[col][row] = getRandomSymbol()
     }
   }
@@ -36,4 +40,21 @@ export function createReelStrips(count, length) {
     strips.push(strip)
   }
   return strips
+}
+
+// Get the offset for buffer rows (gameRow = gridRow - bufferOffset)
+export function getBufferOffset() {
+  return CONFIG.reels.bufferRows || 0
+}
+
+// Fill buffer rows with random symbols (called before win evaluation)
+export function fillBufferRows(grid) {
+  const bufferRows = CONFIG.reels.bufferRows || 0
+  if (bufferRows === 0) return
+
+  for (let col = 0; col < CONFIG.reels.count; col++) {
+    for (let row = 0; row < bufferRows; row++) {
+      grid[col][row] = getRandomSymbol()
+    }
+  }
 }

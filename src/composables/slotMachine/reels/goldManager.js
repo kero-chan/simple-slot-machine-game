@@ -24,7 +24,9 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
             }
             keep.add(key)
         }
-        goldBaseTiles = keep
+        // Don't reassign! Clear and refill the existing Set to maintain references
+        goldBaseTiles.clear()
+        keep.forEach(k => goldBaseTiles.add(k))
     }
 
     function pickGoldVisible(need = 0) {

@@ -1,10 +1,14 @@
 import { CONFIG } from '../../config/constants'
-import { getRandomSymbol } from '../../utils/gameHelpers'
+import { getRandomSymbol, getBufferOffset, fillBufferRows } from '../../utils/gameHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 
 export function useGameLogic(gameState, gridState, render, showWinOverlay) {
-  // Visible rows: only evaluate rows 1..4 for wins and scatters
-  const VISIBLE_START_ROW = 1
+  // Buffer offset for accessing game rows in expanded grid
+  const BUFFER_OFFSET = getBufferOffset()
+
+  // Visible rows: only evaluate rows 1..4 for wins and scatters (in game coordinates)
+  // In grid coordinates, these are offset by BUFFER_OFFSET
+  const VISIBLE_START_ROW = BUFFER_OFFSET + 1
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
 
@@ -283,22 +287,49 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
       })
     })
 
+    // Store removed positions for renderer to use in drop animation detection
+    gridState.lastRemovedPositions = toRemove
+
+    const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
+
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      const removed = []
-      for (let row = CONFIG.reels.rows - 1; row >= 0; row--) {
-        if (toRemove.has(`${col},${row}`)) removed.push(row)
+      // Find all rows to remove in GAME ROWS only (not buffer)
+      const rowsToRemove = []
+      for (let row = BUFFER_OFFSET; row < totalRows; row++) {
+        if (toRemove.has(`${col},${row}`)) {
+          rowsToRemove.push(row)
+        }
       }
 
-      for (let i = removed.length - 1; i >= 0; i--) {
-        const rowToRemove = removed[i]
-        for (let row = rowToRemove; row > 0; row--) {
-          gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
+      if (rowsToRemove.length === 0) continue
+
+      // Build new column using buffer pool cascade
+      const allTiles = [] // This will hold all tiles after cascade
+
+      // Step 1: Collect ALL tiles (buffer + game) except removed ones
+      for (let row = totalRows - 1; row >= 0; row--) {
+        if (!toRemove.has(`${col},${row}`)) {
+          const symbol = gridState.grid.value[col][row]
+          allTiles.unshift(symbol)
         }
-        gridState.grid.value[col][0] = getRandomSymbol()
       }
+
+      // Step 2: Fill buffer with NEW random tiles at the top
+      const newTilesNeeded = rowsToRemove.length
+      for (let i = 0; i < newTilesNeeded; i++) {
+        const newSymbol = getRandomSymbol()
+        allTiles.unshift(newSymbol)
+      }
+
+      // Update the grid column
+      gridState.grid.value[col] = allTiles
     }
 
     gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
+
+    // Mark cascade completion time for renderer
+    gridState.lastCascadeTime = Date.now()
+
     await animateCascade()
   }
 
