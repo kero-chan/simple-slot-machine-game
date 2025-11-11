@@ -1,11 +1,15 @@
 import { CONFIG } from '../../config/constants'
 import { getRandomSymbol } from '../../utils/gameHelpers'
+import { useAudioEffects } from '../useAudioEffects'
 
 export function useGameLogic(gameState, gridState, render) {
   // Visible rows: only evaluate rows 1..4 for wins and scatters
   const VISIBLE_START_ROW = 1
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
+
+  // Initialize audio effects
+  const { playConsecutiveWinSound } = useAudioEffects()
 
   const showAlert = () => {
   }
@@ -299,6 +303,9 @@ export function useGameLogic(gameState, gridState, render) {
 
       totalWin += multipliedWays
       gameState.consecutiveWins.value++
+
+      // Play consecutive wins sound effect
+      playConsecutiveWinSound(gameState.consecutiveWins.value)
 
       await highlightWinsAnimation(wins)
       convertGoldenToWilds(wins)

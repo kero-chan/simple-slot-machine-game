@@ -18,9 +18,11 @@ export const ASSETS = {
     footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href
   },
   loadedImages: {},
-  audioPaths: [
-    new URL('../assets/audio/background_music_01.mp3', import.meta.url).href,
-    new URL('../assets/audio/background_music_02.mp3', import.meta.url).href,
-    new URL('../assets/audio/background_music_03.mp3', import.meta.url).href
-  ]
+  audioPaths: {
+    background_music: new URL('../assets/audio/background_music.mp3', import.meta.url).href,
+    game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,
+    consecutive_wins_2x: new URL('../assets/audio/consecutive_wins/2x.mp3', import.meta.url).href,
+    consecutive_wins_3x: new URL('../assets/audio/consecutive_wins/3x.mp3', import.meta.url).href,
+    consecutive_wins_5x: new URL('../assets/audio/consecutive_wins/5x.mp3', import.meta.url).href
+  }
 }
