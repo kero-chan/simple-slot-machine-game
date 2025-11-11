@@ -262,14 +262,15 @@ export function createWinOverlay(gameState) {
       stroke: { color: '#5c3a00', width: 8 },  // Dark brown/gold stroke
       dropShadow: {
         color: '#000000',
-        blur: 15,
+        blur: 4,  // Much smaller blur to avoid background box effect
         angle: Math.PI / 4,
-        distance: 8,
-        alpha: 0.8
+        distance: 3,  // Closer distance
+        alpha: 0.4  // More transparent
       },
       align: 'center',
       letterSpacing: 4,  // More spacing
-      fontStyle: 'italic'  // Slight italic for dynamic look
+      fontStyle: 'italic',  // Slight italic for dynamic look
+      trim: true  // Remove extra space around text
     }
 
     amountText = new Text({
