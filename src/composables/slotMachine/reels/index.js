@@ -23,7 +23,7 @@ export function useReels(gameState, gridState) {
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
     const BLEED = 2
-    const TILE_SPACING = 8  // Spacing between tiles (all sides)
+    const TILE_SPACING = 5  // Spacing between tiles (all sides)
 
     const spriteCache = new Map() // `${col}:${row}`
 
