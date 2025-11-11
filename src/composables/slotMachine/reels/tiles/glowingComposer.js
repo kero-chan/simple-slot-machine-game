@@ -163,13 +163,17 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
         const xCell = originX + col * stepX
         const yCell = startY + r * scaledTileH + offsetTiles * scaledTileH
 
+        // Convert visual row to grid row (accounting for buffer offset)
+        const BUFFER_OFFSET = 4
+        const gridRow = r + BUFFER_OFFSET
+
         let symbol
         if (spinning) {
           if (reelStrip.length === 0) continue
           const idx = ((reelTop + r) % reelStrip.length + reelStrip.length) % reelStrip.length
           symbol = reelStrip[idx]
         } else {
-          symbol = gridState.grid?.value?.[col]?.[r]
+          symbol = gridState.grid?.value?.[col]?.[gridRow]
         }
 
         // Only gold and bonus tiles

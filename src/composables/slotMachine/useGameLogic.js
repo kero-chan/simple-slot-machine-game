@@ -1,10 +1,14 @@
 import { CONFIG } from '../../config/constants'
-import { getRandomSymbol } from '../../utils/gameHelpers'
+import { getRandomSymbol, getBufferOffset, fillBufferRows } from '../../utils/gameHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 
 export function useGameLogic(gameState, gridState, render, showWinOverlay) {
-  // Visible rows: only evaluate rows 1..4 for wins and scatters
-  const VISIBLE_START_ROW = 1
+  // Buffer offset for accessing game rows in expanded grid
+  const BUFFER_OFFSET = getBufferOffset()
+
+  // Visible rows: only evaluate rows 1..4 for wins and scatters (in game coordinates)
+  // In grid coordinates, these are offset by BUFFER_OFFSET
+  const VISIBLE_START_ROW = BUFFER_OFFSET + 1
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
 
@@ -284,18 +288,51 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
         toRemove.add(`${col},${row}`)
       })
     })
-    console.log('🗑️ CASCADE: Positions to remove:', Array.from(toRemove))
+    console.log('🗑️ CASCADE: Positions to remove (grid coords):', Array.from(toRemove))
 
-    // Log grid BEFORE cascade
-    console.log('📊 CASCADE: Grid BEFORE cascade:')
+    // Store removed positions for renderer to use in drop animation detection
+    gridState.lastRemovedPositions = toRemove
+
+    // Log WINNING TILES with coordinates
+    console.log('🎯 WINNING TILES coordinates:')
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      console.log(`  Col ${col}:`, gridState.grid.value[col].join(', '))
+      const winningInCol = []
+      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
+        if (toRemove.has(`${col},${row}`)) {
+          const symbol = gridState.grid.value[col][row]
+          winningInCol.push(`(${col},${row})=${symbol}`)
+        }
+      }
+      if (winningInCol.length > 0) {
+        console.log(`  Col ${col}: ${winningInCol.join(', ')}`)
+      }
     }
 
+    // Log TILES ABOVE WINNING TILES
+    console.log('⬆️ TILES ABOVE WINNING TILES:')
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      // Find all rows to remove in this column
+      const aboveTiles = []
+      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
+        if (toRemove.has(`${col},${row}`)) {
+          // Log all tiles above this winning tile
+          for (let aboveRow = row - 1; aboveRow >= BUFFER_OFFSET; aboveRow--) {
+            const symbol = gridState.grid.value[col][aboveRow]
+            aboveTiles.push(`(${col},${aboveRow})=${symbol}`)
+          }
+          break // Only check tiles above the lowest winning tile
+        }
+      }
+      if (aboveTiles.length > 0) {
+        console.log(`  Col ${col}: ${aboveTiles.join(', ')}`)
+      }
+    }
+
+    const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
+
+    for (let col = 0; col < CONFIG.reels.count; col++) {
+      // Find all rows to remove in GAME ROWS only (not buffer)
       const rowsToRemove = []
-      for (let row = 0; row < CONFIG.reels.rows; row++) {
+      for (let row = BUFFER_OFFSET; row < totalRows; row++) {
         if (toRemove.has(`${col},${row}`)) {
           rowsToRemove.push(row)
         }
@@ -303,49 +340,61 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
 
       if (rowsToRemove.length === 0) continue
 
-      console.log(`  Col ${col}: Removing ${rowsToRemove.length} tiles at rows [${rowsToRemove.join(', ')}]`)
+      console.log(`\n📍 Col ${col}: Processing cascade...`)
+      console.log(`  Removing tiles at grid rows: [${rowsToRemove.join(', ')}]`)
 
-      // Build new column: keep non-removed tiles in order, then add new tiles at top
-      const newColumn = []
+      // Build new column using buffer pool cascade
+      const allTiles = [] // This will hold all tiles after cascade
 
-      // First, collect all tiles that are NOT being removed (from bottom to top)
-      for (let row = CONFIG.reels.rows - 1; row >= 0; row--) {
+      // Step 1: Collect ALL tiles (buffer + game) except removed ones
+      for (let row = totalRows - 1; row >= 0; row--) {
         if (!toRemove.has(`${col},${row}`)) {
-          newColumn.unshift(gridState.grid.value[col][row])
+          const symbol = gridState.grid.value[col][row]
+          allTiles.unshift(symbol)
         }
       }
 
-      // Then fill remaining slots at the top with new random symbols
+      console.log(`  Kept all tiles (buffer + game): ${allTiles.length} tiles`)
+      console.log(`  Removed ${rowsToRemove.length} tiles`)
+
+      // Step 2: Fill buffer with NEW random tiles at the top
       const newTilesNeeded = rowsToRemove.length
       const newTiles = []
       for (let i = 0; i < newTilesNeeded; i++) {
         const newSymbol = getRandomSymbol()
         newTiles.push(newSymbol)
-        newColumn.unshift(newSymbol)
+        allTiles.unshift(newSymbol)
       }
 
-      console.log(`  Col ${col}: Adding ${newTilesNeeded} new symbols at top: [${newTiles.join(', ')}]`)
+      console.log(`  Generated ${newTilesNeeded} new tiles for buffer: [${newTiles.join(', ')}]`)
 
-      // Verify column has correct length
-      if (newColumn.length !== CONFIG.reels.rows) {
-        console.error(`❌ CASCADE ERROR: Col ${col} has ${newColumn.length} tiles, expected ${CONFIG.reels.rows}!`)
-        console.error(`   Tiles: [${newColumn.join(', ')}]`)
+      // Step 3: Verify we have exactly totalRows tiles
+      if (allTiles.length !== totalRows) {
+        console.error(`❌ CASCADE ERROR: Col ${col} has ${allTiles.length} tiles, expected ${totalRows}!`)
+        console.error(`  This should never happen!`)
       }
 
       // Update the grid column
-      gridState.grid.value[col] = newColumn
+      gridState.grid.value[col] = allTiles
     }
 
     gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
 
     // Mark cascade completion time for renderer
     gridState.lastCascadeTime = Date.now()
-    console.log('✅ CASCADE: Grid updated, marking cascade time:', gridState.lastCascadeTime)
 
-    // Log grid AFTER cascade
-    console.log('📊 CASCADE: Grid AFTER cascade:')
+    // Log AFTER CASCADE with coordinates to see where tiles ended up
+    console.log('\n✅ AFTER CASCADE - Tile coordinates:')
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      console.log(`  Col ${col}:`, gridState.grid.value[col].join(', '))
+      const hadWinning = Array.from(toRemove).some(pos => pos.startsWith(`${col},`))
+      if (!hadWinning) continue
+
+      console.log(`  Col ${col}:`)
+      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
+        const symbol = gridState.grid.value[col][row]
+        const visualRow = row - BUFFER_OFFSET
+        console.log(`    (${col},${row}) [visual ${visualRow}] = ${symbol}`)
+      }
     }
 
     await animateCascade()

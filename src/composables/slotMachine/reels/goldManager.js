@@ -24,7 +24,9 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
             }
             keep.add(key)
         }
-        goldBaseTiles = keep
+        // Don't reassign! Clear and refill the existing Set to maintain references
+        goldBaseTiles.clear()
+        keep.forEach(k => goldBaseTiles.add(k))
     }
 
     function pickGoldVisible(need = 0) {
@@ -90,6 +92,9 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
         addHidden.forEach(k => goldBaseTiles.add(k))
         enforceGoldRules()
         updateGoldenSymbolsState()
+
+        console.log('✨ GOLD: Selected gold base tiles:', Array.from(goldBaseTiles))
+        console.log('✨ GOLD: Visible count:', visibleCnt, 'Added visible:', Array.from(addVisible), 'Added hidden:', Array.from(addHidden))
     }
     function preselectGoldCols() {
         preselectGoldTiles()
