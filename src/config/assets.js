@@ -23,6 +23,19 @@ export const ASSETS = {
     game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,
     consecutive_wins_2x: new URL('../assets/audio/consecutive_wins/2x.mp3', import.meta.url).href,
     consecutive_wins_3x: new URL('../assets/audio/consecutive_wins/3x.mp3', import.meta.url).href,
-    consecutive_wins_5x: new URL('../assets/audio/consecutive_wins/5x.mp3', import.meta.url).href
+    consecutive_wins_5x: new URL('../assets/audio/consecutive_wins/5x.mp3', import.meta.url).href,
+    background_noises: [
+      new URL('../assets/audio/background_noise/noise_1.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_2.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_3.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_4.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_5.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_6.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_7.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_8.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_9.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_10.mp3', import.meta.url).href,
+      new URL('../assets/audio/background_noise/noise_11.mp3', import.meta.url).href
+    ]
   }
 }

@@ -7,6 +7,9 @@ export function useBackgroundMusic() {
   const wasPlayingBeforeHidden = ref(false)
   let visibilityListenerAdded = false
   let gameStartTimeout = null
+  let noiseStartTimeout = null
+  let noiseInterval = null
+  const wasNoisePlayingBeforeHidden = ref(false)
 
   // Handle page visibility change
   const handleVisibilityChange = () => {
@@ -16,6 +19,12 @@ export function useBackgroundMusic() {
         wasPlayingBeforeHidden.value = true
         currentAudio.value.pause()
       }
+      // Stop noise interval when tab is hidden
+      if (noiseInterval) {
+        wasNoisePlayingBeforeHidden.value = true
+        clearInterval(noiseInterval)
+        noiseInterval = null
+      }
     } else {
       // Page is visible again
       if (wasPlayingBeforeHidden.value && currentAudio.value && isPlaying.value) {
@@ -24,6 +33,57 @@ export function useBackgroundMusic() {
         })
         wasPlayingBeforeHidden.value = false
       }
+      // Resume noise interval when tab is visible again
+      if (wasNoisePlayingBeforeHidden.value && isPlaying.value) {
+        startNoiseLoop()
+        wasNoisePlayingBeforeHidden.value = false
+      }
+    }
+  }
+
+  // Play a random background noise
+  const playRandomNoise = () => {
+    if (!isPlaying.value || document.hidden) return
+    
+    try {
+      const noises = ASSETS.audioPaths.background_noises
+      if (!noises || noises.length === 0) return
+      
+      // Pick a random noise
+      const randomIndex = Math.floor(Math.random() * noises.length)
+      const noiseAudio = new Audio(noises[randomIndex])
+      noiseAudio.volume = 0.7 // 70% volume for background noise
+      
+      noiseAudio.addEventListener('error', (e) => {
+        console.error('Error loading background noise:', e)
+      })
+      
+      noiseAudio.play().catch(err => {
+        console.warn('Failed to play background noise:', err)
+      })
+    } catch (err) {
+      console.error('Error creating background noise audio:', err)
+    }
+  }
+
+  // Start the noise loop (play random noise every 5 seconds)
+  const startNoiseLoop = () => {
+    if (noiseInterval) return // Already started
+    
+    // Play first noise immediately
+    playRandomNoise()
+    
+    // Then play every 5 seconds
+    noiseInterval = setInterval(() => {
+      playRandomNoise()
+    }, 10000) // 10 seconds interval
+  }
+
+  // Stop the noise loop
+  const stopNoiseLoop = () => {
+    if (noiseInterval) {
+      clearInterval(noiseInterval)
+      noiseInterval = null
     }
   }
 
@@ -60,6 +120,11 @@ export function useBackgroundMusic() {
       gameStartTimeout = setTimeout(() => {
         playGameStartSound()
       }, 2000)
+
+      // Start background noise loop after 10 seconds
+      noiseStartTimeout = setTimeout(() => {
+        startNoiseLoop()
+      }, 10000) // 10 seconds delay
     } catch (err) {
       console.error('Error creating audio:', err)
     }
@@ -69,7 +134,7 @@ export function useBackgroundMusic() {
   const playGameStartSound = () => {
     try {
       const gameStartAudio = new Audio(ASSETS.audioPaths.game_start)
-      gameStartAudio.volume = 0.5 // Slightly louder for effect
+      gameStartAudio.volume = 0.8 // Slightly louder for effect
       
       gameStartAudio.addEventListener('error', (e) => {
         console.error('Error loading game start audio:', e)
@@ -92,6 +157,15 @@ export function useBackgroundMusic() {
       clearTimeout(gameStartTimeout)
       gameStartTimeout = null
     }
+    
+    // Clear the noise start timeout if it hasn't triggered yet
+    if (noiseStartTimeout) {
+      clearTimeout(noiseStartTimeout)
+      noiseStartTimeout = null
+    }
+    
+    // Stop noise loop
+    stopNoiseLoop()
     
     if (currentAudio.value) {
       currentAudio.value.pause()
