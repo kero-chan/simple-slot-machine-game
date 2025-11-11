@@ -5,6 +5,7 @@ import { applyTileVisuals } from './visuals'
 import { createGoldManager } from './goldManager'
 import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
+import { createFlipAnimationManager } from './winning/flipAnimation'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -14,6 +15,12 @@ export function useReels(gameState, gridState) {
     const { ensureBackdrop } = createBackdrop(tilesContainer)
     const winningEffects = createWinningEffects()
     const winningFrames = createWinningFrameManager()
+    const flipAnimations = createFlipAnimationManager()
+    let previousSpinning = false // Track previous spinning state
+    const flippedTiles = new Set() // Track tiles that have already been flipped
+    let highlightsAppeared = false // Track if highlights have appeared this round
+    let readyToFlip = false // Ready to trigger flips
+    let savedWinningPositions = [] // Save winning positions when highlights appear
 
     // Add containers in order: background, tiles, frames
     container.addChild(tilesContainer)
@@ -58,7 +65,54 @@ export function useReels(gameState, gridState) {
         const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
         const spinning = !!gameState.isSpinning?.value
 
+        // Update flip animations every frame
+        flipAnimations.update()
+
+        const hasHighlights = gridState.highlightWins?.value?.length > 0
+
+        // Clear flip animations and tracking when spinning starts
+        if (spinning && !previousSpinning) {
+            console.log('🎰 Spinning started - clearing flip animations')
+            flipAnimations.clear()
+            flippedTiles.clear()
+            highlightsAppeared = false
+            readyToFlip = false
+            savedWinningPositions = []
+        }
+
+        // Detect when highlights appear and save positions
+        if (hasHighlights) {
+            // Get current winning positions
+            const currentPositions = (gridState.highlightWins?.value || []).flatMap(win =>
+                win.positions.map(([col, row]) => `${col}:${row}`)
+            )
+
+            // Check if positions changed (new win in consecutive streak)
+            const positionsChanged = currentPositions.length !== savedWinningPositions.length ||
+                currentPositions.some(pos => !savedWinningPositions.includes(pos))
+
+            if (positionsChanged) {
+                console.log('✨ New highlights appeared!')
+                highlightsAppeared = true
+
+                // Clear previous flip state for new highlights
+                flippedTiles.clear()
+                flipAnimations.clear()
+
+                // Save new winning positions
+                savedWinningPositions = currentPositions
+                console.log('💾 Saved winning positions:', savedWinningPositions)
+
+                // Mark ready to flip immediately when highlights appear
+                readyToFlip = true
+                console.log('🎬 Ready to flip after highlights appeared!')
+            }
+        }
+
+        previousSpinning = spinning
+
         const usedKeys = new Set()
+        const tilesToFlip = [] // Collect winning tiles to flip after draw loop
 
         // Position particle container at mainRect origin
         winningEffects.container.x = 0
@@ -118,19 +172,6 @@ export function useReels(gameState, gridState) {
                 const w = scaledTileW + BLEED * 2
                 const h = scaledTileH + BLEED * 2
 
-                if (!sp) {
-                    sp = new Sprite(tex)
-                    sp.anchor.set(0, 0)
-                    sp.width = w
-                    sp.height = h
-                    spriteCache.set(cellKey, sp)
-                } else {
-                    sp.texture = tex
-                    sp.anchor.set(0, 0)
-                    sp.width = w
-                    sp.height = h
-                }
-
                 // Check if this tile is in the winning positions
                 // Don't check spinning - we want to show highlights during win animation
                 const winning = (r < ROWS_FULL)
@@ -138,13 +179,57 @@ export function useReels(gameState, gridState) {
                         win.positions.some(([c, rr]) => c === col && rr === r))
                     : false
 
+                // For flip animation, check saved positions
+                const shouldFlip = savedWinningPositions.includes(cellKey)
+
+                const isAnimating = flipAnimations.isAnimating(cellKey)
+                const isInDelay = flipAnimations.isInDelay(cellKey)
+
+                if (!sp) {
+                    sp = new Sprite(tex)
+                    sp.anchor.set(0.5, 0.5) // Center anchor for proper flip
+                    spriteCache.set(cellKey, sp)
+                } else {
+                    sp.texture = tex
+                }
+
+                // Set anchor to center for flipping effect
+                sp.anchor.set(0.5, 0.5)
+
+                // Set size using scale to preserve animation scale changes
+                const scaleX = w / sp.texture.width
+                const scaleY = h / sp.texture.height
+
+                // Handle scale based on animation state
+                if (!isAnimating || isInDelay) {
+                    // Not animating OR in delay period: set normal scale
+                    sp.scale.set(scaleX, scaleY)
+                    sp.alpha = 1
+                } else {
+                    // During flip animation: only update Y scale, preserve animated X scale
+                    sp.scale.y = scaleY
+                }
+
+                // Collect winning tiles to flip when ready (use saved positions)
+                if (shouldFlip && readyToFlip && !isAnimating && !flippedTiles.has(cellKey)) {
+                    console.log(`✅ Adding tile ${cellKey} to flip queue`)
+                    tilesToFlip.push({ key: cellKey, sprite: sp, scaleX })
+                    flippedTiles.add(cellKey) // Mark as flipped
+                } else if (!shouldFlip && isAnimating) {
+                    // Reset tile if it's no longer winning
+                    flipAnimations.reset(cellKey, sp)
+                    flippedTiles.delete(cellKey)
+                }
+
                 // Always apply tile visuals - this handles the tint
                 applyTileVisuals(sp, 1, winning)
 
-                sp.x = Math.round(xCell) - BLEED
-                sp.y = yCell - BLEED
+                // Position with center anchor
+                sp.x = Math.round(xCell) - BLEED + w / 2
+                sp.y = yCell - BLEED + h / 2
 
                 // Update winning frame in separate container
+                // Pass sprite's center position directly
                 winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y)
 
                 if (!sp.parent) tilesContainer.addChild(sp)
@@ -161,6 +246,15 @@ export function useReels(gameState, gridState) {
             }
         }
         winningFrames.cleanup(usedKeys)
+
+        // Trigger flip animations for winning tiles after spinning stopped
+        if (tilesToFlip.length > 0) {
+            console.log(`🎬 Starting flip animations for ${tilesToFlip.length} winning tiles`)
+            for (const { key, sprite, scaleX } of tilesToFlip) {
+                flipAnimations.startFlip(key, sprite, scaleX)
+            }
+            readyToFlip = false // Reset so we don't keep adding tiles
+        }
     }
 
     // Add winning effects and frames to their containers
