@@ -11,8 +11,8 @@ const TOP_PARTIAL = 0.30
 // Sparkle tuning: bottom → top star dots
 const DOTS_PER_TILE = 16
 const DOT_SPAWN_RATE = 0.30
-const DOT_MIN_SIZE = 20
-const DOT_MAX_SIZE = 50
+const DOT_MIN_SIZE = 10
+const DOT_MAX_SIZE = 30
 
 // Lifetime (ms) — extended to allow travel above the tile
 const DOT_MIN_LIFE = 800   // was 450

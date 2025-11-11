@@ -32,7 +32,11 @@ export const ASSETS = {
     footer_notification_bg: new URL('../assets/notification_bg.png', import.meta.url).href,
     footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href,
     footer_icon_setting: new URL('../assets/6.png', import.meta.url).href,
-    footer_icon_setting1: new URL('../assets/46.png', import.meta.url).href
+    footer_icon_setting1: new URL('../assets/46.png', import.meta.url).href,
+    // Winning announcements
+    win_grand: new URL('../assets/slotMachine/winAnnouncements/grand.png', import.meta.url).href,
+    win_mega: new URL('../assets/slotMachine/winAnnouncements/mega.png', import.meta.url).href,
+    win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href
   },
   loadedImages: {},
   audioPaths: {

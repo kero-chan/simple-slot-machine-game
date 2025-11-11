@@ -1,8 +1,9 @@
-import { Container, Graphics, Text } from 'pixi.js'
+import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
+import { ASSETS } from '../../../config/assets'
 
 /**
  * Creates a winning overlay popup that displays win information
- * Shows "SMALL WIN", "MEDIUM WIN", "BIG WIN", or "MEGA WIN"
+ * Shows "SMALL WIN", "GRAND WIN", "MEGA WIN", or "JACKPOT"
  */
 export function createWinOverlay(gameState) {
   const container = new Container()
@@ -11,6 +12,7 @@ export function createWinOverlay(gameState) {
 
   let background = null
   let titleText = null
+  let titleImage = null  // Image for grand/mega/jackpot
   let amountText = null
   let animationStartTime = 0
   let isAnimating = false
@@ -27,31 +29,38 @@ export function createWinOverlay(gameState) {
         bgColor: 0x000000,
         bgAlpha: 0.6,
         scale: 0.6,
-        glowColor: 0xffd700
+        glowColor: 0xffd700,
+        useImage: false
       },
-      medium: {
-        title: 'MEDIUM WIN!',
+      grand: {
+        title: '',  // No text - image contains the text
         titleColor: 0xff9800,
         bgColor: 0x000000,
         bgAlpha: 0.7,
         scale: 0.8,
-        glowColor: 0xff9800
+        glowColor: 0xff9800,
+        useImage: true,
+        imageKey: 'win_grand'
       },
-      big: {
-        title: 'BIG WIN!',
+      mega: {
+        title: '',  // No text - image contains the text
         titleColor: 0xff5722,
         bgColor: 0x1a0000,
         bgAlpha: 0.8,
         scale: 1.0,
-        glowColor: 0xff0000
+        glowColor: 0xff0000,
+        useImage: true,
+        imageKey: 'win_mega'
       },
-      mega: {
-        title: 'MEGA WIN!!!',
+      jackpot: {
+        title: '',  // No text - image contains the text
         titleColor: 0xffd700,
         bgColor: 0x1a0a00,
         bgAlpha: 0.9,
         scale: 1.2,
-        glowColor: 0xffd700
+        glowColor: 0xffd700,
+        useImage: true,
+        imageKey: 'win_jackpot'
       }
     }
 
@@ -78,30 +87,64 @@ export function createWinOverlay(gameState) {
     background.fill({ color: config.bgColor, alpha: config.bgAlpha })
     container.addChild(background)
 
-    // Title text styling
-    const titleStyle = {
-      fontFamily: 'Arial Black, sans-serif',
-      fontSize: 80 * config.scale,
-      fontWeight: 'bold',
-      fill: config.titleColor,
-      stroke: { color: 0x000000, width: 8 },
-      dropShadow: {
-        color: config.glowColor,
-        blur: 15,
-        angle: Math.PI / 6,
-        distance: 0
-      },
-      align: 'center'
+    // Create title - either image or text
+    let imageLoaded = false
+    if (config.useImage && config.imageKey) {
+      // Try to use image for grand/mega/jackpot
+      try {
+        const imageSrc = ASSETS.loadedImages?.[config.imageKey] || ASSETS.imagePaths?.[config.imageKey]
+        console.log(`🎯 Win overlay - imageKey: ${config.imageKey}, imageSrc:`, imageSrc)
+        console.log(`📦 ASSETS.loadedImages:`, ASSETS.loadedImages)
+
+        if (imageSrc) {
+          const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+          titleImage = new Sprite(texture)
+          titleImage.anchor.set(0.5)
+          titleImage.x = canvasWidth / 2
+          titleImage.y = canvasHeight / 2 - 80  // Higher up to make room for amount text
+
+          // Scale image to reasonable size (adjust as needed)
+          const targetHeight = 120 * config.scale
+          const imageScale = targetHeight / titleImage.height
+          titleImage.scale.set(imageScale)
+
+          container.addChild(titleImage)
+          imageLoaded = true
+          console.log(`✅ Win image loaded successfully: ${config.imageKey}`)
+        } else {
+          console.warn(`❌ No imageSrc found for ${config.imageKey}`)
+        }
+      } catch (error) {
+        console.warn(`Failed to load win image ${config.imageKey}:`, error)
+      }
     }
 
-    titleText = new Text({
-      text: config.title,
-      style: titleStyle
-    })
-    titleText.anchor.set(0.5)
-    titleText.x = canvasWidth / 2
-    titleText.y = canvasHeight / 2 - 50
-    container.addChild(titleText)
+    if (!imageLoaded) {
+      // Use text for small win
+      const titleStyle = {
+        fontFamily: 'Arial Black, sans-serif',
+        fontSize: 80 * config.scale,
+        fontWeight: 'bold',
+        fill: config.titleColor,
+        stroke: { color: 0x000000, width: 8 },
+        dropShadow: {
+          color: config.glowColor,
+          blur: 15,
+          angle: Math.PI / 6,
+          distance: 0
+        },
+        align: 'center'
+      }
+
+      titleText = new Text({
+        text: config.title,
+        style: titleStyle
+      })
+      titleText.anchor.set(0.5)
+      titleText.x = canvasWidth / 2
+      titleText.y = canvasHeight / 2 - 50
+      container.addChild(titleText)
+    }
 
     // Amount text styling
     const amountStyle = {
@@ -161,6 +204,11 @@ export function createWinOverlay(gameState) {
       if (titleText) {
         titleText.scale.set(scale)
       }
+      if (titleImage) {
+        const targetHeight = 120 * config.scale
+        const imageScale = targetHeight / titleImage.texture.height
+        titleImage.scale.set(imageScale * easeOut)
+      }
       if (amountText) {
         const amountScale = easeOut * 1.0
         amountText.scale.set(amountScale)
@@ -179,6 +227,16 @@ export function createWinOverlay(gameState) {
         titleText.alpha = 0.9 + glowPulse * 0.1
       }
 
+      if (titleImage) {
+        const targetHeight = 120 * config.scale
+        const imageScale = targetHeight / titleImage.texture.height
+        titleImage.scale.set(imageScale * pulse)
+
+        // Glow pulse effect
+        const glowPulse = 0.7 + Math.sin(pulseTime * Math.PI * 4) * 0.3
+        titleImage.alpha = 0.9 + glowPulse * 0.1
+      }
+
       if (amountText) {
         const amountPulse = 1 + Math.sin(pulseTime * Math.PI * 2) * 0.05
         amountText.scale.set(amountPulse)
@@ -194,6 +252,13 @@ export function createWinOverlay(gameState) {
         titleText.alpha = alpha
         const scale = config.scale * (1 + easeIn * 0.5)
         titleText.scale.set(scale)
+      }
+
+      if (titleImage) {
+        titleImage.alpha = alpha
+        const targetHeight = 120 * config.scale
+        const imageScale = targetHeight / titleImage.texture.height
+        titleImage.scale.set(imageScale * (1 + easeIn * 0.5))
       }
 
       if (amountText) {
@@ -221,10 +286,14 @@ export function createWinOverlay(gameState) {
       const config = getOverlayConfig(currentIntensity)
       background.fill({ color: config.bgColor, alpha: config.bgAlpha })
 
-      // Reposition text elements
+      // Reposition title elements
       if (titleText) {
         titleText.x = canvasWidth / 2
         titleText.y = canvasHeight / 2 - 50
+      }
+      if (titleImage) {
+        titleImage.x = canvasWidth / 2
+        titleImage.y = canvasHeight / 2 - 80
       }
       if (amountText) {
         amountText.x = canvasWidth / 2
