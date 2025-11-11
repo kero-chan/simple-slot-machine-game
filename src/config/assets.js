@@ -14,8 +14,10 @@ export const ASSETS = {
     header_multiplier_default: new URL('../assets/consecutiveWins/65.png', import.meta.url).href,
     // Footer
     footer_bg: new URL('../assets/footer_bg.png', import.meta.url).href,
-    footer_notification: new URL('../assets/notification_bar.png', import.meta.url).href,
-    footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href
+    footer_notification_bg: new URL('../assets/notification_bg.png', import.meta.url).href,
+    footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href,
+    footer_icon_setting: new URL('../assets/6.png', import.meta.url).href,
+    footer_icon_setting1: new URL('../assets/46.png', import.meta.url).href
   },
   loadedImages: {},
   audioPaths: {
