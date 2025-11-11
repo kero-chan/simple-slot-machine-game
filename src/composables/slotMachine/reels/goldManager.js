@@ -83,6 +83,24 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
     }
 
     function preselectGoldTiles() {
+        console.log('\n💰 ========== GOLD TILE SELECTION START ==========')
+        console.log('📍 GRID STATE (when gold tiles are being selected):')
+
+        // Log current grid state to see what symbols are at each position
+        const BUFFER_OFFSET = 4
+        const COLS = 5
+        const ROWS_FULL = 4
+        for (let col = 0; col < COLS; col++) {
+            const gridCol = gridState.grid?.value?.[col] || []
+            const snapshot = []
+            for (let visualRow = 1; visualRow <= ROWS_FULL; visualRow++) {
+                const gridRow = visualRow + BUFFER_OFFSET
+                const symbol = gridCol[gridRow]
+                snapshot.push(`v${visualRow}=${symbol}`)
+            }
+            console.log(`  Col ${col}: ${snapshot.join(', ')}`)
+        }
+
         enforceGoldRules()
         const visibleCnt = countVisibleGold()
         const needVisible = Math.max(0, maxVisible - visibleCnt)
@@ -92,6 +110,16 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
         addHidden.forEach(k => goldBaseTiles.add(k))
         enforceGoldRules()
         updateGoldenSymbolsState()
+
+        console.log('\n✅ SELECTED GOLD POSITIONS:')
+        const goldPositions = Array.from(goldBaseTiles).sort()
+        goldPositions.forEach(key => {
+            const [col, row] = key.split(':').map(Number)
+            const gridRow = row + BUFFER_OFFSET
+            const symbol = gridState.grid?.value?.[col]?.[gridRow]
+            console.log(`  ${key} (col ${col}, visual row ${row}) -> symbol: ${symbol}`)
+        })
+        console.log('💰 ========== GOLD TILE SELECTION END ==========\n')
     }
     function preselectGoldCols() {
         preselectGoldTiles()

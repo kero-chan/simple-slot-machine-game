@@ -195,11 +195,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    // Expose gold-base preselection to orchestrator
-    const preselectGoldBase = () => {
-        if (reels?.preselectGoldCols) reels.preselectGoldCols()
-    }
-
     // Expose win overlay for game logic to trigger
     const showWinOverlay = (intensity, amount) => {
         if (winOverlay) {
@@ -209,7 +204,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    return { init, render, startAnimation, stopAnimation, setControls, preselectGoldBase, showWinOverlay }
+    return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay }
 }
 
 // ----- Start screen rendering -----

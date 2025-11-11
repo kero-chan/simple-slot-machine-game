@@ -4,7 +4,6 @@ import { CONFIG } from '../../config/constants'
 
 export function useGridState() {
   const grid = ref(createEmptyGrid())
-  const goldenSymbols = ref(new Set())
   const highlightWins = ref(null)
   const spinOffsets = ref(Array(CONFIG.reels.count).fill(0))
   const spinVelocities = ref(Array(CONFIG.reels.count).fill(0))
@@ -15,10 +14,15 @@ export function useGridState() {
   const disappearPositions = ref(new Set())
   // Track fade-out animation window
   const disappearAnim = ref({ start: 0, duration: 0 })
+  // Track cascade state for drop animations
+  const lastCascadeTime = ref(0)
+  const lastRemovedPositions = ref(new Set())
+  const isDropAnimating = ref(false)
+  // Store grid snapshot before cascade for drop animations
+  let previousGridSnapshot = null
 
   return {
     grid,
-    goldenSymbols,
     highlightWins,
     spinOffsets,
     spinVelocities,
@@ -26,6 +30,12 @@ export function useGridState() {
     reelTopIndex,
     highlightAnim,
     disappearPositions,
-    disappearAnim
+    disappearAnim,
+    lastCascadeTime,
+    lastRemovedPositions,
+    isDropAnimating,
+    previousGridSnapshot,
+    get previousGridSnapshot() { return previousGridSnapshot },
+    set previousGridSnapshot(value) { previousGridSnapshot = value }
   }
 }
