@@ -4,22 +4,13 @@ import { CONFIG } from '../config/constants'
 export function getRandomSymbol() {
   // Prefer paytable keys; this is available before assets load
   const paytableSymbols = Object.keys(CONFIG.paytable || {})
-  // Regular pool excludes special symbols
-  const regularFromPaytable = paytableSymbols.filter(s => s !== 'liangtong' && s !== 'liangsuo')
+  const fromPaytable = paytableSymbols.filter(s => s !== 'gold')
 
-  // Fallback: derive from imagePaths if paytable is empty for any reason
   const imagePathSymbols = Object.keys(ASSETS.imagePaths || {})
-  const regularFromAssets = imagePathSymbols.filter(s => s !== 'liangtong' && s !== 'liangsuo')
+  const fromAssets = imagePathSymbols.filter(s => s !== 'gold')
 
-  const pool = regularFromPaytable.length ? regularFromPaytable : regularFromAssets
-
-  // If for some reason both are empty, default to a safe symbol
+  const pool = fromPaytable.length ? fromPaytable : fromAssets
   if (pool.length === 0) return 'fa'
-
-  // Chance to inject specials
-  const rand = Math.random()
-  if (rand < 0.05 && paytableSymbols.includes('liangsuo')) return 'liangsuo'
-  if (rand < 0.10 && paytableSymbols.includes('liangtong')) return 'liangtong'
 
   return pool[Math.floor(Math.random() * pool.length)]
 }
