@@ -401,6 +401,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
 
       await cascadeSymbols(wins)
 
+      // Wait after all effects finish and reel is stable before checking for next wins
+      // This gives players time to see the new stable reel state
+      // before the next winning highlight begins
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
       // TEMP DISABLED: After cascade animation completes: transform one random golden into liangsuo (wild)
       // Delay this to happen AFTER drop animations finish
       // setTimeout(() => {
