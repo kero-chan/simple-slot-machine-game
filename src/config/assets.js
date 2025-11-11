@@ -34,9 +34,12 @@ export const ASSETS = {
     footer_icon_setting: new URL('../assets/6.png', import.meta.url).href,
     footer_icon_setting1: new URL('../assets/46.png', import.meta.url).href,
     // Winning announcements
+    win_bg: new URL('../assets/slotMachine/winAnnouncements/bg.png', import.meta.url).href,
+    win_small: new URL('../assets/slotMachine/winAnnouncements/small.png', import.meta.url).href,
     win_grand: new URL('../assets/slotMachine/winAnnouncements/grand.png', import.meta.url).href,
     win_mega: new URL('../assets/slotMachine/winAnnouncements/mega.png', import.meta.url).href,
-    win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href
+    win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href,
+    win_gold: new URL('../assets/slotMachine/winAnnouncements/gold.png', import.meta.url).href
   },
   loadedImages: {},
   audioPaths: {
