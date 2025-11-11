@@ -83,10 +83,6 @@ npm run preview
 - **Win Lines**: 3+ matching symbols in a row
 - **Cascading Wins**: Winning symbols are removed and new ones drop down
 - **Multipliers**: Increase with consecutive wins (1x → 2x → 3x → 5x)
-- **Free Spins**: Triggered by 3+ scatter symbols
-- **Golden Symbols**: Randomly appear and convert to wilds when part of a win
-- **Wild Symbols**: Substitute for any symbol except scatter
-
-## License
-
-MIT
+- **Free Spins**: Triggered by 3+ liangtong symbols
+- **Golden Symbols**: Randomly appear and convert to liangsuo when part of a win
+- **Liangsuo**: Substitutes for any symbol except liangtong

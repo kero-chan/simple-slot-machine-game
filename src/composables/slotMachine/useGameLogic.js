@@ -2,7 +2,7 @@ import { CONFIG } from '../../config/constants'
 import { getRandomSymbol } from '../../utils/gameHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 
-export function useGameLogic(gameState, gridState, render) {
+export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   // Visible rows: only evaluate rows 1..4 for wins and scatters
   const VISIBLE_START_ROW = 1
   const VISIBLE_ROWS = 4
@@ -14,10 +14,41 @@ export function useGameLogic(gameState, gridState, render) {
   const showAlert = () => {
   }
 
+  /**
+   * Determine win intensity based on win combinations
+   */
+  const getWinIntensity = (wins) => {
+    if (!wins || wins.length === 0) return 'small'
+
+    const highValueSymbols = ['chu', 'zhong', 'fa']
+    let maxIntensity = 'small'
+
+    wins.forEach(win => {
+      const { count, symbol } = win
+      let intensity = 'small'
+
+      if (count >= 5 && highValueSymbols.includes(symbol)) {
+        intensity = 'mega' // 5+ high-value symbols
+      } else if (count >= 5 || (count >= 4 && highValueSymbols.includes(symbol))) {
+        intensity = 'big' // 5 of any symbol or 4+ high-value
+      } else if (count >= 4) {
+        intensity = 'medium' // 4 symbols
+      }
+
+      // Track the highest intensity
+      const intensityLevels = { small: 1, medium: 2, big: 3, mega: 4 }
+      if (intensityLevels[intensity] > intensityLevels[maxIntensity]) {
+        maxIntensity = intensity
+      }
+    })
+
+    return maxIntensity
+  }
+
   const findWinningCombinations = () => {
     const wins = []
 
-    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'scatter')
+    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong')
     for (const symbol of symbolsToCheck) {
       const countsPerReel = []
       const positionsPerReel = []
@@ -26,9 +57,9 @@ export function useGameLogic(gameState, gridState, render) {
         const matches = []
         for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
           const cell = gridState.grid.value[col][row]
-          const isMatch = symbol === 'wild'
-            ? cell === 'wild'
-            : (cell === symbol || cell === 'wild')
+          const isMatch = symbol === 'liangsuo'
+            ? cell === 'liangsuo'
+            : (cell === symbol || cell === 'liangsuo')
           if (isMatch) {
             matches.push([col, row])
           }
@@ -54,7 +85,7 @@ export function useGameLogic(gameState, gridState, render) {
     let count = 0
     for (let col = 0; col < CONFIG.reels.count; col++) {
       for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-        if (gridState.grid.value[col][row] === 'scatter') count++
+        if (gridState.grid.value[col][row] === 'liangtong') count++
       }
     }
     return count
@@ -170,7 +201,11 @@ export function useGameLogic(gameState, gridState, render) {
   }
 
   const highlightWinsAnimation = (wins) => {
-    const duration = 800 // ms (0.3s in + 0.5s out)
+    // Extended duration to allow for full celebration animation:
+    // Phase 1: Highlight (500ms)
+    // Phase 2: Celebration (1500ms)
+    // Phase 3: Fade out (500ms)
+    const duration = 2500 // ms
     const startTime = Date.now()
     gridState.highlightAnim.value = { start: startTime, duration }
 
@@ -221,7 +256,7 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
-  const convertGoldenToWilds = (wins) => {
+  const convertGoldenToLiangsuo = (wins) => {
     const winPositions = new Set()
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
@@ -232,7 +267,7 @@ export function useGameLogic(gameState, gridState, render) {
     winPositions.forEach(pos => {
       if (gridState.goldenSymbols.value.has(pos)) {
         const [col, row] = pos.split(',').map(Number)
-        gridState.grid.value[col][row] = 'wild'
+        gridState.grid.value[col][row] = 'liangsuo'
         gridState.goldenSymbols.value.delete(pos)
       }
     })
@@ -286,17 +321,35 @@ export function useGameLogic(gameState, gridState, render) {
     })
   }
 
+  function convertOneGoldenAfterCascade() {
+    const candidates = Array.from(gridState.goldenSymbols.value || [])
+      .map(p => p.split(',').map(Number))
+      .filter(([col, row]) => {
+        const cell = gridState.grid.value[col][row]
+        return cell !== 'liangsuo' && cell !== 'liangtong' // exclude specials
+      })
+    if (candidates.length === 0) return
+    const [col, row] = candidates[Math.floor(Math.random() * candidates.length)]
+    gridState.grid.value[col][row] = 'liangsuo'
+    gridState.goldenSymbols.value.delete(`${col},${row}`)
+    gridState.grid.value = [...gridState.grid.value] // trigger reactivity
+  }
+
   const checkWinsAndCascade = async () => {
     let totalWin = 0
     let hasWins = true
     let scattersAwarded = false
+    let allWins = [] // Track all wins for overlay
 
     while (hasWins) {
       const wins = findWinningCombinations()
+
       if (wins.length === 0) {
         hasWins = false
         break
       }
+
+      allWins.push(...wins) // Collect wins for intensity calculation
 
       const waysWinAmount = calculateWinAmount(wins)
       const multipliedWays = waysWinAmount * gameState.currentMultiplier.value * gameState.bet.value
@@ -308,17 +361,27 @@ export function useGameLogic(gameState, gridState, render) {
       playConsecutiveWinSound(gameState.consecutiveWins.value)
 
       await highlightWinsAnimation(wins)
-      convertGoldenToWilds(wins)
 
       // Run disappear before cascading
       await animateDisappear(wins)
 
       await cascadeSymbols(wins)
+
+      // After cascade: transform one random golden into liangsuo (wild)
+      convertOneGoldenAfterCascade()
     }
 
     if (totalWin > 0) {
       gameState.currentWin.value = totalWin
       gameState.credits.value += totalWin
+
+      // Show win overlay with appropriate intensity
+      const intensity = getWinIntensity(allWins)
+      console.log(`🎉 ${intensity.toUpperCase()} WIN: ${totalWin} credits`)
+
+      if (showWinOverlay) {
+        showWinOverlay(intensity, totalWin)
+      }
     } else {
       gameState.consecutiveWins.value = 0
     }

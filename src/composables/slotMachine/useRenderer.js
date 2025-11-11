@@ -7,6 +7,7 @@ import { useFooter } from './footer'
 import { ASSETS } from '../../config/assets'
 import { composeTilesTextures } from './reels/tiles/tilesComposer'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
+import { createWinOverlay } from './overlay/winOverlay'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -20,6 +21,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let reels = null
     let footer = null
     let glowOverlay = null
+    let winOverlay = null
 
     // Track last layout for rebuilds
     let lastW = 0
@@ -77,6 +79,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             reels = useReels(gameState, gridState)
             footer = useFooter(gameState)
             glowOverlay = useGlowOverlay(gameState, gridState)
+            winOverlay = createWinOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
             }
@@ -86,11 +89,11 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(reels.container)
             root.addChild(glowOverlay.container)
             root.addChild(footer.container)
+            root.addChild(winOverlay.container)
         }
 
         // Compose all configured tiles from tiles_50 (idempotent)
         composeTilesTextures(app)
-
         // Initialize consecutive wins composed textures
         if (header?.initializeComposedTextures) {
             header.initializeComposedTextures(app)
@@ -116,6 +119,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         if (reels?.container) reels.container.visible = !showStart
         if (glowOverlay?.container) glowOverlay.container.visible = !showStart // <-- toggle overlay
         if (footer?.container) footer.container.visible = !showStart
+        // Win overlay visibility is controlled by its own show/hide methods
 
         if (showStart && startScene) {
             if (resized || startScene.container.children.length === 0) {
@@ -140,6 +144,14 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             // Update footer every frame: arrow rotation + values refresh
             if (footer?.updateValues) footer.updateValues()
             if (footer?.update) footer.update(timestamp)
+
+            // Update win overlay animation
+            if (winOverlay) {
+                winOverlay.update(timestamp)
+                if (resized && winOverlay.container.visible) {
+                    winOverlay.build(w, h)
+                }
+            }
         }
     }
 
@@ -191,7 +203,16 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         if (reels?.preselectGoldCols) reels.preselectGoldCols()
     }
 
-    return { init, render, startAnimation, stopAnimation, setControls, preselectGoldBase }
+    // Expose win overlay for game logic to trigger
+    const showWinOverlay = (intensity, amount) => {
+        if (winOverlay) {
+            const w = canvasState.canvasWidth.value
+            const h = canvasState.canvasHeight.value
+            winOverlay.show(intensity, amount, w, h)
+        }
+    }
+
+    return { init, render, startAnimation, stopAnimation, setControls, preselectGoldBase, showWinOverlay }
 }
 
 // ----- Start screen rendering -----

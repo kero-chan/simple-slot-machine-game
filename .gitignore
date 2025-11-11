@@ -37,3 +37,4 @@ logs/
 # assets/*.png
 # assets/*.jpg
 # assets/*.gif
+.claude

@@ -44,6 +44,10 @@ export async function loadAllAssets() {
 
     ASSETS.loadedImages[alias] = tex
   }
+
+  // Log loaded assets for debugging
+  const loadedCount = Object.values(ASSETS.loadedImages).filter(t => t).length
+  console.log(`✅ Loaded ${loadedCount}/${entries.length} assets`)
 }
 
 /**
