@@ -82,7 +82,6 @@ export function useReels(gameState, gridState) {
 
         // Clear flip animations and tracking when spinning starts
         if (spinning && !previousSpinning) {
-            console.log('🎰 Spinning started - clearing flip and drop animations')
             flipAnimations.clear()
             dropAnimations.clear()
             flippedTiles.clear()
@@ -96,8 +95,6 @@ export function useReels(gameState, gridState) {
         // Detect when cascade completes (grid just changed)
         const cascadeTime = gridState.lastCascadeTime || 0
         if (cascadeTime > lastCascadeTime) {
-            console.log('🎯 CASCADE COMPLETED - Grid updated, detecting tile movements')
-
             // Detect which tiles moved and start drop animations
             // Use the stored removed positions from cascade
             const removedPositions = gridState.lastRemovedPositions || new Set()
@@ -129,8 +126,6 @@ export function useReels(gameState, gridState) {
                         }
                     }
 
-                    console.log(`📊 Col ${col}: Kept ${keptTiles.length} tiles (buffer+game), removed ${removedCount}`)
-
                     // Map each kept tile to its new position
                     // After cascade: [new tiles at 0..removedCount-1][kept tiles at removedCount..totalRows-1]
                     keptTiles.forEach((tile, index) => {
@@ -152,7 +147,6 @@ export function useReels(gameState, gridState) {
                                 const oldY = startY + oldVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
                                 const newY = startY + newVisualRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
 
-                                console.log(`⬇️ ${symbol} drops: old grid ${oldGridRow} (visual ${oldVisualRow}) → new grid ${newGridRow} (visual ${newVisualRow})`)
                                 dropAnimations.startDrop(cellKey, sprite, oldY, newY)
                             }
                         }
@@ -167,11 +161,6 @@ export function useReels(gameState, gridState) {
 
         // Within cascade window, force reset all sprites
         const inCascadeWindow = lastCascadeTime > 0 && (Date.now() - lastCascadeTime) < CASCADE_RESET_WINDOW
-        let cascadeDebugOnce = false
-        if (inCascadeWindow && !cascadeDebugOnce) {
-            console.log('🔄 In cascade window - forcing sprite reset (elapsed:', Date.now() - lastCascadeTime, 'ms)')
-            cascadeDebugOnce = true
-        }
 
         // Detect when highlights appear and save positions
         if (hasHighlights) {
@@ -185,23 +174,10 @@ export function useReels(gameState, gridState) {
                 currentPositions.some(pos => !savedWinningPositions.includes(pos))
 
             if (positionsChanged) {
-                console.log('✨ New highlights appeared!')
                 highlightsAppeared = true
 
                 // Save current grid before cascade happens (for drop animation comparison)
                 previousGrid = gridState.grid.value.map(col => [...col])
-                console.log('📸 Saved grid snapshot before cascade')
-
-                // Debug: Log winning positions in both coordinate systems
-                console.log('🎯 DEBUG: Winning positions from highlightWins:')
-                ;(gridState.highlightWins?.value || []).forEach(win => {
-                    console.log(`  Symbol: ${win.symbol}`)
-                    win.positions.forEach(([col, gridRow]) => {
-                        const visualRow = gridRow - BUFFER_OFFSET
-                        const symbol = gridState.grid.value[col]?.[gridRow]
-                        console.log(`    Grid(${col},${gridRow}) → Visual(${col},${visualRow}) = ${symbol}`)
-                    })
-                })
 
                 // Clear previous flip state for new highlights
                 // This is crucial because after cascade, new tiles occupy the same positions
@@ -210,11 +186,9 @@ export function useReels(gameState, gridState) {
 
                 // Save new winning positions
                 savedWinningPositions = currentPositions
-                console.log('💾 Saved winning positions (visual coords):', savedWinningPositions)
 
                 // Mark ready to flip immediately when highlights appear
                 readyToFlip = true
-                console.log('🎬 Ready to flip after highlights appeared!')
             }
         }
 
@@ -235,13 +209,6 @@ export function useReels(gameState, gridState) {
         // Clear any active effects
         if (winningEffects.isActive()) {
             winningEffects.clear()
-        }
-
-        // Debug: Log gold base tiles - log once per second to avoid spam
-        const now = Date.now()
-        if (!window._lastGoldLog || now - window._lastGoldLog > 1000) {
-            console.log('🎨 DRAW: spinning=', spinning, 'goldBaseTiles.size=', gold.goldBaseTiles.size, 'tiles=', Array.from(gold.goldBaseTiles))
-            window._lastGoldLog = now
         }
 
         for (let col = 0; col < COLS; col++) {
@@ -280,21 +247,12 @@ export function useReels(gameState, gridState) {
                 // Visuals driven by internal gold base selection (as requested)
                 const isGoldenVisual = gold.goldBaseTiles.has(cellKey)
 
-                // Debug gold selection
-                if (isGoldenVisual) {
-                    console.log(`🔍 GOLD CHECK ${cellKey}: goldVisible=${goldVisible}, isAllowedCol=${isAllowedCol}, isVisibleRow=${isVisibleRow}, isSpecialSymbol=${isSpecialSymbol}, symbol=${symbol}`)
-                }
-
                 // Only show gold on visible rows, allowed columns, and not special symbols
                 const useGold = goldVisible
                     && isGoldenVisual
                     && isAllowedCol
                     && isVisibleRow
                     && !isSpecialSymbol
-
-                if (useGold) {
-                    console.log(`🌟 Rendering GOLD tile at ${cellKey} [grid ${col},${gridRow}] symbol=${symbol}`)
-                }
 
                 const tex = getTextureForSymbol(symbol, useGold)
                 if (!tex) continue
@@ -373,8 +331,6 @@ export function useReels(gameState, gridState) {
 
                 // Collect winning tiles to flip when ready (use saved positions)
                 if (shouldFlip && readyToFlip && !isAnimating && !flippedTiles.has(cellKey)) {
-                    const actualSymbol = gridState.grid.value[col]?.[gridRow]
-                    console.log(`✅ Adding tile ${cellKey} [grid ${col},${gridRow}] = ${actualSymbol} to flip queue (winning=${winning})`)
                     tilesToFlip.push({ key: cellKey, sprite: sp, scaleX })
                     flippedTiles.add(cellKey) // Mark as flipped
                 } else if (!shouldFlip && isAnimating) {
@@ -414,7 +370,6 @@ export function useReels(gameState, gridState) {
 
         // Trigger flip animations for winning tiles after spinning stopped
         if (tilesToFlip.length > 0) {
-            console.log(`🎬 Starting flip animations for ${tilesToFlip.length} winning tiles`)
             for (const { key, sprite, scaleX } of tilesToFlip) {
                 flipAnimations.startFlip(key, sprite, scaleX)
             }

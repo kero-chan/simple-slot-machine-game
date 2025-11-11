@@ -280,52 +280,15 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   }
 
   const cascadeSymbols = async (wins) => {
-    console.log('🔄 CASCADE: Starting cascade for wins:', wins.map(w => ({symbol: w.symbol, positions: w.positions})))
-
     const toRemove = new Set()
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
         toRemove.add(`${col},${row}`)
       })
     })
-    console.log('🗑️ CASCADE: Positions to remove (grid coords):', Array.from(toRemove))
 
     // Store removed positions for renderer to use in drop animation detection
     gridState.lastRemovedPositions = toRemove
-
-    // Log WINNING TILES with coordinates
-    console.log('🎯 WINNING TILES coordinates:')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const winningInCol = []
-      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
-        if (toRemove.has(`${col},${row}`)) {
-          const symbol = gridState.grid.value[col][row]
-          winningInCol.push(`(${col},${row})=${symbol}`)
-        }
-      }
-      if (winningInCol.length > 0) {
-        console.log(`  Col ${col}: ${winningInCol.join(', ')}`)
-      }
-    }
-
-    // Log TILES ABOVE WINNING TILES
-    console.log('⬆️ TILES ABOVE WINNING TILES:')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const aboveTiles = []
-      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
-        if (toRemove.has(`${col},${row}`)) {
-          // Log all tiles above this winning tile
-          for (let aboveRow = row - 1; aboveRow >= BUFFER_OFFSET; aboveRow--) {
-            const symbol = gridState.grid.value[col][aboveRow]
-            aboveTiles.push(`(${col},${aboveRow})=${symbol}`)
-          }
-          break // Only check tiles above the lowest winning tile
-        }
-      }
-      if (aboveTiles.length > 0) {
-        console.log(`  Col ${col}: ${aboveTiles.join(', ')}`)
-      }
-    }
 
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
 
@@ -340,9 +303,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
 
       if (rowsToRemove.length === 0) continue
 
-      console.log(`\n📍 Col ${col}: Processing cascade...`)
-      console.log(`  Removing tiles at grid rows: [${rowsToRemove.join(', ')}]`)
-
       // Build new column using buffer pool cascade
       const allTiles = [] // This will hold all tiles after cascade
 
@@ -354,24 +314,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
         }
       }
 
-      console.log(`  Kept all tiles (buffer + game): ${allTiles.length} tiles`)
-      console.log(`  Removed ${rowsToRemove.length} tiles`)
-
       // Step 2: Fill buffer with NEW random tiles at the top
       const newTilesNeeded = rowsToRemove.length
-      const newTiles = []
       for (let i = 0; i < newTilesNeeded; i++) {
         const newSymbol = getRandomSymbol()
-        newTiles.push(newSymbol)
         allTiles.unshift(newSymbol)
-      }
-
-      console.log(`  Generated ${newTilesNeeded} new tiles for buffer: [${newTiles.join(', ')}]`)
-
-      // Step 3: Verify we have exactly totalRows tiles
-      if (allTiles.length !== totalRows) {
-        console.error(`❌ CASCADE ERROR: Col ${col} has ${allTiles.length} tiles, expected ${totalRows}!`)
-        console.error(`  This should never happen!`)
       }
 
       // Update the grid column
@@ -382,20 +329,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
 
     // Mark cascade completion time for renderer
     gridState.lastCascadeTime = Date.now()
-
-    // Log AFTER CASCADE with coordinates to see where tiles ended up
-    console.log('\n✅ AFTER CASCADE - Tile coordinates:')
-    for (let col = 0; col < CONFIG.reels.count; col++) {
-      const hadWinning = Array.from(toRemove).some(pos => pos.startsWith(`${col},`))
-      if (!hadWinning) continue
-
-      console.log(`  Col ${col}:`)
-      for (let row = BUFFER_OFFSET; row < CONFIG.reels.rows + BUFFER_OFFSET; row++) {
-        const symbol = gridState.grid.value[col][row]
-        const visualRow = row - BUFFER_OFFSET
-        console.log(`    (${col},${row}) [visual ${visualRow}] = ${symbol}`)
-      }
-    }
 
     await animateCascade()
   }

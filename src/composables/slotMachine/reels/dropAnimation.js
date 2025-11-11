@@ -16,8 +16,6 @@ export function createDropAnimationManager() {
       startTime: Date.now(),
       duration: 300 // 300ms drop
     })
-
-    console.log(`⬇️ Tile ${key} dropping from ${fromY} to ${toY}`)
   }
 
   /**

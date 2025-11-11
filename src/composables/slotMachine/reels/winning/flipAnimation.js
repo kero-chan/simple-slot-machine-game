@@ -15,8 +15,6 @@ export function createFlipAnimationManager() {
   function startFlip(key, sprite, baseScaleX = 1) {
     if (!sprite || animations.has(key)) return
 
-    console.log(`🔄 Starting flip animation for tile: ${key}`)
-
     // Remove from completed set when starting new flip
     completedFlips.delete(key)
 
@@ -50,7 +48,6 @@ export function createFlipAnimationManager() {
 
       if (progress >= 1) {
         // Animation complete
-        console.log(`✅ Flip animation complete for tile: ${key}`)
         anim.sprite.scale.x = 0
         // Don't touch alpha - let game's disappear system handle it
         completedFlips.add(key) // Mark as completed
