@@ -1,32 +1,15 @@
-import { Graphics, Sprite, Texture } from 'pixi.js'
-import { ASSETS } from '../../../config/assets'
+import { Graphics } from 'pixi.js'
 
 export function createBackdrop(container) {
-    let backdropSprite = null
     const mask = new Graphics()
-    container.addChild(mask)
+    // Don't add mask to children, just use it for masking
+    container.mask = mask
 
     function ensureBackdrop(rect, canvasW) {
-        const src = ASSETS.loadedImages?.reels_bg || ASSETS.imagePaths?.reels_bg
-        if (src) {
-            const tex = src instanceof Texture ? src : Texture.from(src)
-            if (!backdropSprite) {
-                backdropSprite = new Sprite(tex)
-                backdropSprite.anchor.set(0, 0)
-                container.addChildAt(backdropSprite, 0)
-            } else {
-                backdropSprite.texture = tex
-            }
-            backdropSprite.x = 0
-            backdropSprite.y = rect.y
-            backdropSprite.width = canvasW
-            backdropSprite.height = rect.h
-        }
-
+        // Update mask to clip reels to the board area
         mask.clear()
         mask.rect(0, rect.y, canvasW, rect.h + 1)
         mask.fill(0xffffff)
-        container.mask = mask
     }
 
     return { ensureBackdrop }

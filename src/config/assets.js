@@ -23,7 +23,6 @@ export const ASSETS = {
     tile_zhong: new URL('../assets/slotMachine/tiles/zhong.png', import.meta.url).href,
     tile_zhong_gold: new URL('../assets/slotMachine/tiles/zhong_gold.png', import.meta.url).href,
     tiles_star: new URL('../assets/slotMachine/tiles/star.png', import.meta.url).href,
-    reels_bg: new URL('../assets/slotMachine/reels/bg.jpeg', import.meta.url).href,
     // Consecutive wins spritesheets
     header_multiplier_active: new URL('../assets/consecutiveWins/64.png', import.meta.url).href,
     header_multiplier_default: new URL('../assets/consecutiveWins/65.png', import.meta.url).href,
