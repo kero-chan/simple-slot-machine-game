@@ -7,6 +7,7 @@ import { useFooter } from './footer'
 import { ASSETS } from '../../config/assets'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
+import { createWinningSparkles } from './reels/winning/winningSparkles'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -20,6 +21,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let reels = null
     let footer = null
     let glowOverlay = null
+    let winningSparkles = null
     let winOverlay = null
 
     // Track last layout for rebuilds
@@ -78,6 +80,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             reels = useReels(gameState, gridState)
             footer = useFooter(gameState)
             glowOverlay = useGlowOverlay(gameState, gridState)
+            winningSparkles = createWinningSparkles()
             winOverlay = createWinOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
@@ -87,6 +90,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(header.container)
             root.addChild(reels.container)
             root.addChild(glowOverlay.container)
+            root.addChild(winningSparkles.container)
             root.addChild(footer.container)
             root.addChild(winOverlay.container)
         }
@@ -115,6 +119,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         if (header?.container) header.container.visible = !showStart
         if (reels?.container) reels.container.visible = !showStart
         if (glowOverlay?.container) glowOverlay.container.visible = !showStart // <-- toggle overlay
+        if (winningSparkles?.container) winningSparkles.container.visible = !showStart
         if (footer?.container) footer.container.visible = !showStart
         // Win overlay visibility is controlled by its own show/hide methods
 
@@ -134,6 +139,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             // Always draw reels so spin/cascade state is reflected
             if (reels) reels.draw(mainRect, tileSize, timestamp, w)
             if (glowOverlay) glowOverlay.draw(mainRect, tileSize, timestamp, w)
+            if (winningSparkles) winningSparkles.draw(mainRect, tileSize, timestamp, w, gridState)
 
             if ((resized || footer?.container.children.length === 0) && footer) {
                 footer.build(footerRect)
