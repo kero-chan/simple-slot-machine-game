@@ -6,6 +6,7 @@ import { createGoldManager } from './goldManager'
 import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
 import { createFlipAnimationManager } from './winning/flipAnimation'
+import { createDropAnimationManager } from './dropAnimation'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -16,11 +17,15 @@ export function useReels(gameState, gridState) {
     const winningEffects = createWinningEffects()
     const winningFrames = createWinningFrameManager()
     const flipAnimations = createFlipAnimationManager()
+    const dropAnimations = createDropAnimationManager()
     let previousSpinning = false // Track previous spinning state
     const flippedTiles = new Set() // Track tiles that have already been flipped
     let highlightsAppeared = false // Track if highlights have appeared this round
     let readyToFlip = false // Ready to trigger flips
     let savedWinningPositions = [] // Save winning positions when highlights appear
+    let lastCascadeTime = 0 // Track when cascade last happened
+    const CASCADE_RESET_WINDOW = 300 // Reset sprites within 300ms of cascade
+    let previousGrid = null // Track previous grid state to detect tile movements
 
     // Add containers in order: background, tiles, frames
     container.addChild(tilesContainer)
@@ -65,19 +70,79 @@ export function useReels(gameState, gridState) {
         const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
         const spinning = !!gameState.isSpinning?.value
 
-        // Update flip animations every frame
+        // Update flip and drop animations every frame
         flipAnimations.update()
+        dropAnimations.update()
 
         const hasHighlights = gridState.highlightWins?.value?.length > 0
 
         // Clear flip animations and tracking when spinning starts
         if (spinning && !previousSpinning) {
-            console.log('🎰 Spinning started - clearing flip animations')
+            console.log('🎰 Spinning started - clearing flip and drop animations')
             flipAnimations.clear()
+            dropAnimations.clear()
             flippedTiles.clear()
             highlightsAppeared = false
             readyToFlip = false
             savedWinningPositions = []
+            lastCascadeTime = 0
+            previousGrid = null
+        }
+
+        // Detect when cascade completes (grid just changed)
+        const cascadeTime = gridState.lastCascadeTime || 0
+        if (cascadeTime > lastCascadeTime) {
+            console.log('🎯 CASCADE COMPLETED - Grid updated, detecting tile movements')
+
+            // Detect which tiles moved and start drop animations
+            if (previousGrid) {
+                for (let col = 0; col < COLS; col++) {
+                    // Track which symbols from old grid ended up in new positions
+                    const oldCol = previousGrid[col] || []
+                    const newCol = gridState.grid.value[col] || []
+
+                    // For each position in new grid, find where that symbol came from
+                    for (let newRow = 1; newRow <= ROWS_FULL; newRow++) {
+                        const newSymbol = newCol[newRow]
+
+                        // Find this symbol in the old column (above current position)
+                        let oldRow = -1
+                        for (let r = 0; r < newRow; r++) {
+                            if (oldCol[r] === newSymbol) {
+                                oldRow = r
+                                break
+                            }
+                        }
+
+                        // If found in old grid at different position, start drop animation
+                        if (oldRow >= 0 && oldRow !== newRow) {
+                            const cellKey = `${col}:${newRow}`
+                            const sprite = spriteCache.get(cellKey)
+
+                            if (sprite) {
+                                // Calculate Y positions
+                                const oldY = startY + oldRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+                                const newY = startY + newRow * stepY - BLEED + (scaledTileH + BLEED * 2) / 2
+
+                                console.log(`⬇️ Tile ${cellKey} (${newSymbol}) dropped from row ${oldRow} to ${newRow}`)
+                                dropAnimations.startDrop(cellKey, sprite, oldY, newY)
+                            }
+                        }
+                    }
+                }
+            }
+
+            lastCascadeTime = cascadeTime
+            flipAnimations.clear()
+            flippedTiles.clear()
+        }
+
+        // Within cascade window, force reset all sprites
+        const inCascadeWindow = lastCascadeTime > 0 && (Date.now() - lastCascadeTime) < CASCADE_RESET_WINDOW
+        let cascadeDebugOnce = false
+        if (inCascadeWindow && !cascadeDebugOnce) {
+            console.log('🔄 In cascade window - forcing sprite reset (elapsed:', Date.now() - lastCascadeTime, 'ms)')
+            cascadeDebugOnce = true
         }
 
         // Detect when highlights appear and save positions
@@ -95,9 +160,14 @@ export function useReels(gameState, gridState) {
                 console.log('✨ New highlights appeared!')
                 highlightsAppeared = true
 
+                // Save current grid before cascade happens (for drop animation comparison)
+                previousGrid = gridState.grid.value.map(col => [...col])
+                console.log('📸 Saved grid snapshot before cascade')
+
                 // Clear previous flip state for new highlights
+                // This is crucial because after cascade, new tiles occupy the same positions
                 flippedTiles.clear()
-                flipAnimations.clear()
+                flipAnimations.clear() // This clears completedFlips too
 
                 // Save new winning positions
                 savedWinningPositions = currentPositions
@@ -108,6 +178,10 @@ export function useReels(gameState, gridState) {
                 console.log('🎬 Ready to flip after highlights appeared!')
             }
         }
+
+        // Don't clear completed flips when highlights disappear
+        // Only clear when new highlights appear (handled above) or when spinning starts
+        // This keeps tiles hidden during cascade until new tiles arrive
 
         previousSpinning = spinning
 
@@ -168,6 +242,22 @@ export function useReels(gameState, gridState) {
                 if (!tex) continue
 
                 let sp = spriteCache.get(cellKey)
+                let symbolChanged = false
+
+                // Check if symbol changed (after cascade) - reset sprite state
+                if (sp && sp.texture !== tex) {
+                    symbolChanged = true
+                    const prevScale = sp.scale.x
+                    console.log(`🔄 Symbol changed at ${cellKey}, sprite scale.x=${prevScale.toFixed(3)}, resetting sprite state`)
+                    // Reset any flip animation state for this tile
+                    if (flipAnimations.isAnimating(cellKey) || flipAnimations.hasCompleted(cellKey)) {
+                        flipAnimations.reset(cellKey, sp)
+                        flippedTiles.delete(cellKey)
+                    }
+                    // FORCE reset scale immediately when symbol changes
+                    sp.scale.x = 1
+                    sp.alpha = 1
+                }
 
                 const w = scaledTileW + BLEED * 2
                 const h = scaledTileH + BLEED * 2
@@ -200,14 +290,31 @@ export function useReels(gameState, gridState) {
                 const scaleX = w / sp.texture.width
                 const scaleY = h / sp.texture.height
 
+                // Check if this tile should be disappeared (game's disappear system)
+                const disappearKey = `${col},${r}`
+                const shouldDisappear = gridState.disappearPositions?.value?.has(disappearKey)
+
+                // Check if this tile has completed flipping
+                const hasCompletedFlip = flipAnimations.hasCompleted(cellKey)
+
                 // Handle scale based on animation state
-                if (!isAnimating || isInDelay) {
-                    // Not animating OR in delay period: set normal scale
+                if (inCascadeWindow || symbolChanged || (!isAnimating && !hasCompletedFlip) || isInDelay) {
+                    // Cascade window, symbol changed, or not animating: set normal scale
+                    // Let the game's disappear system handle visibility
+                    if (inCascadeWindow && sp.scale.x < 0.1) {
+                        console.log(`⚡ CASCADE WINDOW: Resetting sprite ${cellKey} from scale.x=${sp.scale.x.toFixed(3)} to ${scaleX.toFixed(3)}`)
+                    }
                     sp.scale.set(scaleX, scaleY)
-                    sp.alpha = 1
+                    sp.alpha = shouldDisappear ? 0 : 1
+                } else if (hasCompletedFlip) {
+                    // Tile has completed flipping: keep it at scale.x=0 until cascade
+                    sp.scale.x = 0
+                    sp.scale.y = scaleY
+                    sp.alpha = shouldDisappear ? 0 : 1
                 } else {
                     // During flip animation: only update Y scale, preserve animated X scale
                     sp.scale.y = scaleY
+                    // Don't touch alpha - game will handle it
                 }
 
                 // Collect winning tiles to flip when ready (use saved positions)
@@ -226,7 +333,10 @@ export function useReels(gameState, gridState) {
 
                 // Position with center anchor
                 sp.x = Math.round(xCell) - BLEED + w / 2
-                sp.y = yCell - BLEED + h / 2
+
+                // Use drop animation Y if tile is dropping, otherwise use normal Y
+                const baseY = yCell - BLEED + h / 2
+                sp.y = dropAnimations.getDropY(cellKey, baseY)
 
                 // Update winning frame in separate container
                 // Pass sprite's center position directly

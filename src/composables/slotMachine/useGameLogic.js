@@ -276,29 +276,78 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   }
 
   const cascadeSymbols = async (wins) => {
+    console.log('🔄 CASCADE: Starting cascade for wins:', wins.map(w => ({symbol: w.symbol, positions: w.positions})))
+
     const toRemove = new Set()
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
         toRemove.add(`${col},${row}`)
       })
     })
+    console.log('🗑️ CASCADE: Positions to remove:', Array.from(toRemove))
+
+    // Log grid BEFORE cascade
+    console.log('📊 CASCADE: Grid BEFORE cascade:')
+    for (let col = 0; col < CONFIG.reels.count; col++) {
+      console.log(`  Col ${col}:`, gridState.grid.value[col].join(', '))
+    }
 
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      const removed = []
-      for (let row = CONFIG.reels.rows - 1; row >= 0; row--) {
-        if (toRemove.has(`${col},${row}`)) removed.push(row)
+      // Find all rows to remove in this column
+      const rowsToRemove = []
+      for (let row = 0; row < CONFIG.reels.rows; row++) {
+        if (toRemove.has(`${col},${row}`)) {
+          rowsToRemove.push(row)
+        }
       }
 
-      for (let i = removed.length - 1; i >= 0; i--) {
-        const rowToRemove = removed[i]
-        for (let row = rowToRemove; row > 0; row--) {
-          gridState.grid.value[col][row] = gridState.grid.value[col][row - 1]
+      if (rowsToRemove.length === 0) continue
+
+      console.log(`  Col ${col}: Removing ${rowsToRemove.length} tiles at rows [${rowsToRemove.join(', ')}]`)
+
+      // Build new column: keep non-removed tiles in order, then add new tiles at top
+      const newColumn = []
+
+      // First, collect all tiles that are NOT being removed (from bottom to top)
+      for (let row = CONFIG.reels.rows - 1; row >= 0; row--) {
+        if (!toRemove.has(`${col},${row}`)) {
+          newColumn.unshift(gridState.grid.value[col][row])
         }
-        gridState.grid.value[col][0] = getRandomSymbol()
       }
+
+      // Then fill remaining slots at the top with new random symbols
+      const newTilesNeeded = rowsToRemove.length
+      const newTiles = []
+      for (let i = 0; i < newTilesNeeded; i++) {
+        const newSymbol = getRandomSymbol()
+        newTiles.push(newSymbol)
+        newColumn.unshift(newSymbol)
+      }
+
+      console.log(`  Col ${col}: Adding ${newTilesNeeded} new symbols at top: [${newTiles.join(', ')}]`)
+
+      // Verify column has correct length
+      if (newColumn.length !== CONFIG.reels.rows) {
+        console.error(`❌ CASCADE ERROR: Col ${col} has ${newColumn.length} tiles, expected ${CONFIG.reels.rows}!`)
+        console.error(`   Tiles: [${newColumn.join(', ')}]`)
+      }
+
+      // Update the grid column
+      gridState.grid.value[col] = newColumn
     }
 
     gridState.grid.value = [...gridState.grid.value] // Trigger reactivity
+
+    // Mark cascade completion time for renderer
+    gridState.lastCascadeTime = Date.now()
+    console.log('✅ CASCADE: Grid updated, marking cascade time:', gridState.lastCascadeTime)
+
+    // Log grid AFTER cascade
+    console.log('📊 CASCADE: Grid AFTER cascade:')
+    for (let col = 0; col < CONFIG.reels.count; col++) {
+      console.log(`  Col ${col}:`, gridState.grid.value[col].join(', '))
+    }
+
     await animateCascade()
   }
 

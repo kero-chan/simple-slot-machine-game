@@ -4,6 +4,7 @@
  */
 export function createFlipAnimationManager() {
   const animations = new Map() // key -> { startTime, sprite, duration }
+  const completedFlips = new Set() // Track tiles that have completed flipping
 
   /**
    * Start a flip animation for a tile
@@ -16,11 +17,14 @@ export function createFlipAnimationManager() {
 
     console.log(`🔄 Starting flip animation for tile: ${key}`)
 
+    // Remove from completed set when starting new flip
+    completedFlips.delete(key)
+
     animations.set(key, {
       startTime: Date.now(),
       sprite: sprite,
-      duration: 800, // 800ms for complete flip and disappear
-      delay: 500, // 500ms delay to show winning frame first
+      duration: 300, // 300ms for complete flip
+      delay: 2300, // Start flip at 2.3s, runs during disappear phase (2.5-2.8s)
       baseScaleX: baseScaleX
     })
   }
@@ -45,25 +49,20 @@ export function createFlipAnimationManager() {
       const progress = Math.min(animElapsed / anim.duration, 1)
 
       if (progress >= 1) {
-        // Animation complete - hide tile
+        // Animation complete
         console.log(`✅ Flip animation complete for tile: ${key}`)
-        anim.sprite.alpha = 0
         anim.sprite.scale.x = 0
+        // Don't touch alpha - let game's disappear system handle it
+        completedFlips.add(key) // Mark as completed
         animations.delete(key)
       } else {
-        // Animate the flip: shrink horizontally from left to right, then fade out
+        // Animate the flip: shrink horizontally from left to right
         const baseScale = anim.baseScaleX
 
         // Shrink horizontally from baseScale to 0 (turns edge-on)
         anim.sprite.scale.x = baseScale * (1 - progress)
 
-        // Fade out in the last 30% of animation
-        if (progress > 0.7) {
-          const fadeProgress = (progress - 0.7) / 0.3 // 0 to 1 in last 30%
-          anim.sprite.alpha = 1 - fadeProgress
-        } else {
-          anim.sprite.alpha = 1
-        }
+        // Don't touch alpha - let game's disappear system handle fading
       }
     }
   }
@@ -74,6 +73,7 @@ export function createFlipAnimationManager() {
   function clear() {
     // Don't reset sprite states here - let the draw loop handle it
     animations.clear()
+    completedFlips.clear()
   }
 
   /**
@@ -83,6 +83,7 @@ export function createFlipAnimationManager() {
     if (animations.has(key)) {
       animations.delete(key)
     }
+    completedFlips.delete(key)
     // Don't reset sprite states here - let the draw loop handle it
   }
 
@@ -103,12 +104,28 @@ export function createFlipAnimationManager() {
     return elapsed < anim.delay
   }
 
+  /**
+   * Check if a tile has completed flipping (should stay hidden)
+   */
+  function hasCompleted(key) {
+    return completedFlips.has(key)
+  }
+
+  /**
+   * Check if there are any completed flips
+   */
+  function hasAnyCompleted() {
+    return completedFlips.size > 0
+  }
+
   return {
     startFlip,
     update,
     clear,
     reset,
     isAnimating,
-    isInDelay
+    isInDelay,
+    hasCompleted,
+    hasAnyCompleted
   }
 }
