@@ -40,11 +40,11 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let bambooComposed = false
 
     function computeLayout(w, h) {
-        const headerH = Math.round(h * 0.18)
+        const headerH = Math.round(h * 0.15)
 
-        // Tile width from canvas width; tile height from required ratio 157/184
+        // Tile width from canvas width; tile height from required ratio 170/184
         const tileW = (w - MARGIN_X * 2) / COLS
-        const TILE_RATIO_H_OVER_W = 184 / 157
+        const TILE_RATIO_H_OVER_W = 184 / 170
         const tileH = tileW * TILE_RATIO_H_OVER_W
 
         const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.15

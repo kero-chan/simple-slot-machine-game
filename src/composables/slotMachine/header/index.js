@@ -110,27 +110,38 @@ export function useHeader(gameState) {
     const { x, y, w, h } = rect;
 
     // Create layered background system
-    // bg_01: Full header background (lowest layer)
+    // bg_01: Top half background (lowest layer)
     const { texture: bg01Texture, scale: bg01Scale } =
       getBackgroundTextureAndScale("bg_01");
     if (bg01Texture) {
       const bg01 = new Sprite(bg01Texture);
       bg01.x = x;
-      bg01.y = y;
 
-      // Apply config scale first, then fit to container
+      // Apply config scale first
       const baseWidth = bg01Texture.width * bg01Scale;
       const baseHeight = bg01Texture.height * bg01Scale;
 
-      // Scale to fit container dimensions
+      // Scale to cover at least the container width while maintaining aspect ratio
       const scaleX = w / baseWidth;
       const scaleY = h / baseHeight;
       const containerScale = Math.max(scaleX, scaleY); // Cover the entire area
 
+      // Apply uniform scale to maintain aspect ratio
       bg01.width = baseWidth * containerScale;
       bg01.height = baseHeight * containerScale;
 
+      // Position bg_01 to align bottom edge with the middle of header (bottom of top half)
+      const visibleAreaBottom = y + h / 2;
+      bg01.y = visibleAreaBottom - bg01.height; // Align bottom
+
+      // Create a mask to show only the top half of header
+      const mask = new Graphics();
+      mask.rect(x, y, w, h / 2); // Only show top half
+      mask.fill(0xffffff);
+      bg01.mask = mask;
+      
       container.addChild(bg01);
+      container.addChild(mask); // Add mask to container
     } else {
       // Fallback to solid background
       const bar = new Graphics();

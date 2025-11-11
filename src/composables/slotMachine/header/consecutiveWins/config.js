@@ -55,9 +55,9 @@ export const CONSECUTIVE_WINS_CONFIG = {
   },
   bg_01: {
     iconAsset: 'header_background',
-    icon: { x: 0, y: 660, w: 756, h: 240 },
-    iconScale: 1,
-    iconRotation: 0,
+    icon: { x: 755, y: 0, w: 250, h: 756 },
+    iconScale: 0.7,
+    iconRotation: -Math.PI / 2,
   },
   bg_02: {
     iconAsset: 'header_background',
