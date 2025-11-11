@@ -43,9 +43,9 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     function computeLayout(w, h) {
         const headerH = Math.round(h * 0.15)
 
-        // Tile width from canvas width; tile height from required ratio 170/184
+        // Tile width from canvas width; tile height from required ratio
         const tileW = (w - MARGIN_X * 2) / COLS
-        const TILE_RATIO_H_OVER_W = 184 / 170
+        const TILE_RATIO_H_OVER_W = 610 / 600  // Actual tile image ratio
         const tileH = tileW * TILE_RATIO_H_OVER_W
 
         const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.35  // Increased bottom visibility from 0.15 to 0.35

@@ -4,16 +4,26 @@ import { getTextureForSymbol } from './textures'
 import { applyTileVisuals } from './visuals'
 import { createGoldManager } from './goldManager'
 import { createWinningEffects } from './winning/effects'
+import { createWinningFrameManager } from './winning/winningComposer'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
-    const { ensureBackdrop } = createBackdrop(container)
+    const tilesContainer = new Container()  // Separate container for tiles (will be masked)
+    const framesContainer = new Container()  // Container for frames (not masked)
+
+    const { ensureBackdrop } = createBackdrop(tilesContainer)
     const winningEffects = createWinningEffects()
+    const winningFrames = createWinningFrameManager()
+
+    // Add containers in order: background, tiles, frames
+    container.addChild(tilesContainer)
+    container.addChild(framesContainer)
 
     const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
     const BLEED = 2
+    const TILE_SPACING = 5  // Spacing between tiles (all sides)
 
     const spriteCache = new Map() // `${col}:${row}`
 
@@ -37,10 +47,12 @@ export function useReels(gameState, gridState) {
 
         // Calculate tile size and positioning with small margins on sides
         const margin = 10  // Small margin on left and right
-        const availableWidth = canvasW - (margin * 2)
-        const scaledTileW = availableWidth / COLS  // Each tile takes 1/5 of available width
+        const totalSpacingX = TILE_SPACING * (COLS - 1)  // Total horizontal spacing
+        const availableWidth = canvasW - (margin * 2) - totalSpacingX
+        const scaledTileW = availableWidth / COLS  // Each tile width
         const scaledTileH = scaledTileW * (tileH / tileW)  // Maintain aspect ratio
-        const stepX = scaledTileW  // No spacing between tiles, they touch
+        const stepX = scaledTileW + TILE_SPACING  // Tile width + spacing
+        const stepY = scaledTileH + TILE_SPACING  // Tile height + spacing
         const originX = margin  // Start from left margin
 
         const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
@@ -69,7 +81,7 @@ export function useReels(gameState, gridState) {
             // Draw 0..5: top partial, 4 full rows, bottom partial
             for (let r = 0; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
-                const yCell = startY + r * scaledTileH + offsetTiles * scaledTileH
+                const yCell = startY + r * stepY + offsetTiles * stepY
 
                 let symbol
                 if (spinning) {
@@ -126,18 +138,21 @@ export function useReels(gameState, gridState) {
                         win.positions.some(([c, rr]) => c === col && rr === r))
                     : false
 
-                // Always apply tile visuals - this handles the winning frame overlay and tint
+                // Always apply tile visuals - this handles the tint
                 applyTileVisuals(sp, 1, winning)
 
                 sp.x = Math.round(xCell) - BLEED
                 sp.y = yCell - BLEED
 
-                if (!sp.parent) container.addChild(sp)
+                // Update winning frame in separate container
+                winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y)
+
+                if (!sp.parent) tilesContainer.addChild(sp)
                 usedKeys.add(cellKey)
             }
         }
 
-        // Cleanup unused tile sprites
+        // Cleanup unused tile sprites and frames
         for (const [key, sprite] of spriteCache.entries()) {
             if (!usedKeys.has(key)) {
                 if (sprite.parent) sprite.parent.removeChild(sprite)
@@ -145,10 +160,12 @@ export function useReels(gameState, gridState) {
                 spriteCache.delete(key)
             }
         }
+        winningFrames.cleanup(usedKeys)
     }
 
-    // Add winning effects container to the scene
+    // Add winning effects and frames to their containers
     container.addChild(winningEffects.container)
+    framesContainer.addChild(winningFrames.container)
 
     // Expose API consistent with previous version
     return {

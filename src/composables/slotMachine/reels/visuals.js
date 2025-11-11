@@ -1,5 +1,3 @@
-import { applyWinningFrame } from './winning/winningComposer'
-
 export function applyTileVisuals(sprite, alpha = 1, highlight = false) {
     if (!sprite) return
     sprite.alpha = alpha
@@ -10,7 +8,4 @@ export function applyTileVisuals(sprite, alpha = 1, highlight = false) {
     } else {
         sprite.tint = 0xffffff // White (normal)
     }
-
-    // Apply winning frame overlay
-    applyWinningFrame(sprite, highlight)
 }
