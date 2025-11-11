@@ -154,6 +154,10 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 if (resized && winOverlay.container.visible) {
                     winOverlay.build(w, h)
                 }
+                // Update gameState flag based on overlay visibility
+                if (gameState.showingWinOverlay.value && !winOverlay.isShowing()) {
+                    gameState.showingWinOverlay.value = false
+                }
             }
         }
     }
@@ -207,6 +211,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             const w = canvasState.canvasWidth.value
             const h = canvasState.canvasHeight.value
             winOverlay.show(intensity, amount, w, h)
+            gameState.showingWinOverlay.value = true
         }
     }
 

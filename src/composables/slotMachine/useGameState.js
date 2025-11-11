@@ -6,6 +6,7 @@ export function useGameState() {
     const bet = ref(CONFIG.game.minBet)
     const currentWin = ref(0)
     const isSpinning = ref(false)
+    const showingWinOverlay = ref(false)
     const consecutiveWins = ref(0)
     const freeSpins = ref(0)
     const inFreeSpinMode = ref(false)
@@ -19,7 +20,7 @@ export function useGameState() {
     })
 
     const canSpin = computed(() => {
-        return !isSpinning.value && credits.value >= bet.value
+        return !isSpinning.value && !showingWinOverlay.value && credits.value >= bet.value
     })
 
     return {
@@ -27,6 +28,7 @@ export function useGameState() {
         bet,
         currentWin,
         isSpinning,
+        showingWinOverlay,
         consecutiveWins,
         currentMultiplier,
         canSpin,

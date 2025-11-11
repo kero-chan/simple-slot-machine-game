@@ -6,6 +6,7 @@ import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
 import { createFlipAnimationManager } from './winning/flipAnimation'
 import { createDropAnimationManager } from './dropAnimation'
+import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 
 export function useReels(gameState, gridState) {
@@ -18,6 +19,7 @@ export function useReels(gameState, gridState) {
     const winningFrames = createWinningFrameManager()
     const flipAnimations = createFlipAnimationManager()
     const dropAnimations = createDropAnimationManager()
+    const bumpAnimations = createBumpAnimationManager()
     let previousSpinning = false // Track previous spinning state
     const flippedTiles = new Set() // Track tiles that have already been flipped
     let highlightsAppeared = false // Track if highlights have appeared this round
@@ -60,9 +62,10 @@ export function useReels(gameState, gridState) {
         const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
         const spinning = !!gameState.isSpinning?.value
 
-        // Update flip and drop animations every frame
+        // Update flip, drop, and bump animations every frame
         flipAnimations.update()
         dropAnimations.update()
+        bumpAnimations.update()
 
         // Update drop animation state for game logic to wait on
         gridState.isDropAnimating.value = dropAnimations.hasActiveDrops()
@@ -73,6 +76,7 @@ export function useReels(gameState, gridState) {
         if (spinning && !previousSpinning) {
             flipAnimations.clear()
             dropAnimations.clear()
+            bumpAnimations.clear()
             flippedTiles.clear()
             highlightsAppeared = false
             readyToFlip = false
@@ -348,8 +352,13 @@ export function useReels(gameState, gridState) {
                         flipAnimations.reset(cellKey, sp)
                         flippedTiles.delete(cellKey)
                     }
+                    // Reset bump animation if symbol changed
+                    if (bumpAnimations.isAnimating(cellKey) || bumpAnimations.hasBumped(cellKey)) {
+                        bumpAnimations.reset(cellKey)
+                    }
                     // FORCE reset scale immediately when symbol changes
                     sp.scale.x = 1
+                    sp.scale.y = 1
                     sp.alpha = 1
                 }
 
@@ -395,19 +404,22 @@ export function useReels(gameState, gridState) {
                 const hasCompletedFlip = flipAnimations.hasCompleted(cellKey)
 
                 // Handle scale based on animation state
+                const isBumping = bumpAnimations.isAnimating(cellKey)
+
                 if (inCascadeWindow || symbolChanged || (!isAnimating && !hasCompletedFlip) || isInDelay) {
                     // Cascade window, symbol changed, or not animating: set normal scale
                     // Let the game's disappear system handle visibility
-                    sp.scale.set(scaleX, scaleY)
+                    sp.scale.x = scaleX
+                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
                     sp.alpha = shouldDisappear ? 0 : 1
                 } else if (hasCompletedFlip) {
                     // Tile has completed flipping: keep it at scale.x=0 until cascade
                     sp.scale.x = 0
-                    sp.scale.y = scaleY
+                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
                     sp.alpha = shouldDisappear ? 0 : 1
                 } else {
                     // During flip animation: only update Y scale, preserve animated X scale
-                    sp.scale.y = scaleY
+                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
                     // Don't touch alpha - game will handle it
                 }
 
@@ -423,6 +435,17 @@ export function useReels(gameState, gridState) {
 
                 // Always apply tile visuals - this handles the tint and dark mask
                 applyTileVisuals(sp, 1, winning, hasHighlights)
+
+                // Trigger bump animation for bonus tiles when they appear in visible rows
+                // Don't trigger during drop animations to prevent symbol issues
+                const baseSymbol = symbol?.replace('_gold', '')
+                const isBonus = baseSymbol === 'bonus'
+                const isVisibleRow = r >= 1 && r <= 4
+                const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
+                const hasActiveDrops = gridState.isDropAnimating?.value
+                if (isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
+                    bumpAnimations.startBump(cellKey, sp)
+                }
 
                 // Position with center anchor
                 sp.x = Math.round(xCell) - BLEED + w / 2

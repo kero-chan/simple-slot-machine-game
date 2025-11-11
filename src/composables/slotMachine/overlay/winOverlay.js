@@ -374,6 +374,7 @@ export function createWinOverlay(gameState) {
     show,
     hide,
     update,
-    build
+    build,
+    isShowing: () => isAnimating || container.visible
   }
 }
