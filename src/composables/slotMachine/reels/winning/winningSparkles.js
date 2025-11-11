@@ -64,14 +64,6 @@ export function createWinningSparkles() {
     if (Math.random() > DOT_SPAWN_RATE) return
 
     const tex = ensureStarTexture() || Texture.WHITE
-
-    // Debug log
-    if (!tex || tex === Texture.WHITE) {
-      console.warn('[SPARKLES] Texture not loaded, using Texture.WHITE')
-    } else {
-      console.log('[SPARKLES] Spawning dot for key:', key)
-    }
-
     const s = new Sprite(tex)
     s.blendMode = BLEND_MODES.ADD
     s.anchor.set(0.5)
@@ -165,11 +157,6 @@ export function createWinningSparkles() {
     if (highlightAnim && highlightAnim.start > 0) {
       const elapsed = now - highlightAnim.start
       isFlipTime = elapsed >= FLIP_DELAY && elapsed <= (FLIP_DELAY + FLIP_DURATION)
-
-      // Debug logging
-      if (winningPositions.size > 0 && elapsed >= FLIP_DELAY - 100 && elapsed <= FLIP_DELAY + FLIP_DURATION + 100) {
-        console.log(`[SPARKLES] elapsed: ${elapsed.toFixed(0)}ms, isFlipTime: ${isFlipTime}, wins: ${winningPositions.size}`)
-      }
     }
 
     // Spawn sparkles only during flip animation
