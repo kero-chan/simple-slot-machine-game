@@ -1,8 +1,10 @@
 import { Container, Graphics, Sprite, Texture, Text } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
+import { useBackgroundMusic } from '../../useBackgroundMusic'
 
 export function useStartScene(gameState) {
     const container = new Container()
+    const backgroundMusic = useBackgroundMusic()
 
     function build(w, h) {
         container.removeChildren()
@@ -30,6 +32,7 @@ export function useStartScene(gameState) {
         btn.eventMode = 'static'
         btn.cursor = 'pointer'
         btn.on('pointerdown', () => {
+            backgroundMusic.start();
             gameState.showStartScreen.value = false
         })
         container.addChild(btn)

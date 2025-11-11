@@ -19,5 +19,10 @@ export const ASSETS = {
     footer_notification: new URL('../assets/notification_bar.png', import.meta.url).href,
     footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href
   },
-  loadedImages: {}
+  loadedImages: {},
+  audioPaths: [
+    new URL('../assets/audio/background_music_01.mp3', import.meta.url).href,
+    new URL('../assets/audio/background_music_02.mp3', import.meta.url).href,
+    new URL('../assets/audio/background_music_03.mp3', import.meta.url).href
+  ]
 }
