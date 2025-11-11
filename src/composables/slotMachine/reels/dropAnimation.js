@@ -4,6 +4,7 @@
 export function createDropAnimationManager() {
   const dropStates = new Map() // key -> { fromY, toY, startTime, duration, symbol }
   const completedStates = new Map() // key -> { symbol, completedAt } - Keep symbols after animation completes
+  const GRACE_PERIOD = 50 // ms - How long to keep completed states before auto-clearing
 
   /**
    * Start a drop animation for a tile
@@ -62,8 +63,13 @@ export function createDropAnimationManager() {
       }
     }
 
-    // DON'T auto-clear completed states - they will be cleared when next cascade starts
-    // This prevents sprites from reading wrong grid values if grid changes before next cascade
+    // Auto-clear completed states after grace period
+    // This prevents delays when waiting for drops to finish before showing win announcements
+    for (const [key, completed] of completedStates.entries()) {
+      if (now - completed.completedAt > GRACE_PERIOD) {
+        completedStates.delete(key)
+      }
+    }
   }
 
   /**

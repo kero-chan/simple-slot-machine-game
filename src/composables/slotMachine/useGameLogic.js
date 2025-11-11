@@ -346,17 +346,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
   const animateCascade = () => {
     const startTime = Date.now()
     const MAX_WAIT = 5000 // 5 second safety timeout
-    let framesPassed = 0
 
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
-        framesPassed++
 
-        // Wait at least 2 frames to ensure renderer has detected cascade and started animations
-        // Then wait for drop animations (including grace period) to complete
+        // Wait for drop animations to complete
         // Also have a safety timeout in case something goes wrong
-        const shouldWait = framesPassed < 2 || gridState.isDropAnimating.value
+        const shouldWait = gridState.isDropAnimating.value
 
         if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
