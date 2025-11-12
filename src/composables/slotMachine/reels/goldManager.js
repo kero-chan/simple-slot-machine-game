@@ -79,7 +79,7 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
             if (!visibleRows.includes(row)) continue // only track visible for conversion
             set.add(`${col},${row}`)
         }
-        gridState.goldenSymbols.value = set
+        gridState.goldenSymbols = set
     }
 
     function preselectGoldTiles() {
@@ -121,7 +121,7 @@ export function createGoldManager({ gridState, allowedCols, visibleRows, hiddenR
 
     function clearGoldBaseTiles() {
         goldBaseTiles.clear()
-        gridState.goldenSymbols.value = new Set()
+        gridState.goldenSymbols = new Set()
     }
 
     return {

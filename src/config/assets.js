@@ -9,7 +9,7 @@ export const ASSETS = {
     tile_bonus: new URL('../assets/slotMachine/tiles/bonus.png', import.meta.url).href,
     tile_fa: new URL('../assets/slotMachine/tiles/fa.png', import.meta.url).href,
     tile_fa_gold: new URL('../assets/slotMachine/tiles/fa_gold.png', import.meta.url).href,
-    tile_gold: new URL('../assets/slotMachine/tiles/gold.png', import.meta.url).href,
+    tile_wild: new URL('../assets/slotMachine/tiles/gold.png', import.meta.url).href,
     tile_liangsuo: new URL('../assets/slotMachine/tiles/liangsuo.png', import.meta.url).href,
     tile_liangsuo_gold: new URL('../assets/slotMachine/tiles/liangsuo_gold.png', import.meta.url).href,
     tile_liangtong: new URL('../assets/slotMachine/tiles/liangtong.png', import.meta.url).href,

@@ -236,7 +236,7 @@ const handleStart = () => {
   font-weight: bold;
   width: 35%;
   height: 5%;
-  font-size: 1vw;
+  font-size: 10px;
 }
 
 .start-button:hover {

@@ -1,26 +1,26 @@
-import { watch, nextTick } from 'vue'
+import { nextTick, watch } from 'vue'
 import { useGameState } from './slotMachine/useGameState'
-import { useGridState } from './slotMachine/useGridState'
 import { useCanvas } from './slotMachine/useCanvas'
 import { useRenderer } from './slotMachine/useRenderer'
 import { useGameLogic } from './slotMachine/useGameLogic'
+import { useGameFlowController } from './slotMachine/useGameFlowController'
 import { loadAllAssets } from '../utils/imageLoader'
 import { useGameStore } from '../stores/gameStore'
+import { useGridStore } from '../stores/gridStore'
 
 export function useSlotMachine(canvasRef) {
   const gameStore = useGameStore()
   const gameState = useGameState()
-  const gridState = useGridState()
+  const gridState = useGridStore()
   const canvasState = useCanvas(canvasRef)
   const renderer = useRenderer(canvasState, gameState, gridState)
   const gameLogic = useGameLogic(gameState, gridState, renderer.render, renderer.showWinOverlay)
 
-  // Wire Pixi footer controls to game logic actions
+  const flowController = useGameFlowController(gameLogic, gridState, renderer.render)
+  let unwatchFlow = null
+
   renderer.setControls({
-    spin: () => {
-      // Note: Gold tiles are now selected AFTER spin completes in useGameLogic
-      gameLogic.spin()
-    },
+    spin: gameLogic.spin,
     increaseBet: gameLogic.increaseBet,
     decreaseBet: gameLogic.decreaseBet
   })
@@ -41,7 +41,7 @@ export function useSlotMachine(canvasRef) {
         gameStore.updateLoadingProgress(loaded, total)
       })
 
-      // Start animation
+      unwatchFlow = flowController.startWatching()
       renderer.startAnimation()
       
       // Watch for start screen changes to ensure render
@@ -83,7 +83,6 @@ export function useSlotMachine(canvasRef) {
     const dy = y - spin.y
     const insideSpin = dx * dx + dy * dy <= spin.radius * spin.radius
     if (insideSpin) {
-      // Note: Gold tiles are now selected AFTER spin completes in useGameLogic
       gameLogic.spin()
       return
     }
@@ -132,6 +131,12 @@ export function useSlotMachine(canvasRef) {
     }
   }
 
+  const cleanup = () => {
+    if (unwatchFlow) unwatchFlow()
+    flowController.clearActiveTimer()
+    renderer.stopAnimation()
+  }
+
   return {
     gameState,
     gridState,
@@ -146,6 +151,6 @@ export function useSlotMachine(canvasRef) {
     increaseBet: gameLogic.increaseBet,
     decreaseBet: gameLogic.decreaseBet,
     start,
-    stopAnimation: renderer.stopAnimation
+    stopAnimation: cleanup
   }
 }

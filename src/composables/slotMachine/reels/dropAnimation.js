@@ -1,10 +1,12 @@
+import { useTimingStore } from '../../../stores/timingStore'
+
 /**
  * Manages drop animations for tiles cascading down
  */
 export function createDropAnimationManager() {
+  const timingStore = useTimingStore()
   const dropStates = new Map() // key -> { fromY, toY, startTime, duration, symbol }
   const completedStates = new Map() // key -> { symbol, completedAt } - Keep symbols after animation completes
-  const GRACE_PERIOD = 6000 // ms - Keep symbols preserved until next cascade starts
 
   /**
    * Start a drop animation for a tile
@@ -34,7 +36,7 @@ export function createDropAnimationManager() {
       fromY,
       toY,
       startTime: Date.now(),
-      duration: 300, // 300ms drop
+      duration: timingStore.DROP_DURATION,
       symbol // Store the symbol for this animation
     })
 
@@ -66,7 +68,7 @@ export function createDropAnimationManager() {
     // Auto-clear completed states after grace period
     // This prevents delays when waiting for drops to finish before showing win announcements
     for (const [key, completed] of completedStates.entries()) {
-      if (now - completed.completedAt > GRACE_PERIOD) {
+      if (now - completed.completedAt > timingStore.DROP_GRACE_PERIOD) {
         completedStates.delete(key)
       }
     }
@@ -97,12 +99,11 @@ export function createDropAnimationManager() {
   }
 
   /**
-   * Check if ANY tiles are currently dropping OR in grace period
-   * Returns true if animations are active or recently completed
+   * Check if ANY tiles are currently dropping
+   * Only checks active animations, not completed ones in grace period
    */
   function hasActiveDrops() {
-    const active = dropStates.size > 0 || completedStates.size > 0
-    return active
+    return dropStates.size > 0
   }
 
   /**

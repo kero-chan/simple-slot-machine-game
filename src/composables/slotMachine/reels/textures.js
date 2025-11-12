@@ -1,15 +1,10 @@
 import { Texture } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
+import { getTileBaseSymbol, isTileGolden } from '../../../utils/tileHelpers'
 
 export function getTextureForSymbol(symbol, useGold = false) {
-    // Check if symbol has "_gold" suffix
-    let baseSymbol = symbol
-    let isGold = useGold
-
-    if (symbol && symbol.endsWith('_gold')) {
-        baseSymbol = symbol.slice(0, -5) // Remove "_gold" suffix
-        isGold = true
-    }
+    const baseSymbol = getTileBaseSymbol(symbol)
+    const isGold = useGold || isTileGolden(symbol)
 
     // Map symbol name to tile asset key
     const tileKey = isGold ? `tile_${baseSymbol}_gold` : `tile_${baseSymbol}`
