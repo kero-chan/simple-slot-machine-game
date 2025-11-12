@@ -20,7 +20,7 @@ export const useTimingStore = defineStore('timing', {
     DISAPPEAR_WAIT: 400,          // ms - Pause to let player see tiles are gone before cascade
 
     // Phase 4: Gold transformation (if applicable)
-    GOLD_WAIT: 0,                 // ms - No wait needed (tiles already hidden)
+    GOLD_WAIT: 300,               // ms - Wait to show wild tiles with glowing effect
 
     // Phase 5: Cascade wait
     CASCADE_WAIT: 1000,           // ms - Wait after cascade before checking for next win
