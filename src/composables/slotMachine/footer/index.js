@@ -318,16 +318,15 @@ export function useFooter(gameState) {
     })
     buildMenuIcon('volumn_open_icon', 1, '声音', () => {
       gameStore.toggleGameSound()
-      console.log("changed sound state")
     })
     buildMenuIcon('win_table_icon', 2, '赔付表', () => {
-      console.log("show win table")
+      // Show win table
     })
     buildMenuIcon('rule_icon', 3, '规则', () => {
-      console.log("show rule")
+      // Show rules
     })
     buildMenuIcon('history_icon', 4, '历史', () => {
-      console.log("show history")
+      // Show history
     })
     buildMenuIcon('close_icon', 5, '关闭', () => {
       showButton(mainMenuContainer)

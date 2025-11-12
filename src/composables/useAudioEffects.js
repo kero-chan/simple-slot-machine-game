@@ -49,9 +49,6 @@ export function useAudioEffects() {
   const playWinSound = (wins) => {
     if (!wins || wins.length === 0) return;
 
-    console.log("[dev] wins for playWinSound:", wins);
-    
-
     // Determine which win sound to play based on symbol type
     // Priority: jackpot > all_boy/all_girl > specific symbol
     let audioKey = null;

@@ -33,8 +33,6 @@ export function useGameFlowController(gameLogic, gridState, render) {
     const unwatch = watch(
       () => gameStore.gameFlowState,
       async (newState, oldState) => {
-        console.log(`[GameFlowController] State: ${oldState} -> ${newState}`)
-
         switch (newState) {
           case GAME_STATES.SPINNING:
             // Clear all winning state when spinning starts

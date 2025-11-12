@@ -76,7 +76,6 @@ export const useGameStore = defineStore('game', {
 
   actions: {
     transitionTo(newState) {
-      console.log(`[GameStore] State: ${this.gameFlowState} -> ${newState}`)
       this.previousGameFlowState = this.gameFlowState
       this.gameFlowState = newState
       this.animationComplete = false

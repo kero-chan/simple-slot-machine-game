@@ -16,9 +16,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
-  const VISIBLE_START_ROW = BUFFER_OFFSET + 1
+  const VISIBLE_START_ROW = BUFFER_OFFSET  // First visible row starts right after buffer rows
   const VISIBLE_ROWS = 4
-  const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
+  const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1  // Last visible row
 
   const { playConsecutiveWinSound, playWinSound, playEffect } = useAudioEffects()
 
@@ -50,6 +50,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const findWinningCombinations = () => {
+    console.log('\n=== CHECKING WINS ===')
+    console.log(`Buffer offset: ${BUFFER_OFFSET}`)
+    console.log(`Checking rows: ${VISIBLE_START_ROW} to ${VISIBLE_END_ROW} (inclusive)`)
+
+    // Log current grid state for visible rows
+    console.log('\nCurrent grid (visible rows only):')
+    for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
+      const rowSymbols = []
+      for (let col = 0; col < CONFIG.reels.count; col++) {
+        const cell = gridState.grid[col][row]
+        rowSymbols.push(cell || 'empty')
+      }
+      console.log(`Row ${row}: [${rowSymbols.join(', ')}]`)
+    }
+
     const allWinCombos = []
     const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
 
@@ -116,9 +131,18 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const firstSymbol = allWinCombos[0].symbol
       const singleSymbolWins = allWinCombos.filter(win => win.symbol === firstSymbol)
 
+      console.log(`\nFound ${singleSymbolWins.length} winning combinations for symbol: ${firstSymbol}`)
+      singleSymbolWins.forEach((win, idx) => {
+        const posStr = win.positions.map(([col, row]) => `[${col},${row}]`).join(' -> ')
+        console.log(`  Win ${idx + 1}: ${win.symbol} x${win.count} at positions: ${posStr}`)
+      })
+      console.log('=== END WIN CHECK ===\n')
+
       return singleSymbolWins
     }
 
+    console.log('No wins found')
+    console.log('=== END WIN CHECK ===\n')
     return allWinCombos
   }
 
@@ -233,14 +257,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // Calculate how close we are to the target
           const distanceRemaining = targetIndex - currentPosition
 
-          // DEBUG: Log when we're close to stopping
-          if (col === 0 && distanceRemaining < 2) {
-            console.log(`Col ${col}: t=${t.toFixed(3)}, current=${currentPosition.toFixed(3)}, target=${targetIndex}, remaining=${distanceRemaining.toFixed(3)}, easedT=${easedT.toFixed(3)}, targetPos=${targetPosition.toFixed(3)}`)
-          }
-
           // Stop condition: when very close, snap to exact target and stop
           if (distanceRemaining <= 0 || distanceRemaining < 0.01) {
-            if (col === 0) console.log(`Col ${col}: STOPPED at position ${currentPosition.toFixed(3)}, snapping to ${targetIndex}`)
             // Snap to EXACT target position to ensure strip/grid alignment
             // This is critical: strip[targetIndex + gridRow] must equal finalGrid[col][gridRow]
             gridState.reelTopIndex[col] = targetIndex - 1
@@ -257,12 +275,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // 1. NEVER go backward (upward): nextPosition >= currentPosition
           // 2. NEVER overshoot (too far down): nextPosition <= targetIndex
           // This ensures tiles ONLY move in the correct direction and NEVER past target
-          const beforeClamp = nextPosition
           nextPosition = Math.max(currentPosition, Math.min(nextPosition, targetIndex))
-
-          if (col === 0 && distanceRemaining < 2 && beforeClamp !== nextPosition) {
-            console.log(`Col ${col}: CLAMPED from ${beforeClamp.toFixed(3)} to ${nextPosition.toFixed(3)}`)
-          }
 
           // Convert next position to reelTopIndex and offset
           const newTopIndex = Math.floor(nextPosition)

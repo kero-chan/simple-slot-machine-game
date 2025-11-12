@@ -300,14 +300,6 @@ export function useReels(gameState, gridState) {
                     // Visual row r needs strip index (reelTop + r + BUFFER_OFFSET)
                     const idx = ((reelTop + gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
-
-                    // DEBUG: Log when velocity is very low (near stop) for center row
-                    if (col === 0 && r === 2 && Math.abs(colVelocity) < 0.02) {
-                        const gridSymbol = gridState.grid?.[col]?.[gridRow]
-                        if (symbol !== gridSymbol) {
-                            console.log(`Col ${col} Row ${r}: STRIP MISMATCH! Strip[${idx}]=${symbol}, Grid[${gridRow}]=${gridSymbol}, vel=${colVelocity.toFixed(4)}`)
-                        }
-                    }
                 } else {
                     // Normal state: read from grid (column has stopped, velocity = 0)
                     symbol = gridState.grid?.[col]?.[gridRow]
@@ -342,8 +334,8 @@ export function useReels(gameState, gridState) {
 
                 // Check if this tile is in the winning positions (compare using grid rows)
                 // Don't check spinning - we want to show highlights during win animation
-                // Only check visual rows 1-4 (the 4 full visible rows where wins are calculated)
-                const winning = (r >= 1 && r <= 4)
+                // Only check visual rows 0-3 (the 4 visible rows, which map to grid rows 4-7)
+                const winning = (r >= 0 && r <= 3)
                     ? (gridState.highlightWins || []).some(win =>
                         win.positions.some(([c, rr]) => c === col && rr === gridRow))
                     : false
@@ -423,7 +415,7 @@ export function useReels(gameState, gridState) {
                 // Trigger bump animation for bonus tiles when they appear in visible rows
                 // Don't trigger during drop animations to prevent symbol issues
                 const isBonus = isBonusTile(symbol)
-                const isVisibleRow = r >= 1 && r <= 4
+                const isVisibleRow = r >= 0 && r <= 3
                 const hasActiveDrops = gridState.isDropAnimating
                 if (isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
                     bumpAnimations.startBump(cellKey, sp)

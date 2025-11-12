@@ -137,14 +137,10 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
         if (!showStart) {
             // Game is visible - build and render everything
-            if (resized) {
-                console.log('[Renderer] Game visible and resized, rebuilding...')
-            }
-            
+
             // Build header/footer when play screen becomes visible (even without resize)
             if ((resized || header?.container.children.length === 0) && header) {
                 header.build(headerRect)
-                console.log('[Renderer] Header built')
             }
             if (header) header.updateValues()
 

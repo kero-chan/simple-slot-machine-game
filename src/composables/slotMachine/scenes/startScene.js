@@ -91,16 +91,14 @@ export function useStartScene(gameState) {
     }
 
     function updateProgress(loaded, total) {
-        console.log(`[StartScene] updateProgress called: ${loaded}/${total}`)
-        
         if (!progressBar || !progressText || !progressBar._dimensions) {
             console.warn('[StartScene] Progress elements not ready yet')
             return
         }
-        
+
         const percentage = total > 0 ? (loaded / total) : 0
         const { x, y, w, h } = progressBar._dimensions
-        
+
         // Update progress bar fill
         progressBar.clear()
         const fillW = Math.floor(w * percentage)
@@ -108,37 +106,31 @@ export function useStartScene(gameState) {
             progressBar.roundRect(x, y, fillW, h, h / 2)
             progressBar.fill({ color: 0x4caf50, alpha: 1 })
         }
-        
+
         // Update progress text
         const percentText = Math.floor(percentage * 100)
         progressText.text = `Loading... ${percentText}%`
-        
-        console.log(`[StartScene] Progress updated: ${percentText}%, isLoading: ${isLoading}`)
-        
+
         // When loading is complete
         if (loaded >= total && isLoading) {
-            console.log('[StartScene] Loading complete! Enabling start button...')
             isLoading = false
-            
+
             // Hide progress bar and text
             if (progressBarBg) {
                 progressBarBg.visible = false
-                console.log('[StartScene] Progress bar hidden')
             }
             if (progressBar) progressBar.visible = false
             if (progressText) progressText.visible = false
-            
+
             // Enable start button
             if (startButton) {
                 startButton.alpha = 1
                 startButton.eventMode = 'static'
                 startButton.off('pointerdown') // Remove old listeners
                 startButton.on('pointerdown', () => {
-                    console.log('[StartScene] Start button clicked!')
                     backgroundMusic.start()
                     gameState.showStartScreen.value = false
                 })
-                console.log('[StartScene] Start button enabled')
             }
             if (startButtonText) {
                 startButtonText.alpha = 1

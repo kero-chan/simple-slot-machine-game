@@ -319,8 +319,8 @@ export function createWinOverlay(gameState) {
     const elapsed = (Date.now() - animationStartTime) / 1000
     const config = getOverlayConfig(currentIntensity)
 
-    // Counter animation (0 to target over 1.5 seconds) - only animate the number
-    const counterDuration = 1.5
+    // Counter animation (0 to target over 3 seconds) - slower for better readability
+    const counterDuration = 3
     if (elapsed < counterDuration) {
       const counterProgress = Math.min(elapsed / counterDuration, 1)
       // Ease-out for smoother counting
@@ -341,8 +341,8 @@ export function createWinOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Auto-hide 2.5 seconds AFTER counting is done (counterDuration + 2.5)
-    const hideTime = counterDuration + 2.5
+    // Auto-hide 3 seconds AFTER counting is done (counterDuration + 3 = 6 seconds total to match winning sound)
+    const hideTime = counterDuration + 3
     if (elapsed > hideTime) {
       hide()
     }
