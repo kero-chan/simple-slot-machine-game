@@ -1,12 +1,14 @@
 import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../config/assets'
+import { useGameStore } from '../../../stores/gameStore'
 
 /**
  * Creates a winning overlay popup that displays win information
  * Shows "SMALL WIN", "GRAND WIN", "MEGA WIN", or "JACKPOT"
  */
 export function createWinOverlay(gameState) {
+  const gameStore = useGameStore()
   const container = new Container()
   container.visible = false
   container.zIndex = 1000 // Ensure it's on top
@@ -295,6 +297,9 @@ export function createWinOverlay(gameState) {
     isAnimating = false
     clearParticles()
     container.removeChildren()
+
+    // Notify state machine that overlay is complete
+    gameStore.completeWinOverlay()
   }
 
   /**
