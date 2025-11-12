@@ -10,10 +10,11 @@ export function useFooter(gameState) {
     decreaseBet: () => {}
   }
 
-  let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiTextSprite, notiMask, spinHoverCircle
+  let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiTextSprite, mutedIconSprite, notiMask, spinHoverCircle
   let hoverAnimating = false;
   let hoverAlphaDir = 1; // 1 = tăng alpha, -1 = giảm alpha
   const hoverSpeed = 1.2;  // tốc độ thay đổi alpha
+  let isOpenVolume = true
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -28,10 +29,14 @@ export function useFooter(gameState) {
     if (!setting) return null
 
     const source = ASSETS.loadedImages?.[setting.assetName] || ASSETS.imagePaths?.[setting.assetName]
-    console.log("key: ", key, " source: ", source)
-    const rect = setting.position
+    if (!source) return null
 
-    return new Texture({ source, frame: new Rectangle(rect.x, rect.y, rect.w, rect.h)})
+    const x = setting.position.x < 0 ? source.frame.x : setting.position.x
+    const y = setting.position.y < 0 ? source.frame.y : setting.position.y
+    const w = setting.position.w <= 0 ? source.frame.width : setting.position.w
+    const h = setting.position.h <= 0 ? source.frame.height : setting.position.h
+
+    return new Texture({ source, frame: new Rectangle(x, y, w, h)})
   }
 
   // ==== SPIN BUTTON TEXTURES ====
@@ -49,7 +54,7 @@ export function useFooter(gameState) {
 
     notiTextSprite.mask = null
     notiTextSprite.scale.set(1)
-    notiTextSprite.scale.set(0.7 * notiBgSprite.height / notiTextSprite.height)
+    notiTextSprite.scale.set(0.6 * notiBgSprite.height / notiTextSprite.height)
     notiMask.clear()
     if (notiTextSprite.width > notiBgSprite.width * 0.9) {
       const visibleWidth = notiBgSprite.width * 0.8
@@ -81,14 +86,11 @@ export function useFooter(gameState) {
     container.removeChildren()
     const { x, y, w, h } = rect
     const setRectHeight = Math.floor(h * 0.5)
-
-    // Centered spin button cluster
     const centerX = x + Math.floor(w / 2)
-    const centerY = y + Math.floor(h / 2)
 
     // Footer Background
     const bgSprite = new Sprite(subTex('footer_bg'))
-      const scale = Math.max(
+    const scale = Math.max(
       w / bgSprite.width,
       h / bgSprite.height
     )
@@ -97,7 +99,7 @@ export function useFooter(gameState) {
     container.addChild(bgSprite)
 
     const bgBarSprite = new Sprite(subTex('footer_bar'))
-    bgBarSprite.scale.set(0.48 * setRectHeight / bgBarSprite.height)
+    bgBarSprite.scale.set(0.6 * setRectHeight / bgBarSprite.height)
     bgBarSprite.anchor.set(0.5)
     bgBarSprite.position.set(centerX, y + h * 0.052)
     container.addChild(bgBarSprite)
@@ -127,7 +129,7 @@ export function useFooter(gameState) {
     const amountColor = 0x85efff
     const recAlpha = 0.4
 
-    const buildRect = (key, i, text) => {
+    const buildAmountRect = (key, i, text) => {
       const keySetting = getDeepSetting(key)
       if (!keySetting) return
 
@@ -145,7 +147,7 @@ export function useFooter(gameState) {
       iconSprite.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.12, rectY+baseRect.height/2)
       iconSprite.tint = iconColor
       iconSprite.rotation = keySetting.rotation
-      fitSpriteToRect(iconSprite, pillHeight, 0.5)
+      fitSpriteToRect(iconSprite, pillHeight, 0.58)
       container.addChild(iconSprite)
 
       const label = new Text({text: text,
@@ -155,15 +157,15 @@ export function useFooter(gameState) {
           fill: amountColor,
         }
       })
-      fitTextToBox(label, pillHeight, 0.65)
+      fitTextToBox(label, pillHeight, 0.6)
       label.anchor.set(0.5)
       label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, rectY+baseRect.height/2)
       container.addChild(label)
     }
 
-    buildRect('wallet_icon', 0,'100,000.00')
-    buildRect('bet_amount_icon', 1, '12.00')
-    buildRect('win_amount_icon', 2, '0.00')
+    buildAmountRect('wallet_icon', 0, '100,000.00')
+    buildAmountRect('bet_amount_icon', 1, '12.00')
+    buildAmountRect('win_amount_icon', 2, '0.00')
 
 
     // Bet Setting
@@ -200,7 +202,11 @@ export function useFooter(gameState) {
       const btnSprite = new Sprite(subTex(key))
       btnSprite.anchor.set(0.5)
       btnSprite.position.set(xPosition, 0)
-      btnSprite.tint = iconColor
+      if (key === 'close_icon') {
+        btnSprite.tint = 0xb4a8a1
+      } else {
+        btnSprite.tint = iconColor
+      }
       btnSprite.rotation = keySetting.rotation
       btnSprite.scale.set(scaleRate * setRectHeight * targetButonHeightPer / btnSprite.height)
       btnSprite.eventMode = 'static'
@@ -292,6 +298,7 @@ export function useFooter(gameState) {
       alert('do you want to quit game?')
     })
     buildMenuIcon('volumn_open_icon', 1, '声音', () => {
+      isOpenVolume = !isOpenVolume
       console.log("changed sound state")
     })
     buildMenuIcon('win_table_icon', 2, '赔付表', () => {
@@ -327,7 +334,7 @@ export function useFooter(gameState) {
     const mainMenuSpace = 0.15 * w
     const spinBtnSpace = 0.23 * w
 
-    const lightningBgSetting = getDeepSetting('lightning_icon')
+    const lightningBgSetting = getDeepSetting('lightning_bg_icon')
     if (!!lightningBgSetting) {
       const lightningBgSprite = new Sprite(subTex('lightning_bg_icon'))
       lightningBgSprite.anchor.set(0.5)
@@ -420,7 +427,7 @@ export function useFooter(gameState) {
         autoSpinArrowSprite.tint = iconColor
         autoSpinArrowSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
         autoSpinArrowSprite.scale.set(0.8 * 0.7 * setRectHeight * targetButonHeightPer / autoSpinArrowSprite.height)
-        autoSpinArrowSprite.rotation = autoSpinArrowSetting.rotation
+        autoSpinArrowSprite.rotation = Math.random() * Math.PI * 2
         mainMenuContainer.addChild(autoSpinArrowSprite)
       }
 
@@ -500,7 +507,7 @@ export function useFooter(gameState) {
       let xPos = x || sprite.x
       spinHoverCircle.clear()
       spinHoverCircle.fill({ color: 0xf7f76a, alpha: 0.3 }) // vàng sáng
-      spinHoverCircle.circle(xPos, sprite.y, 0.75* sprite.width/2)
+      spinHoverCircle.circle(xPos, sprite.y, 0.65 * sprite.width/2)
       spinHoverCircle.fill()
     }
 
@@ -509,7 +516,7 @@ export function useFooter(gameState) {
     if (!!menuSetting) {
       const menuIconSprite = new Sprite(subTex('menu_icon'))
       menuIconSprite.anchor.set(0.5)
-      menuIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2* spinBtnSpace + 0.9 * mainMenuBtnStartX, 0)
+      menuIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, 0)
       menuIconSprite.scale.set(0.6 * setRectHeight * targetButonHeightPer / menuIconSprite.height)
       menuIconSprite.rotation = menuSetting.rotation
       menuIconSprite.eventMode = 'static';
@@ -528,6 +535,19 @@ export function useFooter(gameState) {
         hoverCircle.visible = false;
       });
       mainMenuContainer.addChild(menuIconSprite)
+
+      // mute icon
+      const mutedIconSetting = getDeepSetting('muted_icon')
+      if (!!mutedIconSetting) {
+        mutedIconSprite = new Sprite(subTex('muted_icon'))
+        mutedIconSprite.anchor.set(0.5)
+        mutedIconSprite.visible = !isOpenVolume
+        mutedIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, -0.8*menuIconSprite.height)
+        mutedIconSprite.scale.set(0.3 * setRectHeight * targetButonHeightPer / mutedIconSprite.height)
+        mutedIconSprite.rotation = mutedIconSetting.rotation
+
+        mainMenuContainer.addChild(mutedIconSprite)
+      }
     }
 
   }
@@ -613,6 +633,12 @@ export function useFooter(gameState) {
   function update(timestamp = 0) {
     const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0;
     lastTs = timestamp;
+
+    if (mutedIconSprite && !isOpenVolume) {
+      mutedIconSprite.visible = true
+    } else {
+      mutedIconSprite.visible = false
+    }
 
     if (hoverAnimating && spinHoverCircle) {
       spinHoverCircle.alpha += hoverAlphaDir * hoverSpeed * dt;
