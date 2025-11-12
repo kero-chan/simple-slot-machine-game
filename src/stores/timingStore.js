@@ -17,10 +17,10 @@ export const useTimingStore = defineStore('timing', {
     FLIP_DURATION: 300,           // ms - Tiles flip from visible to hidden
 
     // Phase 3: Disappear wait
-    DISAPPEAR_WAIT: 400,          // ms - Pause to let player see tiles are gone before cascade
+    DISAPPEAR_WAIT: 50,           // ms - Minimal pause before cascade starts (reduced to eliminate visible gaps)
 
     // Phase 4: Gold transformation (if applicable)
-    GOLD_WAIT: 300,               // ms - Wait to show wild tiles with glowing effect
+    GOLD_WAIT: 100,               // ms - Brief pause to show wild transformation (reduced to prevent double-drop feeling)
 
     // Phase 5: Cascade wait
     CASCADE_WAIT: 1000,           // ms - Wait after cascade before checking for next win
@@ -31,7 +31,7 @@ export const useTimingStore = defineStore('timing', {
     HIGHLIGHT_ANIMATION_DURATION: 2500,  // ms - How long highlight animation runs (can be stopped early)
 
     // Drop/cascade animations
-    DROP_DURATION: 300,           // ms - Tiles falling down during cascade
+    DROP_DURATION: 300,           // ms - Tiles falling down during cascade (longer + linear for maximum smoothness)
     DROP_GRACE_PERIOD: 6000,      // ms - Keep dropped symbols stable to prevent flickering
     CASCADE_RESET_WINDOW: 300,    // ms - Window to force sprite resets after cascade
     CASCADE_MAX_WAIT: 5000,       // ms - Max time to wait for cascade animations (safety timeout)

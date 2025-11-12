@@ -85,8 +85,9 @@ export function createDropAnimationManager() {
     const elapsed = now - drop.startTime
     const progress = Math.min(elapsed / drop.duration, 1)
 
-    // Ease-out cubic
-    const easeProgress = 1 - Math.pow(1 - progress, 3)
+    // Linear easing - constant speed for smoothest, most predictable animation
+    // No acceleration/deceleration ensures perfectly smooth movement
+    const easeProgress = progress
 
     return drop.fromY + (drop.toY - drop.fromY) * easeProgress
   }
