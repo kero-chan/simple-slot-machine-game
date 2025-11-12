@@ -14,6 +14,7 @@ export const useGridStore = defineStore('grid', {
     // Spin animation state
     spinOffsets: Array(CONFIG.reels.count).fill(0),
     spinVelocities: Array(CONFIG.reels.count).fill(0),
+    convergenceMode: Array(CONFIG.reels.count).fill(false), // Per-column convergence flag
 
     // Win highlight animation (DEPRECATED - now managed by winningStore)
     highlightWins: null,
@@ -38,6 +39,7 @@ export const useGridStore = defineStore('grid', {
     resetSpinState() {
       this.spinOffsets = Array(CONFIG.reels.count).fill(0)
       this.spinVelocities = Array(CONFIG.reels.count).fill(0)
+      this.convergenceMode = Array(CONFIG.reels.count).fill(false)
     },
 
     clearHighlights() {

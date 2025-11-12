@@ -276,10 +276,14 @@ export function useReels(gameState, gridState) {
                 const completedSymbol = dropAnimations.getCompletedSymbol(cellKey)
 
                 // Check if THIS specific column is spinning
-                // During spin animation, always read from strip (even if velocity is 0 due to initial frames)
-                // Only read from grid when spinning flag is false (spin completely stopped)
+                // During spin animation, always read from strip
+                // Only read from grid when velocity is truly 0 (stopped)
                 const colVelocity = gridState.spinVelocities?.[col] ?? 0
-                const thisColumnSpinning = spinning
+
+                // IMPORTANT: Use per-column velocity check to prevent flickering when columns stop at different times
+                // Read from strip if spinning OR if velocity > 0
+                // Only read from grid when column has completely stopped (velocity === 0)
+                const thisColumnSpinning = Math.abs(colVelocity) > 0.015
 
                 if (animatingSymbol) {
                     // During drop animation, use the symbol stored with the animation
@@ -296,8 +300,16 @@ export function useReels(gameState, gridState) {
                     // Visual row r needs strip index (reelTop + r + BUFFER_OFFSET)
                     const idx = ((reelTop + gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
+
+                    // DEBUG: Log when velocity is very low (near stop) for center row
+                    if (col === 0 && r === 2 && Math.abs(colVelocity) < 0.02) {
+                        const gridSymbol = gridState.grid?.[col]?.[gridRow]
+                        if (symbol !== gridSymbol) {
+                            console.log(`Col ${col} Row ${r}: STRIP MISMATCH! Strip[${idx}]=${symbol}, Grid[${gridRow}]=${gridSymbol}, vel=${colVelocity.toFixed(4)}`)
+                        }
+                    }
                 } else {
-                    // Normal state: read from grid (this column has stopped or never started)
+                    // Normal state: read from grid (column has stopped, velocity = 0)
                     symbol = gridState.grid?.[col]?.[gridRow]
                 }
 
@@ -344,9 +356,8 @@ export function useReels(gameState, gridState) {
                     sp = new Sprite(tex)
                     sp.anchor.set(0.5, 0.5) // Center anchor for proper flip
                     spriteCache.set(cellKey, sp)
-                } else {
-                    // Update texture - symbol is already correctly determined above
-                    // (either from animation, completed state, or grid)
+                } else if (sp.texture !== tex) {
+                    // Only update texture if it changed to prevent unnecessary rendering artifacts
                     sp.texture = tex
                 }
 
