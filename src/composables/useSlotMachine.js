@@ -28,16 +28,31 @@ export function useSlotMachine(canvasRef) {
   const init = async () => {
     try {
       await nextTick()
+      
       await canvasState.setupCanvas()
+      
+      await nextTick() // Give canvas time to settle
 
-      // Load assets
-      await loadAllAssets()
+      // Initialize renderer first
+      await renderer.init()
 
-      // Initialize renderer
-      renderer.init()
+      // Load assets with progress tracking
+      await loadAllAssets((loaded, total) => {
+        gameStore.updateLoadingProgress(loaded, total)
+      })
 
       // Start animation
       renderer.startAnimation()
+      
+      // Watch for start screen changes to ensure render
+      watch(() => gameState.showStartScreen.value, (isShowing) => {
+        if (!isShowing) {
+          // Force a render when game becomes visible
+          nextTick(() => {
+            renderer.render()
+          })
+        }
+      })
     } catch (err) {
       console.error('SlotMachine init failed:', err)
     }

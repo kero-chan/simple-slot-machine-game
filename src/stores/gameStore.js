@@ -20,7 +20,10 @@ export const useGameStore = defineStore('game', {
     inFreeSpinMode: false,
 
     // UI state
-    showStartScreen: true
+    showStartScreen: true,
+    
+    // Loading state
+    loadingProgress: { loaded: 0, total: 1 }
   }),
 
   getters: {
@@ -145,6 +148,11 @@ export const useGameStore = defineStore('game', {
 
     showStartScreenAgain() {
       this.showStartScreen = true
+    },
+
+    // Loading state
+    updateLoadingProgress(loaded, total) {
+      this.loadingProgress = { loaded, total }
     },
 
     // Reset game

@@ -14,10 +14,10 @@ export function usePixiApp(canvasState) {
             // Always centered horizontally, full height
             canvasEl.style.position = 'fixed'
             canvasEl.style.left = '50%'
-            canvasEl.style.top = '0'
-            canvasEl.style.transform = 'translateX(-50%)'
+            canvasEl.style.top = '50%'
+            canvasEl.style.transform = 'translateX(-50%) translateY(-50%)'
             canvasEl.style.width = `${width}px`
-            canvasEl.style.height = '100vh'
+            canvasEl.style.height = `${height}px`
             canvasEl.style.pointerEvents = 'auto'
             canvasEl.style.zIndex = '9999'
             document.body.appendChild(canvasEl)
