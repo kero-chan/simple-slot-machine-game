@@ -5,7 +5,7 @@ export function createWinningFrameManager() {
   const container = new Container()
   const frameCache = new Map() // key -> Graphics
 
-  function updateFrame(key, sprite, highlight, x, y) {
+  function updateFrame(key, sprite, highlight, x, y, isBonus = false) {
     if (!sprite) return
 
     let frame = frameCache.get(key)
@@ -29,38 +29,52 @@ export function createWinningFrameManager() {
       frame.scale.y = sprite.scale.y
       frame.alpha = sprite.alpha
 
+      // Match sprite's z-index for proper layering
+      frame.zIndex = sprite.zIndex || 0
+
       // Use texture dimensions (unscaled)
       const w = sprite.texture.width
       const h = sprite.texture.height
 
       const cornerRadius = w * 0.15     // 15% for more rounded corners
-      const glowWidth = w * 0.06        // Glow extends 6% outward
-      const borderWidth = w * 0.02      // Thinner border
+
+      // Bonus tiles get more dramatic effects
+      const glowWidth = isBonus ? w * 0.12 : w * 0.06        // Bonus: 12% glow (2x larger)
+      const borderWidth = isBonus ? w * 0.035 : w * 0.02     // Bonus: thicker border
+
+      // Choose colors based on tile type
+      const outerColor = isBonus ? 0x8800ff : 0xffdd00  // Purple for bonus, gold for winning
+      const midColor = isBonus ? 0xaa00ff : 0xffdd00    // Brighter purple
+      const innerColor = isBonus ? 0xcc44ff : 0xffee00  // Bright purple/pink
+      const borderColor = isBonus ? 0xdd66ff : 0xffd700 // Luminous purple/pink
+
+      // Bonus tiles get more visible glow
+      const outerAlpha = isBonus ? 0.15 : 0.03
+      const midAlpha = isBonus ? 0.25 : 0.05
+      const innerAlpha = isBonus ? 0.35 : 0.08
 
       // Draw multiple layers for glow effect (from outer to inner)
-      // Very subtle glow that doesn't obscure the tile content
-
       // Center the frame drawing (since frame has center anchor now)
       const offsetX = -w / 2
       const offsetY = -h / 2
 
-      // Outer glow (barely visible)
+      // Outer glow
       frame.roundRect(offsetX - glowWidth, offsetY - glowWidth, w + glowWidth * 2, h + glowWidth * 2, cornerRadius + glowWidth)
-      frame.fill({ color: 0xffdd00, alpha: 0.03 })
+      frame.fill({ color: outerColor, alpha: outerAlpha })
 
       // Mid glow
       const midGlow = glowWidth * 0.5
       frame.roundRect(offsetX - midGlow, offsetY - midGlow, w + midGlow * 2, h + midGlow * 2, cornerRadius + midGlow)
-      frame.fill({ color: 0xffdd00, alpha: 0.05 })
+      frame.fill({ color: midColor, alpha: midAlpha })
 
       // Inner glow (just around the edge)
       const innerGlow = glowWidth * 0.25
       frame.roundRect(offsetX - innerGlow, offsetY - innerGlow, w + innerGlow * 2, h + innerGlow * 2, cornerRadius + innerGlow)
-      frame.fill({ color: 0xffee00, alpha: 0.08 })
+      frame.fill({ color: innerColor, alpha: innerAlpha })
 
       // Main border stroke (thicker and more opaque for clear definition)
       frame.roundRect(offsetX, offsetY, w, h, cornerRadius)
-      frame.stroke({ color: 0xffd700, width: borderWidth, alpha: 1.0 })
+      frame.stroke({ color: borderColor, width: borderWidth, alpha: 1.0 })
 
     } else if (frame) {
       frame.visible = false

@@ -50,20 +50,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const findWinningCombinations = () => {
-    console.log('\n=== CHECKING WINS ===')
-    console.log(`Buffer offset: ${BUFFER_OFFSET}`)
-    console.log(`Checking rows: ${VISIBLE_START_ROW} to ${VISIBLE_END_ROW} (inclusive)`)
-
-    // Log current grid state for visible rows
-    console.log('\nCurrent grid (visible rows only):')
-    for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-      const rowSymbols = []
-      for (let col = 0; col < CONFIG.reels.count; col++) {
-        const cell = gridState.grid[col][row]
-        rowSymbols.push(cell || 'empty')
-      }
-      console.log(`Row ${row}: [${rowSymbols.join(', ')}]`)
-    }
 
     const allWinCombos = []
     const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
@@ -131,18 +117,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const firstSymbol = allWinCombos[0].symbol
       const singleSymbolWins = allWinCombos.filter(win => win.symbol === firstSymbol)
 
-      console.log(`\nFound ${singleSymbolWins.length} winning combinations for symbol: ${firstSymbol}`)
-      singleSymbolWins.forEach((win, idx) => {
-        const posStr = win.positions.map(([col, row]) => `[${col},${row}]`).join(' -> ')
-        console.log(`  Win ${idx + 1}: ${win.symbol} x${win.count} at positions: ${posStr}`)
-      })
-      console.log('=== END WIN CHECK ===\n')
-
       return singleSymbolWins
     }
 
-    console.log('No wins found')
-    console.log('=== END WIN CHECK ===\n')
     return allWinCombos
   }
 

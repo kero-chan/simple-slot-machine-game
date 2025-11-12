@@ -17,7 +17,8 @@ export function createBumpAnimationManager() {
       startTime: Date.now(),
       sprite: sprite,
       duration: 600, // 600ms for bump animation (up and down)
-      baseScale: sprite.scale.y // Store original scale
+      baseScaleX: sprite.scale.x, // Store original X scale
+      baseScaleY: sprite.scale.y  // Store original Y scale
     })
   }
 
@@ -33,15 +34,17 @@ export function createBumpAnimationManager() {
 
       if (progress >= 1) {
         // Animation complete - restore original scale
-        anim.sprite.scale.y = anim.baseScale
+        anim.sprite.scale.x = anim.baseScaleX
+        anim.sprite.scale.y = anim.baseScaleY
         bumpedTiles.add(key) // Mark as bumped
         animations.delete(key)
       } else {
-        // Bump animation: scale up then down
-        // Using sine wave for smooth bump effect
+        // Bump animation: scale down then back to normal
+        // Using sine wave for smooth squeeze effect
         const bumpProgress = Math.sin(progress * Math.PI) // 0 -> 1 -> 0
-        const scaleModifier = 1 + (bumpProgress * 0.3) // Scale up to 1.3x
-        anim.sprite.scale.y = anim.baseScale * scaleModifier
+        const scaleModifier = 1 - (bumpProgress * 0.2) // Scale down to 0.8x
+        anim.sprite.scale.x = anim.baseScaleX * scaleModifier
+        anim.sprite.scale.y = anim.baseScaleY * scaleModifier
       }
     }
   }
@@ -52,7 +55,8 @@ export function createBumpAnimationManager() {
   function clear() {
     for (const [key, anim] of animations.entries()) {
       if (anim.sprite) {
-        anim.sprite.scale.y = anim.baseScale
+        anim.sprite.scale.x = anim.baseScaleX
+        anim.sprite.scale.y = anim.baseScaleY
       }
     }
     animations.clear()
@@ -65,7 +69,8 @@ export function createBumpAnimationManager() {
   function reset(key) {
     const anim = animations.get(key)
     if (anim && anim.sprite) {
-      anim.sprite.scale.y = anim.baseScale
+      anim.sprite.scale.x = anim.baseScaleX
+      anim.sprite.scale.y = anim.baseScaleY
     }
     animations.delete(key)
     bumpedTiles.delete(key)

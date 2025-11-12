@@ -14,7 +14,9 @@ import { useTimingStore } from '../../../stores/timingStore'
 export function useReels(gameState, gridState) {
     const container = new Container()
     const tilesContainer = new Container()  // Separate container for tiles (will be masked)
+    tilesContainer.sortableChildren = true  // Enable z-index sorting for pop-out effect
     const framesContainer = new Container()  // Container for frames (not masked)
+    framesContainer.sortableChildren = true  // Enable z-index sorting for frames too
 
     const winningStore = useWinningStore()
     const timingStore = useTimingStore()
@@ -371,15 +373,19 @@ export function useReels(gameState, gridState) {
                 // BUT: Don't override winning states (HIGHLIGHTED, FLIPPING, etc) even during cascade window
                 if (isCurrentlyDropping || symbolChanged || (inCascadeWindow && !hasActiveWinningState)) {
                     // During drop, cascade window (without active winning state), or symbol change: normal scale
-                    sp.scale.x = scaleX
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping) {
+                        sp.scale.x = scaleX
+                        sp.scale.y = scaleY
+                    }
                     sp.alpha = 1
                 }
                 // PRIORITY 2: HIGHLIGHTED state - reset tile to normal (visible) before flip starts
                 else if (winningState === WINNING_STATES.HIGHLIGHTED) {
                     // Reset to normal scale and full opacity
-                    sp.scale.x = scaleX
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping) {
+                        sp.scale.x = scaleX
+                        sp.scale.y = scaleY
+                    }
                     sp.alpha = 1
                 }
                 // PRIORITY 3: Winning state animations
@@ -404,20 +410,25 @@ export function useReels(gameState, gridState) {
                     sp.alpha = 0
                 } else {
                     // Default: normal scale
-                    sp.scale.x = scaleX
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping) {
+                        sp.scale.x = scaleX
+                        sp.scale.y = scaleY
+                    }
                     sp.alpha = 1
                 }
+
+                // Check if this is a bonus tile that should get special effects
+                const isBonus = isBonusTile(symbol)
+                const isVisibleRow = r >= 0 && r <= 3
+                const hasActiveDrops = gridState.isDropAnimating
+                const shouldShowBonusEffects = isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops
 
                 // Always apply tile visuals - this handles the tint and dark mask
                 applyTileVisuals(sp, 1, winning, hasHighlights)
 
                 // Trigger bump animation for bonus tiles when they appear in visible rows
                 // Don't trigger during drop animations to prevent symbol issues
-                const isBonus = isBonusTile(symbol)
-                const isVisibleRow = r >= 0 && r <= 3
-                const hasActiveDrops = gridState.isDropAnimating
-                if (isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
+                if (shouldShowBonusEffects && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
                     bumpAnimations.startBump(cellKey, sp)
                 }
 
@@ -428,9 +439,16 @@ export function useReels(gameState, gridState) {
                 const baseY = yCell - BLEED + h / 2
                 sp.y = dropAnimations.getDropY(cellKey, baseY)
 
+                // Set z-index for pop-out effect on bonus tiles
+                if (shouldShowBonusEffects) {
+                    sp.zIndex = 100  // Higher z-index makes bonus tiles appear above others
+                } else {
+                    sp.zIndex = 0    // Normal tiles at base level
+                }
+
                 // Update winning frame in separate container
-                // Pass sprite's center position directly
-                winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y)
+                // Pass sprite's center position directly (bonus tiles don't get frames, only size/z-index effects)
+                winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y, false)
 
                 if (!sp.parent) tilesContainer.addChild(sp)
                 usedKeys.add(cellKey)
