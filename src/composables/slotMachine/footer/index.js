@@ -47,7 +47,13 @@ export function useFooter(gameState) {
 
   // ==== SPIN BUTTON TEXTURES ====
   const setToSpinning = (isSpinning) => {
-    if (spinBtnArrowSprite) spinBtnArrowSprite.texture = isSpinning ? subTex('spin_btn_arrows.spinning') : subTex('spin_btn_arrows.normal')
+    if (!spinBtnArrowSprite) return
+
+    if (isSpinning) {
+      spinBtnArrowSprite.texture = subTex('spin_btn_arrows.spinning')
+    } else {
+      spinBtnArrowSprite.texture = !!gameState.canSpin?.value ? subTex('spin_btn_arrows.normal') : subTex('spin_btn_arrows.inactive')
+    }
   }
 
   const setNotification = (notiSubTex = null) => {
@@ -85,7 +91,6 @@ export function useFooter(gameState) {
   }
 
   let lastTs = 0
-  const VALUE_NAME_PREFIX = 'footer-pill-value-'
 
   const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US', {
@@ -667,11 +672,6 @@ export function useFooter(gameState) {
     }
 
     // Spin button
-    const canSpin = !!gameState.canSpin?.value;
-    if (spinBtnSprite) {
-      spinBtnSprite.alpha = canSpin ? 1 : 0.5;
-    }
-
     if (spinBtnArrowSprite) {
       const spinning = !!gameState.isSpinning?.value;
       setToSpinning(spinning);
@@ -717,5 +717,5 @@ export function useFooter(gameState) {
   }
 
 
-  return { container, build, setHandlers, update, updateValues, setToSpinning }
+  return { container, build, setHandlers, update, updateValues }
 }

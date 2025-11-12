@@ -102,6 +102,7 @@ export const useGameStore = defineStore('game', {
     completeSpinAnimation() {
       if (this.gameFlowState !== GAME_STATES.SPINNING) return
       this.transitionTo(GAME_STATES.SPIN_COMPLETE)
+      this.isSpinning = false
     },
 
     startCheckingWins() {
@@ -174,7 +175,6 @@ export const useGameStore = defineStore('game', {
       }
 
       this.transitionTo(GAME_STATES.IDLE)
-      this.isSpinning = false
       this.currentWins = null
     },
 
