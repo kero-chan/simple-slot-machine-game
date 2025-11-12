@@ -19,7 +19,6 @@ export function useFooter(gameState) {
   let hoverAnimating = false;
   let hoverAlphaDir = 1; // 1 = tăng alpha, -1 = giảm alpha
   const hoverSpeed = 1.2;  // tốc độ thay đổi alpha
-  let isOpenVolume = true
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -313,7 +312,7 @@ export function useFooter(gameState) {
       alert('do you want to quit game?')
     })
     buildMenuIcon('volumn_open_icon', 1, '声音', () => {
-      isOpenVolume = !isOpenVolume
+      gameStore.toggleGameSound()
       console.log("changed sound state")
     })
     buildMenuIcon('win_table_icon', 2, '赔付表', () => {
@@ -566,7 +565,7 @@ export function useFooter(gameState) {
       if (!!mutedIconSetting) {
         mutedIconSprite = new Sprite(subTex('muted_icon'))
         mutedIconSprite.anchor.set(0.5)
-        mutedIconSprite.visible = !isOpenVolume
+        mutedIconSprite.visible = !gameState.gameSound.value
         mutedIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, -0.8*menuIconSprite.height)
         mutedIconSprite.scale.set(0.3 * setRectHeight * targetButonHeightPer / mutedIconSprite.height)
         mutedIconSprite.rotation = mutedIconSetting.rotation
@@ -650,7 +649,7 @@ export function useFooter(gameState) {
     const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0;
     lastTs = timestamp;
 
-    if (mutedIconSprite && !isOpenVolume) {
+    if (mutedIconSprite && !gameState.gameSound.value) {
       mutedIconSprite.visible = true
     } else {
       mutedIconSprite.visible = false

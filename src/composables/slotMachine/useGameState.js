@@ -16,7 +16,8 @@ export function useGameState() {
         freeSpins,
         inFreeSpinMode,
         showStartScreen,
-        loadingProgress
+        loadingProgress,
+        gameSound
     } = storeToRefs(gameStore)
 
     // Getters are already computed in the store, but we need to access them as refs
@@ -35,6 +36,7 @@ export function useGameState() {
         currentMultiplier,
         canSpin,
         showStartScreen,
-        loadingProgress
+        loadingProgress,
+        gameSound
     }
 }

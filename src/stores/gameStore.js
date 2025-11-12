@@ -36,12 +36,13 @@ export const useGameStore = defineStore('game', {
 
     freeSpins: 0,
     inFreeSpinMode: false,
+    gameSound: true,
 
     // UI state
     showStartScreen: true,
     animationComplete: false,
 
-     // Loading state
+    // Loading state
     loadingProgress: { loaded: 0, total: 1 }
   }),
 
@@ -281,6 +282,11 @@ export const useGameStore = defineStore('game', {
       this.loadingProgress = { loaded, total }
     },
 
+    // switch game sound on/off
+    toggleGameSound() {
+      this.gameSound = !this.gameSound
+    },
+
     // Reset game
     resetGame() {
       this.credits = CONFIG.game.initialCredits
@@ -294,6 +300,7 @@ export const useGameStore = defineStore('game', {
       this.inFreeSpinMode = false
       this.showStartScreen = true
       this.accumulatedWinAmount = 0
+      this.gameSound = true
       this.allWinsThisSpin = []
     }
   }
