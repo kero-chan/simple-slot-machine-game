@@ -90,11 +90,13 @@ export function useAudioEffects() {
           // Map symbol to audio key
           const symbolAudioMap = {
             fa: "win_fa",
+            zhong: "zhong",
             bai: "win_bai",
             liangsuo: "win_liangsuo",
             liangtong: "win_liangtong",
             wusuo: "win_wusuo",
             wutong: "win_wutong",
+            bawan: "win_bawan",
           };
 
           if (symbolAudioMap[symbol]) {
