@@ -63,15 +63,20 @@ export function useReels(gameState, gridState) {
         const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
         const spinning = !!gameState.isSpinning?.value
 
+        // Check if any reel is actually moving (has non-zero velocity)
+        // This prevents the race condition where isSpinning is still true
+        // but we've already applied finalGrid
+        const anyVelocity = (gridState.spinVelocities || []).some(v => Math.abs(v) > 0.001)
+
         // Update flip, drop, and bump animations every frame
         flipAnimations.update()
         dropAnimations.update()
         bumpAnimations.update()
 
         // Update drop animation state for game logic to wait on
-        gridState.isDropAnimating.value = dropAnimations.hasActiveDrops()
+        gridState.isDropAnimating = dropAnimations.hasActiveDrops()
 
-        const hasHighlights = gridState.highlightWins?.value?.length > 0
+        const hasHighlights = gridState.highlightWins?.length > 0
 
         // Clear flip animations and tracking when spinning starts
         if (spinning && !previousSpinning) {
@@ -87,7 +92,7 @@ export function useReels(gameState, gridState) {
         }
 
         // Detect when cascade completes (grid just changed)
-        const cascadeTime = gridState.lastCascadeTime?.value || 0
+        const cascadeTime = gridState.lastCascadeTime || 0
         if (cascadeTime > lastCascadeTime) {
             // CRITICAL: Clear all completed animation states from previous cascade
             // When a new cascade starts, old completed states are no longer valid
@@ -96,7 +101,7 @@ export function useReels(gameState, gridState) {
 
             // Detect which tiles moved and start drop animations
             // Use the stored removed positions from cascade
-            const removedPositions = gridState.lastRemovedPositions?.value || new Set()
+            const removedPositions = gridState.lastRemovedPositions || new Set()
 
             if (gridState.previousGridSnapshot) {
             }
@@ -104,7 +109,7 @@ export function useReels(gameState, gridState) {
             if (gridState.previousGridSnapshot && removedPositions.size > 0) {
                 for (let col = 0; col < COLS; col++) {
                     const oldCol = gridState.previousGridSnapshot[col] || []
-                    const newCol = gridState.grid.value[col] || []
+                    const newCol = gridState.grid[col] || []
                     const totalRows = oldCol.length
 
                     // Count how many tiles were removed from GAME area
@@ -245,7 +250,7 @@ export function useReels(gameState, gridState) {
         // Detect when highlights appear and save positions
         if (hasHighlights) {
             // Get current winning positions (convert grid rows to visual rows for cellKey)
-            const currentPositions = (gridState.highlightWins?.value || []).flatMap(win =>
+            const currentPositions = (gridState.highlightWins || []).flatMap(win =>
                 win.positions.map(([col, gridRow]) => `${col}:${gridRow - BUFFER_OFFSET}`)
             )
 
@@ -289,12 +294,12 @@ export function useReels(gameState, gridState) {
         }
 
         for (let col = 0; col < COLS; col++) {
-            const offsetTiles = gridState.spinOffsets?.value?.[col] ?? 0
-            const velocityTiles = gridState.spinVelocities?.value?.[col] ?? 0
+            const offsetTiles = gridState.spinOffsets?.[col] ?? 0
+            const velocityTiles = gridState.spinVelocities?.[col] ?? 0
             const velocityPx = velocityTiles * tileH
 
-            const reelStrip = gridState.reelStrips?.value?.[col] || []
-            const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
+            const reelStrip = gridState.reelStrips?.[col] || []
+            const reelTop = gridState.reelTopIndex?.[col] ?? 0
 
             // Draw ALL rows including full buffer: visual rows -4 to 5 (grid rows 0 to 9)
             // This ensures we have sprites for ALL positions so drop animations work correctly
@@ -321,7 +326,7 @@ export function useReels(gameState, gridState) {
                     // Just completed animation - preserve the symbol that was animating
                     // Don't read from grid yet because next cascade may have updated it
                     symbol = completedSymbol
-                } else if (spinning) {
+                } else if (spinning && anyVelocity) {
                     if (reelStrip.length === 0) continue
                     // During spin, we need to show the same strip positions that will be committed to the grid
                     // Visual row r corresponds to grid row (r + BUFFER_OFFSET)
@@ -330,8 +335,8 @@ export function useReels(gameState, gridState) {
                     const idx = ((reelTop + r + BUFFER_OFFSET) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
                 } else {
-                    // Normal state: read from grid
-                    symbol = gridState.grid?.value?.[col]?.[gridRow]
+                    // Normal state: read from grid (also when spinning but all velocities are 0)
+                    symbol = gridState.grid?.[col]?.[gridRow]
                 }
 
                 // Texture function will automatically detect "_gold" suffix in symbol
@@ -370,7 +375,7 @@ export function useReels(gameState, gridState) {
                 // Don't check spinning - we want to show highlights during win animation
                 // Only check visual rows 1-4 (the 4 full visible rows where wins are calculated)
                 const winning = (r >= 1 && r <= 4)
-                    ? (gridState.highlightWins?.value || []).some(win =>
+                    ? (gridState.highlightWins || []).some(win =>
                         win.positions.some(([c, rr]) => c === col && rr === gridRow))
                     : false
 
@@ -399,7 +404,7 @@ export function useReels(gameState, gridState) {
 
                 // Check if this tile should be disappeared (game's disappear system uses grid rows)
                 const disappearKey = `${col},${gridRow}`
-                const shouldDisappear = gridState.disappearPositions?.value?.has(disappearKey)
+                const shouldDisappear = gridState.disappearPositions?.has(disappearKey)
 
                 // Check if this tile has completed flipping
                 const hasCompletedFlip = flipAnimations.hasCompleted(cellKey)
@@ -442,7 +447,7 @@ export function useReels(gameState, gridState) {
                 const isBonus = isBonusTile(symbol)
                 const isVisibleRow = r >= 1 && r <= 4
                 const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
-                const hasActiveDrops = gridState.isDropAnimating?.value
+                const hasActiveDrops = gridState.isDropAnimating
                 if (isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
                     bumpAnimations.startBump(cellKey, sp)
                 }

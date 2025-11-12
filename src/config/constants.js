@@ -7,6 +7,7 @@ export const CONFIG = {
     count: 5,
     rows: 6,
     bufferRows: 4, // Extra rows above for realistic drop animation
+    stripLength: 100, // Longer strip = smoother spin animation, prevents gaps
     symbolSize: 70,
     spacing: 8
   },

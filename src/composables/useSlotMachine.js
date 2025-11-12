@@ -1,17 +1,17 @@
 import { nextTick } from 'vue'
 import { useGameState } from './slotMachine/useGameState'
-import { useGridState } from './slotMachine/useGridState'
 import { useCanvas } from './slotMachine/useCanvas'
 import { useRenderer } from './slotMachine/useRenderer'
 import { useGameLogic } from './slotMachine/useGameLogic'
 import { useGameFlowController } from './slotMachine/useGameFlowController'
 import { loadAllAssets } from '../utils/imageLoader'
 import { useGameStore } from '../stores/gameStore'
+import { useGridStore } from '../stores/gridStore'
 
 export function useSlotMachine(canvasRef) {
   const gameStore = useGameStore()
   const gameState = useGameState()
-  const gridState = useGridState()
+  const gridState = useGridStore()
   const canvasState = useCanvas(canvasRef)
   const renderer = useRenderer(canvasState, gameState, gridState)
   const gameLogic = useGameLogic(gameState, gridState, renderer.render, renderer.showWinOverlay)

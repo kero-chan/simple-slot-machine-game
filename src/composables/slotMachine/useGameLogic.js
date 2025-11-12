@@ -58,7 +58,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         const matches = []
 
         for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-          const cell = gridState.grid.value[col][row]
+          const cell = gridState.grid[col][row]
           const baseSymbol = getTileBaseSymbol(cell)
           const isWild = isTileWildcard(cell)
 
@@ -77,12 +77,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       if (matchedReels >= 3) {
         const firstColumnMatches = positionsPerReel[0]
         const firstColHasSymbol = firstColumnMatches.some(([col, row]) => {
-          const cell = gridState.grid.value[col][row]
+          const cell = gridState.grid[col][row]
           const baseSymbol = getTileBaseSymbol(cell)
           return baseSymbol === symbol
         })
 
-        if (!firstColHasSymbol) continue
+        if (!firstColHasSymbol) {
+          continue
+        }
 
         const generateWayCombinations = (reelPositions, currentCombo = [], reelIndex = 0) => {
           if (reelIndex === reelPositions.length) {
@@ -119,16 +121,13 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   const animateSpin = () => {
     const startTime = Date.now()
-    const baseDuration = CONFIG.animation.spinDuration
+    const baseDuration = 2500 // Much longer spin duration
     const stagger = CONFIG.animation.reelStagger || 150
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
     const cols = CONFIG.reels.count
 
-    const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5)
-    const FREEZE_THRESHOLD = 0.82
-    const ALIGN_STEP_MAX = 0.35
-    const MIN_ALIGN_STEP = 0.08
-    const EPS = 1e-3
+    // Regenerate fresh random strips
+    gridState.regenerateReelStrips()
 
     return new Promise(resolve => {
       const animate = () => {
@@ -139,74 +138,66 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const colStart = startTime + col * stagger
           if (now < colStart) {
             allStopped = false
-            gridState.spinVelocities.value[col] = 0
             continue
           }
 
-          const elapsed = Math.min(now - colStart, baseDuration)
-          const t = Math.max(0, Math.min(elapsed / baseDuration, 1))
-          const ease = easeOutQuint(t)
+          const elapsed = now - colStart
+          const t = elapsed / baseDuration
 
-          if (t < FREEZE_THRESHOLD) {
-            const maxVel = 0.65
-            const targetVel = (1 - ease) * maxVel
-            const prevVel = gridState.spinVelocities.value[col] || 0
-            const smoothedVel = prevVel * 0.8 + targetVel * 0.2
+          // Calculate velocity with easing - smoother slowdown
+          const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic (smoother than quint/septic)
+          const velocity = (1 - ease) * 1.4 // Fast spin speed
 
-            gridState.spinVelocities.value[col] = smoothedVel
-            gridState.spinOffsets.value[col] += smoothedVel
-
-            while (gridState.spinOffsets.value[col] >= 1) {
-              gridState.spinOffsets.value[col] -= 1
-              const stripLen = gridState.reelStrips.value[col].length
-              gridState.reelTopIndex.value[col] = (gridState.reelTopIndex.value[col] + 1) % stripLen
+          // Time's up - snap to nearest clean boundary
+          if (t >= 1) {
+            // If more than halfway to next tile, complete the crossing (push down)
+            // Otherwise, stay at current tile (snap back slightly)
+            if (gridState.spinOffsets[col] > 0.5) {
+              gridState.reelTopIndex[col] = (gridState.reelTopIndex[col] + 1) % gridState.reelStrips[col].length
             }
 
-            allStopped = false
+            // Snap to 0
+            gridState.spinOffsets[col] = 0
+
+            // Update grid for this column NOW
+            const strip = gridState.reelStrips[col]
+            const topIdx = gridState.reelTopIndex[col]
+            for (let row = 0; row < totalRows; row++) {
+              const stripIdx = (topIdx + row) % strip.length
+              gridState.grid[col][row] = strip[stripIdx]
+            }
+
+            // Set velocity to 0 AFTER updating grid
+            gridState.spinVelocities[col] = 0
             continue
           }
 
-          const offset = gridState.spinOffsets.value[col]
-          if (offset < EPS) {
-            gridState.spinOffsets.value[col] = 0
-            gridState.spinVelocities.value[col] = 0
-            continue
+          // Normal spinning
+          gridState.spinVelocities[col] = velocity
+          gridState.spinOffsets[col] += velocity
+
+          // Wrap when crossing tile boundary
+          while (gridState.spinOffsets[col] >= 1) {
+            gridState.spinOffsets[col] -= 1
+            gridState.reelTopIndex[col] = (gridState.reelTopIndex[col] + 1) % gridState.reelStrips[col].length
           }
 
-          const remaining = 1 - offset
-          const step = Math.min(
-            remaining,
-            Math.max(MIN_ALIGN_STEP, ALIGN_STEP_MAX * (1 - ease))
-          )
-
-          gridState.spinOffsets.value[col] += step
-
-          if (gridState.spinOffsets.value[col] >= 1 - EPS) {
-            gridState.spinOffsets.value[col] = 0
-            const stripLen = gridState.reelStrips.value[col].length
-            gridState.reelTopIndex.value[col] = (gridState.reelTopIndex.value[col] + 1) % stripLen
-            gridState.spinVelocities.value[col] = 0
-          } else {
-            gridState.spinVelocities.value[col] = step
-            allStopped = false
-          }
+          allStopped = false
         }
 
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
+          // Copy final strip positions to grid
           for (let col = 0; col < cols; col++) {
-            const strip = gridState.reelStrips.value[col]
-            const top = gridState.reelTopIndex.value[col]
-            for (let row = 0; row < totalRows; row++) {
-              const idx = (top + row) % strip.length
-              gridState.grid.value[col][row] = strip[idx]
-            }
-            gridState.spinOffsets.value[col] = 0
-            gridState.spinVelocities.value[col] = 0
-          }
+            const strip = gridState.reelStrips[col]
+            const topIdx = gridState.reelTopIndex[col]
 
-          enforceBonusLimit(gridState.grid.value)
+            for (let row = 0; row < totalRows; row++) {
+              const stripIdx = (topIdx + row) % strip.length
+              gridState.grid[col][row] = strip[stripIdx]
+            }
+          }
 
           resolve()
         }
@@ -218,17 +209,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const highlightWinsAnimation = (wins) => {
     const duration = 2500 // ms
     const startTime = Date.now()
-    gridState.highlightAnim.value = { start: startTime, duration }
+    gridState.highlightAnim = { start: startTime, duration }
 
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
         if (elapsed < duration) {
-          gridState.highlightWins.value = wins
+          gridState.highlightWins = wins
           requestAnimationFrame(animate)
         } else {
-          gridState.highlightWins.value = null
-          gridState.highlightAnim.value = { start: 0, duration: 0 }
+          gridState.highlightWins = null
+          gridState.highlightAnim = { start: 0, duration: 0 }
           resolve()
         }
       }
@@ -238,23 +229,25 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   const transformGoldTilesToWild = (wins) => {
     const transformedPositions = new Set()
+    let transformCount = 0
 
     wins.forEach(win => {
       win.positions = win.positions.filter(([col, row]) => {
-        const currentTile = gridState.grid.value[col][row]
+        const currentTile = gridState.grid[col][row]
         const isGolden = isTileGolden(currentTile)
         const isWild = isTileWildcard(currentTile)
 
         if (isGolden && !isWild) {
-          gridState.grid.value[col][row] = 'wild'
+          gridState.grid[col][row] = 'wild'
           transformedPositions.add(`${col},${row}`)
+          transformCount++
           return false
         }
         return true
       })
     })
 
-    gridState.grid.value = [...gridState.grid.value]
+    gridState.grid = [...gridState.grid]
     return new Promise(resolve => setTimeout(resolve, 200))
   }
 
@@ -266,10 +259,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => positions.push([col, row]))
     })
-    gridState.disappearPositions.value = new Set(
+    gridState.disappearPositions = new Set(
       positions.map(([c, r]) => `${c},${r}`)
     )
-    gridState.disappearAnim.value = { start: startTime, duration: DISAPPEAR_MS }
+    gridState.disappearAnim = { start: startTime, duration: DISAPPEAR_MS }
 
     return new Promise(resolve => {
       const loop = () => {
@@ -277,8 +270,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (elapsed < DISAPPEAR_MS) {
           requestAnimationFrame(loop)
         } else {
-          gridState.disappearPositions.value.clear()
-          gridState.disappearAnim.value = { start: 0, duration: 0 }
+          gridState.disappearPositions.clear()
+          gridState.disappearAnim = { start: 0, duration: 0 }
           render()
           resolve()
         }
@@ -295,8 +288,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       })
     })
 
-    gridState.lastRemovedPositions.value = toRemove
-    gridState.previousGridSnapshot = gridState.grid.value.map(col => [...col])
+    gridState.lastRemovedPositions = toRemove
+    gridState.previousGridSnapshot = gridState.grid.map(col => [...col])
 
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
 
@@ -314,7 +307,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const keptGameTiles = []
       for (let row = totalRows - 1; row >= BUFFER_OFFSET; row--) {
         if (!toRemove.has(`${col},${row}`)) {
-          const symbol = gridState.grid.value[col][row]
+          const symbol = gridState.grid[col][row]
           keptGameTiles.unshift(symbol)
         }
       }
@@ -323,7 +316,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const takeFromBuffer = []
       for (let i = BUFFER_OFFSET - needFromBuffer; i < BUFFER_OFFSET; i++) {
         if (i >= 0) {
-          takeFromBuffer.push(gridState.grid.value[col][i])
+          takeFromBuffer.push(gridState.grid[col][i])
         }
       }
 
@@ -345,17 +338,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       }
 
       for (let i = 0; i < BUFFER_OFFSET - needFromBuffer; i++) {
-        newColumn.push(gridState.grid.value[col][i])
+        newColumn.push(gridState.grid[col][i])
       }
 
       takeFromBuffer.forEach(tile => newColumn.push(tile))
       keptGameTiles.forEach(tile => newColumn.push(tile))
 
-      gridState.grid.value[col] = newColumn
+      gridState.grid[col] = newColumn
     }
 
-    gridState.grid.value = [...gridState.grid.value]
-    gridState.lastCascadeTime.value = Date.now()
+    gridState.grid = [...gridState.grid]
+    gridState.lastCascadeTime = Date.now()
 
     await animateCascade()
   }
@@ -367,7 +360,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
-        const shouldWait = gridState.isDropAnimating.value
+        const shouldWait = gridState.isDropAnimating
 
         if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
