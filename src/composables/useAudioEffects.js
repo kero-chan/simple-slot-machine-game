@@ -1,6 +1,9 @@
 import { ASSETS } from '../config/assets'
+import { useMenuStateStore } from '../stores/menuStateStore'
 
 export function useAudioEffects() {
+  const menuStore = useMenuStateStore()
+  
   // Play consecutive wins sound based on multiplier
   const playConsecutiveWinSound = (consecutiveWins) => {
     let audioKey = null
@@ -19,7 +22,7 @@ export function useAudioEffects() {
     
     try {
       const audio = new Audio(ASSETS.audioPaths[audioKey])
-      audio.volume = 0.6 // 60% volume for effect sounds
+      audio.volume = 0.6 * menuStore.volume // Apply volume from store
       
       audio.addEventListener('error', (e) => {
         console.error(`Error loading consecutive wins audio (${audioKey}):`, e)

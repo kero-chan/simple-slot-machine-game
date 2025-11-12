@@ -1,7 +1,9 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ASSETS } from '../config/assets'
+import { useMenuStateStore } from '../stores/menuStateStore'
 
 export function useBackgroundMusic() {
+  const menuStore = useMenuStateStore()
   const currentAudio = ref(null)
   const isPlaying = ref(false)
   const wasPlayingBeforeHidden = ref(false)
@@ -52,7 +54,7 @@ export function useBackgroundMusic() {
       // Pick a random noise
       const randomIndex = Math.floor(Math.random() * noises.length)
       const noiseAudio = new Audio(noises[randomIndex])
-      noiseAudio.volume = 0.7 // 70% volume for background noise
+      noiseAudio.volume = 0.7 * menuStore.volume // Apply volume from store
       
       noiseAudio.addEventListener('error', (e) => {
         console.error('Error loading background noise:', e)
@@ -99,7 +101,7 @@ export function useBackgroundMusic() {
     
     try {
       const audio = new Audio(ASSETS.audioPaths.background_music)
-      audio.volume = 1 // Set volume to 100% (adjust as needed)
+      audio.volume = menuStore.volume // Use volume from store
       audio.loop = true // Loop the audio infinitely
       audio.preload = 'auto'
       
@@ -134,7 +136,7 @@ export function useBackgroundMusic() {
   const playGameStartSound = () => {
     try {
       const gameStartAudio = new Audio(ASSETS.audioPaths.game_start)
-      gameStartAudio.volume = 0.8 // Slightly louder for effect
+      gameStartAudio.volume = 0.8 * menuStore.volume // Apply volume from store
       
       gameStartAudio.addEventListener('error', (e) => {
         console.error('Error loading game start audio:', e)
@@ -179,6 +181,37 @@ export function useBackgroundMusic() {
       currentAudio.value.volume = Math.max(0, Math.min(1, volume))
     }
   }
+
+  // Watch for volume changes from store
+  watch(() => menuStore.volume, (newVolume, oldVolume) => {
+    if (!currentAudio.value) return
+    
+    currentAudio.value.volume = newVolume
+    
+    // If volume changed from 0 to 1 and music should be playing
+    if (oldVolume === 0 && newVolume === 1 && isPlaying.value) {
+      const playPromise = currentAudio.value.play()
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.info('Could not resume audio after volume change')
+        })
+      }
+      
+      // Restart noise loop if it was stopped
+      if (!noiseInterval) {
+        startNoiseLoop()
+      }
+    }
+    // If volume changed from 1 to 0, pause the audio
+    else if (oldVolume === 1 && newVolume === 0 && isPlaying.value) {
+      if (!currentAudio.value.paused) {
+        currentAudio.value.pause()
+      }
+      
+      // Stop noise loop
+      stopNoiseLoop()
+    }
+  })
 
 
   return {

@@ -1,8 +1,10 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
+import { useMenuStateStore } from '../../../stores/menuStateStore'
 
 export function useFooter(gameState) {
+  const menuStore = useMenuStateStore()
   const container = new Container()
   let handlers = {
     spin: () => {},
@@ -219,7 +221,7 @@ export function useFooter(gameState) {
         if (setting1) {
           btnSprite1 = new Sprite(subTex('volumn_close_icon'))
           btnSprite1.anchor.set(0.5)
-          btnSprite1.visible = false
+          btnSprite1.visible = menuStore.volume === 0 // Show close icon if volume is 0
           btnSprite1.position.set(xPosition, 0)
           btnSprite1.tint = iconColor
           btnSprite1.rotation = setting1.rotation
@@ -246,12 +248,15 @@ export function useFooter(gameState) {
             btnSprite1.on('pointerdown', () => {
               onClick()
               hoverCircle.visible = false
-              btnSprite1.visible = false
-              btnSprite.visible = true
+              // Update visibility based on volume state
+              btnSprite1.visible = menuStore.volume === 0
+              btnSprite.visible = menuStore.volume === 1
             });
           }
           menuSettingContainer.addChild(btnSprite1)
         }
+        // Set initial visibility for open icon
+        btnSprite.visible = menuStore.volume === 1
       }
 
       btnSprite.on('pointerover', () => {
@@ -268,8 +273,9 @@ export function useFooter(gameState) {
           onClick()
           hoverCircle.visible = false
           if (!!btnSprite1) {
-            btnSprite1.visible = true
-            btnSprite.visible = false
+            // Update visibility based on volume state
+            btnSprite1.visible = menuStore.volume === 0
+            btnSprite.visible = menuStore.volume === 1
           }
         });
       }
@@ -291,7 +297,8 @@ export function useFooter(gameState) {
       alert('do you want to quit game?')
     })
     buildMenuIcon('volumn_open_icon', 1, '声音', () => {
-      console.log("changed sound state")
+      menuStore.toggleVolume()
+      console.log("Volume toggled to:", menuStore.volume)
     })
     buildMenuIcon('win_table_icon', 2, '赔付表', () => {
       console.log("show win table")
