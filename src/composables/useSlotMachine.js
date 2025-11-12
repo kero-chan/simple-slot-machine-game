@@ -5,8 +5,10 @@ import { useCanvas } from './slotMachine/useCanvas'
 import { useRenderer } from './slotMachine/useRenderer'
 import { useGameLogic } from './slotMachine/useGameLogic'
 import { loadAllAssets } from '../utils/imageLoader'
+import { useGameStore } from '../stores/gameStore'
 
 export function useSlotMachine(canvasRef) {
+  const gameStore = useGameStore()
   const gameState = useGameState()
   const gridState = useGridState()
   const canvasState = useCanvas(canvasRef)
@@ -47,7 +49,7 @@ export function useSlotMachine(canvasRef) {
 
   const start = () => {
     if (gameState.showStartScreen.value) {
-      gameState.showStartScreen.value = false
+      gameStore.hideStartScreen()
     }
   }
 
