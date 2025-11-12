@@ -99,7 +99,7 @@ export function useBackgroundMusic() {
     
     try {
       const audio = new Audio(ASSETS.audioPaths.background_music)
-      audio.volume = 1 // Set volume to 100% (adjust as needed)
+      audio.volume = 0.5 // Set volume to 100% (adjust as needed)
       audio.loop = true // Loop the audio infinitely
       audio.preload = 'auto'
       
@@ -134,7 +134,7 @@ export function useBackgroundMusic() {
   const playGameStartSound = () => {
     try {
       const gameStartAudio = new Audio(ASSETS.audioPaths.game_start)
-      gameStartAudio.volume = 0.8 // Slightly louder for effect
+      gameStartAudio.volume = 0.6 // Slightly louder for effect
       
       gameStartAudio.addEventListener('error', (e) => {
         console.error('Error loading game start audio:', e)

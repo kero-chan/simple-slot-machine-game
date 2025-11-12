@@ -236,7 +236,7 @@ const handleStart = () => {
   font-weight: bold;
   width: 35%;
   height: 5%;
-  font-size: clamp(12px, 3vw, 24px);
+  font-size: clamp(12px, 3vw, 18px);
   display: flex;
   align-items: center;
   justify-content: center;

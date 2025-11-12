@@ -20,7 +20,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
 
-  const { playConsecutiveWinSound } = useAudioEffects()
+  const { playConsecutiveWinSound, playWinSound } = useAudioEffects()
 
   const getWinIntensity = (wins) => {
     if (!wins || wins.length === 0) return 'small'
@@ -472,6 +472,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     cascadeSymbols,
     getWinIntensity,
     playConsecutiveWinSound,
+    playWinSound,
     showWinOverlay: showWinOverlayFn
   }
 }

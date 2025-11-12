@@ -116,8 +116,17 @@ export function useGameFlowController(gameLogic, gridState, render) {
       // Add to accumulated total
       gameStore.addWinAmount(multipliedWays)
 
-      // Play sound
+      // Play consecutive win sound (multiplier sound)
       gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins)
+
+      // Play win sound for symbol combinations
+      if (gameStore.consecutiveWins > 0) {
+        setTimeout(() => {
+          gameLogic.playWinSound(wins)
+        }, 500);
+      } else {
+        gameLogic.playWinSound(wins)
+      }
     }
 
     // Set results (will auto-transition to next state)

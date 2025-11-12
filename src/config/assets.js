@@ -89,6 +89,17 @@ export const ASSETS = {
     consecutive_wins_2x: new URL('../assets/audio/consecutive_wins/2x.mp3', import.meta.url).href,
     consecutive_wins_3x: new URL('../assets/audio/consecutive_wins/3x.mp3', import.meta.url).href,
     consecutive_wins_5x: new URL('../assets/audio/consecutive_wins/5x.mp3', import.meta.url).href,
+    // Win sounds for specific symbols
+    win_bai: new URL('../assets/audio/wins/bai.mp3', import.meta.url).href,
+    win_fa: new URL('../assets/audio/wins/fa.mp3', import.meta.url).href,
+    win_liangsuo: new URL('../assets/audio/wins/liangsuo.mp3', import.meta.url).href,
+    win_liangtong: new URL('../assets/audio/wins/liangtong.mp3', import.meta.url).href,
+    win_wusuo: new URL('../assets/audio/wins/wusuo.mp3', import.meta.url).href,
+    win_wutong: new URL('../assets/audio/wins/wutong.mp3', import.meta.url).href,
+    win_all_boy: new URL('../assets/audio/wins/all_boy_sound.mp3', import.meta.url).href,
+    win_all_girl: new URL('../assets/audio/wins/all_girl_sound.mp3', import.meta.url).href,
+    win_jackpot: new URL('../assets/audio/wins/jackpot.mp3', import.meta.url).href,
+    winning_announcement: new URL('../assets/audio/wins/winning_announcement.mp3', import.meta.url).href,
     background_noises: [
       new URL('../assets/audio/background_noise/noise_1.mp3', import.meta.url).href,
       new URL('../assets/audio/background_noise/noise_2.mp3', import.meta.url).href,

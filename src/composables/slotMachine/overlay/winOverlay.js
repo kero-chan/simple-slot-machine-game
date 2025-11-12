@@ -2,6 +2,7 @@ import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
+import { useAudioEffects } from '../../useAudioEffects'
 
 /**
  * Creates a winning overlay popup that displays win information
@@ -9,6 +10,7 @@ import { useGameStore } from '../../../stores/gameStore'
  */
 export function createWinOverlay(gameState) {
   const gameStore = useGameStore()
+  const { playWinningAnnouncement, stopWinningAnnouncement } = useAudioEffects()
   const container = new Container()
   container.visible = false
   container.zIndex = 1000 // Ensure it's on top
@@ -169,6 +171,9 @@ export function createWinOverlay(gameState) {
     targetAmount = amount
     currentDisplayAmount = 0  // Start from 0 for counter animation
 
+    // Play winning announcement audio (looped)
+    playWinningAnnouncement()
+
     // Clear previous content
     container.removeChildren()
 
@@ -297,6 +302,9 @@ export function createWinOverlay(gameState) {
     isAnimating = false
     clearParticles()
     container.removeChildren()
+
+    // Stop winning announcement audio
+    stopWinningAnnouncement()
 
     // Notify state machine that overlay is complete
     gameStore.completeWinOverlay()
