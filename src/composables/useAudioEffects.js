@@ -56,9 +56,9 @@ export function useAudioEffects() {
     // Priority: jackpot > all_boy/all_girl > specific symbol
     let audioKey = null;
 
-    // Check for jackpot (5 of a kind for high value symbols)
+    // Check for jackpot (3 of a kind for bonus tile)
     const hasJackpot = wins.some((win) => {
-      return win.count === 5 && ["fa", "zhong", "bai"].includes(win.symbol);
+      return win.count >= 3 && ["bonus"].includes(win.symbol);
     });
 
     if (hasJackpot) {
