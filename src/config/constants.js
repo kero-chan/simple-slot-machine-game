@@ -34,7 +34,7 @@ export const CONFIG = {
     initialCredits: 100000,
     minBet: 10,
     maxBet: 100,
-    betStep: 10,
+    betStep: 2,
     freeSpinsPerScatter: 12,
     bonusScattersPerSpin: 2
   }

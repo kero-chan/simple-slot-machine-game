@@ -1,8 +1,11 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
+import { useGameStore } from '../../../stores/gameStore'
 
 export function useFooter(gameState) {
+  const gameStore = useGameStore()
+
   const container = new Container()
   let handlers = {
     spin: () => {},
@@ -398,6 +401,11 @@ export function useFooter(gameState) {
         hoverCircle.visible = false;
       });
 
+      minusSprite.on('pointerdown', () => {
+        hoverCircle.visible = false;
+        gameStore.decreaseBet()
+      });
+
       mainMenuContainer.addChild(minusSprite)
     }
 
@@ -416,6 +424,11 @@ export function useFooter(gameState) {
 
       plusSprite.on('pointerout', () => {
         hoverCircle.visible = false;
+      });
+
+       plusSprite.on('pointerdown', () => {
+        hoverCircle.visible = false;
+        gameStore.increaseBet()
       });
 
       mainMenuContainer.addChild(plusSprite)
