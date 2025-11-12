@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config/constants'
-import { getRandomSymbol, getBufferOffset, enforceBonusLimit } from '../../utils/gameHelpers'
+import { getRandomSymbol, getBufferOffset, enforceBonusLimit, createEmptyGrid } from '../../utils/gameHelpers'
 import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '../../utils/tileHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
@@ -135,13 +135,68 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   const animateSpin = () => {
     const startTime = Date.now()
-    const baseDuration = 2500 // Much longer spin duration
-    const stagger = CONFIG.animation.reelStagger || 150
+    const baseDuration = timingStore.SPIN_BASE_DURATION
+    const stagger = timingStore.SPIN_REEL_STAGGER
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
     const cols = CONFIG.reels.count
+    const stripLength = CONFIG.reels.stripLength
 
-    // Regenerate fresh random strips
-    gridState.regenerateReelStrips()
+    console.log('🎰 [SPIN START] totalRows:', totalRows, 'stripLength:', stripLength)
+
+    // STEP 1: Pre-determine the final grid BEFORE animation starts
+    // This ensures visual stability - what you see is what you get
+    const finalGrid = createEmptyGrid()
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < totalRows; row++) {
+        const allowBonus = row >= BUFFER_OFFSET // Only allow bonus in visible rows
+        finalGrid[col][row] = getRandomSymbol({ col, allowGold: true, allowBonus })
+      }
+    }
+
+    // Enforce bonus limit across visible rows
+    enforceBonusLimit(finalGrid, BUFFER_OFFSET)
+
+    console.log('🎯 [FINAL GRID PRE-DETERMINED] Visible rows (4-8):')
+    for (let col = 0; col < cols; col++) {
+      const visibleSymbols = []
+      for (let row = BUFFER_OFFSET; row < BUFFER_OFFSET + 4; row++) {
+        visibleSymbols.push(finalGrid[col][row])
+      }
+      console.log(`  Col ${col}:`, visibleSymbols)
+    }
+
+    // STEP 2: Build reel strips that will land on the pre-determined symbols
+    // Each strip has random symbols for visual variety, with target symbols at the end
+    for (let col = 0; col < cols; col++) {
+      const strip = []
+
+      // Add random spinning symbols (for visual effect during spin)
+      const spinSymbolCount = stripLength - totalRows
+      for (let i = 0; i < spinSymbolCount; i++) {
+        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: false }))
+      }
+
+      // Add the final target symbols at the end of the strip
+      for (let row = 0; row < totalRows; row++) {
+        strip.push(finalGrid[col][row])
+      }
+
+      gridState.reelStrips[col] = strip
+
+      // Log strip structure
+      console.log(`📜 [STRIP ${col}] Length: ${strip.length}, Last ${totalRows} symbols (target):`, strip.slice(-totalRows))
+    }
+
+    // Trigger reactivity for arrays
+    gridState.reelStrips = [...gridState.reelStrips]
+    gridState.reelTopIndex = Array(cols).fill(0)
+    gridState.spinOffsets = Array(cols).fill(0)
+    gridState.spinVelocities = Array(cols).fill(0)
+
+    // STEP 3: Update grid immediately with final results
+    // This way, when animation ends, grid is already correct (no flickering)
+    gridState.grid = [...finalGrid.map(col => [...col])]
+    console.log('✅ [GRID SET] Grid updated with final results immediately')
 
     return new Promise(resolve => {
       const animate = () => {
@@ -156,37 +211,56 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           }
 
           const elapsed = now - colStart
-          const t = elapsed / baseDuration
+          const t = Math.min(elapsed / baseDuration, 1)
 
-          // Calculate velocity with easing - smoother slowdown
-          const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic (smoother than quint/septic)
-          const velocity = (1 - ease) * 1.4 // Fast spin speed
+          // Calculate target position (where we want to end up)
+          const targetIndex = stripLength - totalRows // Position 90 for stripLength=100, totalRows=10
 
-          // Time's up - snap to nearest clean boundary
+          // Time's up - stop this reel
           if (t >= 1) {
-            // If more than halfway to next tile, complete the crossing (push down)
-            // Otherwise, stay at current tile (snap back slightly)
-            if (gridState.spinOffsets[col] > 0.5) {
-              gridState.reelTopIndex[col] = (gridState.reelTopIndex[col] + 1) % gridState.reelStrips[col].length
-            }
-
-            // Snap to 0
+            // Snap to exact target position
+            gridState.reelTopIndex[col] = targetIndex
             gridState.spinOffsets[col] = 0
-
-            // Update grid for this column NOW
-            const strip = gridState.reelStrips[col]
-            const topIdx = gridState.reelTopIndex[col]
-            for (let row = 0; row < totalRows; row++) {
-              const stripIdx = (topIdx + row) % strip.length
-              gridState.grid[col][row] = strip[stripIdx]
-            }
-
-            // Set velocity to 0 AFTER updating grid
             gridState.spinVelocities[col] = 0
+
+            // Log what this column should show
+            const strip = gridState.reelStrips[col]
+            const visibleSymbols = []
+            for (let row = 0; row < totalRows; row++) {
+              const stripIdx = (targetIndex + row) % strip.length
+              visibleSymbols.push(strip[stripIdx])
+            }
+            console.log(`🛑 [COL ${col} STOPPED] reelTopIndex=${targetIndex}, offset=${0}, showing:`, visibleSymbols.slice(BUFFER_OFFSET, BUFFER_OFFSET + 4))
+
             continue
           }
 
-          // Normal spinning
+          // Calculate how far we need to travel total (from 0 to targetIndex)
+          const totalDistance = targetIndex // 90 tiles
+
+          // Current position
+          const currentPosition = gridState.reelTopIndex[col] + gridState.spinOffsets[col]
+
+          // Calculate remaining distance to target
+          const remainingDistance = targetIndex - currentPosition
+
+          // Calculate remaining time in milliseconds
+          const remainingTimeMs = baseDuration * (1 - t)
+
+          // Estimate frames remaining (assuming 60fps, so ~16.67ms per frame)
+          const msPerFrame = 16.67
+          const framesRemaining = Math.max(1, remainingTimeMs / msPerFrame)
+
+          // Calculate velocity needed to reach target position over remaining frames
+          // This ensures we arrive at exactly targetIndex when t=1
+          const velocity = Math.max(0, remainingDistance / framesRemaining)
+
+          // Log velocity calculation for debugging (only log occasionally to avoid spam)
+          if (col === 0 && Math.floor(t * 100) % 10 === 0) {
+            console.log(`⚡ [COL ${col} VELOCITY] t=${t.toFixed(3)}, currentPos=${currentPosition.toFixed(2)}, remainingDist=${remainingDistance.toFixed(2)}, framesLeft=${framesRemaining.toFixed(1)}, velocity=${velocity.toFixed(3)}`)
+          }
+
+          // Update spinning state
           gridState.spinVelocities[col] = velocity
           gridState.spinOffsets[col] += velocity
 
@@ -202,17 +276,15 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // Copy final strip positions to grid
+          // All reels stopped - grid is already set correctly, no updates needed
+          console.log('🏁 [ALL STOPPED] Final grid state:')
           for (let col = 0; col < cols; col++) {
-            const strip = gridState.reelStrips[col]
-            const topIdx = gridState.reelTopIndex[col]
-
-            for (let row = 0; row < totalRows; row++) {
-              const stripIdx = (topIdx + row) % strip.length
-              gridState.grid[col][row] = strip[stripIdx]
+            const visibleSymbols = []
+            for (let row = BUFFER_OFFSET; row < BUFFER_OFFSET + 4; row++) {
+              visibleSymbols.push(gridState.grid[col][row])
             }
+            console.log(`  Col ${col}:`, visibleSymbols)
           }
-
           resolve()
         }
       }
