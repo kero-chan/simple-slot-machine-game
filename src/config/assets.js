@@ -1,8 +1,6 @@
 export const ASSETS = {
   imagePaths: {
     start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href,
-    // Spin button assets: frame background + gold arrow
-    spin: new URL('../assets/slotMachine/spin_btn/spinBtn.png', import.meta.url).href,
     // Individual tile images
     tile_bai: new URL('../assets/slotMachine/tiles/bai.png', import.meta.url).href,
     tile_bai_gold: new URL('../assets/slotMachine/tiles/bai_gold.png', import.meta.url).href,
@@ -23,16 +21,6 @@ export const ASSETS = {
     tile_zhong: new URL('../assets/slotMachine/tiles/zhong.png', import.meta.url).href,
     tile_zhong_gold: new URL('../assets/slotMachine/tiles/zhong_gold.png', import.meta.url).href,
     tiles_star: new URL('../assets/slotMachine/tiles/star.png', import.meta.url).href,
-    // Consecutive wins spritesheets
-    header_multiplier_active: new URL('../assets/consecutiveWins/64.png', import.meta.url).href,
-    header_multiplier_default: new URL('../assets/consecutiveWins/65.png', import.meta.url).href,
-    active_status_bg: new URL('../assets/consecutiveWins/active_status_bg.png', import.meta.url).href,
-    // Footer
-    footer_bg: new URL('../assets/footer_bg.png', import.meta.url).href,
-    footer_notification_bg: new URL('../assets/notification_bg.png', import.meta.url).href,
-    footer_notification_text: new URL('../assets/notification_text.png', import.meta.url).href,
-    footer_icon_setting: new URL('../assets/6.png', import.meta.url).href,
-    footer_icon_setting1: new URL('../assets/46.png', import.meta.url).href,
     // Winning announcements
     win_bg: new URL('../assets/slotMachine/winAnnouncements/bg.png', import.meta.url).href,
     win_small: new URL('../assets/slotMachine/winAnnouncements/small.png', import.meta.url).href,
@@ -63,7 +51,10 @@ export const ASSETS = {
     i17_05: new URL('../assets/images/17_05.png', import.meta.url).href,
     i17_06: new URL('../assets/images/17_06.png', import.meta.url).href,
     i25_03: new URL('../assets/images/25_03.png', import.meta.url).href,
+    i43_02: new URL('../assets/images/43_02.png', import.meta.url).href,
     i43_03: new URL('../assets/images/43_03.png', import.meta.url).href,
+    i43_05: new URL('../assets/images/43_05.png', import.meta.url).href,
+    i43_07: new URL('../assets/images/43_07.png', import.meta.url).href,
     i43_08: new URL('../assets/images/43_08.png', import.meta.url).href,
     i46_01: new URL('../assets/images/46_01.png', import.meta.url).href,
     i46_02: new URL('../assets/images/46_02.png', import.meta.url).href,
@@ -71,9 +62,25 @@ export const ASSETS = {
     i46_06: new URL('../assets/images/46_06.png', import.meta.url).href,
     i46_07: new URL('../assets/images/46_07.png', import.meta.url).href,
     i58_01: new URL('../assets/images/58_01.png', import.meta.url).href,
+    i58_03: new URL('../assets/images/58_03.png', import.meta.url).href,
     i58_06: new URL('../assets/images/58_06.png', import.meta.url).href,
     i58_07: new URL('../assets/images/58_07.png', import.meta.url).href,
     i58_08: new URL('../assets/images/58_08.png', import.meta.url).href,
+    i64_x1: new URL('../assets/images/64_x1.png', import.meta.url).href,
+    i64_x2: new URL('../assets/images/64_x2.png', import.meta.url).href,
+    i64_x3: new URL('../assets/images/64_x3.png', import.meta.url).href,
+    i64_x4: new URL('../assets/images/64_x4.png', import.meta.url).href,
+    i64_x5: new URL('../assets/images/64_x5.png', import.meta.url).href,
+    i64_x6: new URL('../assets/images/64_x6.png', import.meta.url).href,
+    i64_x10: new URL('../assets/images/64_x10.png', import.meta.url).href,
+    i65_x1: new URL('../assets/images/65_x1.png', import.meta.url).href,
+    i65_x2: new URL('../assets/images/65_x2.png', import.meta.url).href,
+    i65_x2_free: new URL('../assets/images/65_x2_free.png', import.meta.url).href,
+    i65_x3: new URL('../assets/images/65_x3.png', import.meta.url).href,
+    i65_x4: new URL('../assets/images/65_x4.png', import.meta.url).href,
+    i65_x5: new URL('../assets/images/65_x5.png', import.meta.url).href,
+    i65_x6: new URL('../assets/images/65_x6.png', import.meta.url).href,
+    i65_x10: new URL('../assets/images/65_x10.png', import.meta.url).href,
   },
   loadedImages: {},
   audioPaths: {
