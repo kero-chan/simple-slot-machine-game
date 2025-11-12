@@ -275,6 +275,10 @@ export function useReels(gameState, gridState) {
                 // Check if this sprite just completed its animation
                 const completedSymbol = dropAnimations.getCompletedSymbol(cellKey)
 
+                // Check if THIS specific column is spinning (not just any column)
+                const colVelocity = gridState.spinVelocities?.[col] ?? 0
+                const thisColumnSpinning = spinning && colVelocity > 0.001
+
                 if (animatingSymbol) {
                     // During drop animation, use the symbol stored with the animation
                     // This prevents texture changes while the sprite is moving
@@ -283,16 +287,20 @@ export function useReels(gameState, gridState) {
                     // Just completed animation - preserve the symbol that was animating
                     // Don't read from grid yet because next cascade may have updated it
                     symbol = completedSymbol
-                } else if (spinning && anyVelocity) {
+                } else if (thisColumnSpinning) {
                     if (reelStrip.length === 0) continue
-                    // During spin, we need to show the same strip positions that will be committed to the grid
-                    // Visual row r corresponds to grid row (r + BUFFER_OFFSET)
-                    // Grid row (r + BUFFER_OFFSET) will get strip position (reelTop + r + BUFFER_OFFSET)
-                    // So during spin, we should also read from strip position (reelTop + r + BUFFER_OFFSET)
-                    const idx = ((reelTop + r + BUFFER_OFFSET) % reelStrip.length + reelStrip.length) % reelStrip.length
+                    // During spin, read directly from strip
+                    // reelTop points to strip index for visual row -BUFFER_OFFSET
+                    // Visual row r needs strip index (reelTop + r + BUFFER_OFFSET)
+                    const idx = ((reelTop + gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
+
+                    // Log when near stopping
+                    if (colVelocity < 0.2 && colVelocity > 0 && r >= 1 && r <= 4) {
+                        console.log(`🔍 [RENDER Col ${col} Row ${r} GridRow ${gridRow}] reelTop=${reelTop}, idx=${idx}, symbol=${symbol}, velocity=${colVelocity.toFixed(3)}`)
+                    }
                 } else {
-                    // Normal state: read from grid (also when spinning but all velocities are 0)
+                    // Normal state: read from grid (this column has stopped or never started)
                     symbol = gridState.grid?.[col]?.[gridRow]
                 }
 
