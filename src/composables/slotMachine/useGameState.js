@@ -1,27 +1,26 @@
-import { ref, computed } from 'vue'
-import { CONFIG } from '../../config/constants'
+import { computed } from 'vue'
+import { useGameStore } from '../../stores/gameStore'
+import { storeToRefs } from 'pinia'
 
 export function useGameState() {
-    const credits = ref(CONFIG.game.initialCredits)
-    const bet = ref(CONFIG.game.minBet)
-    const currentWin = ref(0)
-    const isSpinning = ref(false)
-    const showingWinOverlay = ref(false)
-    const consecutiveWins = ref(0)
-    const freeSpins = ref(0)
-    const inFreeSpinMode = ref(false)
-    // Control which screen to show
-    const showStartScreen = ref(true)
+    const gameStore = useGameStore()
 
-    const currentMultiplier = computed(() => {
-        const multipliers = CONFIG.multipliers
-        const index = Math.min(consecutiveWins.value, multipliers.length - 1)
-        return multipliers[index]
-    })
+    // Use storeToRefs to maintain reactivity for state properties
+    const {
+        credits,
+        bet,
+        currentWin,
+        isSpinning,
+        showingWinOverlay,
+        consecutiveWins,
+        freeSpins,
+        inFreeSpinMode,
+        showStartScreen
+    } = storeToRefs(gameStore)
 
-    const canSpin = computed(() => {
-        return !isSpinning.value && !showingWinOverlay.value && credits.value >= bet.value
-    })
+    // Getters are already computed in the store, but we need to access them as refs
+    const currentMultiplier = computed(() => gameStore.currentMultiplier)
+    const canSpin = computed(() => gameStore.canSpin)
 
     return {
         credits,
@@ -30,6 +29,8 @@ export function useGameState() {
         isSpinning,
         showingWinOverlay,
         consecutiveWins,
+        freeSpins,
+        inFreeSpinMode,
         currentMultiplier,
         canSpin,
         showStartScreen

@@ -1,8 +1,10 @@
 import { CONFIG } from '../../config/constants'
 import { getRandomSymbol, getBufferOffset, fillBufferRows } from '../../utils/gameHelpers'
 import { useAudioEffects } from '../useAudioEffects'
+import { useGameStore } from '../../stores/gameStore'
 
 export function useGameLogic(gameState, gridState, render, showWinOverlay) {
+  const gameStore = useGameStore()
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
 
@@ -416,7 +418,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
       const multipliedWays = waysWinAmount * gameState.currentMultiplier.value * gameState.bet.value
 
       totalWin += multipliedWays
-      gameState.consecutiveWins.value++
+      gameStore.incrementConsecutiveWins()
 
       // Play consecutive wins sound effect
       playConsecutiveWinSound(gameState.consecutiveWins.value)
@@ -448,8 +450,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
     }
 
     if (totalWin > 0) {
-      gameState.currentWin.value = totalWin
-      gameState.credits.value += totalWin
+      gameStore.setCurrentWin(totalWin)
 
       // Show win overlay with appropriate intensity
       const intensity = getWinIntensity(allWins)
@@ -458,7 +459,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
         showWinOverlay(intensity, totalWin)
       }
     } else {
-      gameState.consecutiveWins.value = 0
+      gameStore.resetConsecutiveWins()
     }
   }
 
@@ -469,28 +470,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlay) {
       return
     }
 
-    gameState.credits.value -= gameState.bet.value
-    gameState.consecutiveWins.value = 0
-
-    gameState.isSpinning.value = true
-    gameState.currentWin.value = 0
+    gameStore.deductBet()
+    gameStore.startSpin()
 
     await animateSpin()
     await checkWinsAndCascade()
 
-    gameState.isSpinning.value = false
+    gameStore.endSpin()
   }
 
   const increaseBet = () => {
-    if (!gameState.isSpinning.value && gameState.bet.value < CONFIG.game.maxBet) {
-      gameState.bet.value += CONFIG.game.betStep
-    }
+    gameStore.increaseBet()
   }
 
   const decreaseBet = () => {
-    if (!gameState.isSpinning.value && gameState.bet.value > CONFIG.game.minBet) {
-      gameState.bet.value -= CONFIG.game.betStep
-    }
+    gameStore.decreaseBet()
   }
 
   return {

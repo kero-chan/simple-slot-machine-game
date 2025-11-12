@@ -8,9 +8,11 @@ import { ASSETS } from '../../config/assets'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
+import { useGameStore } from '../../stores/gameStore'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
+    const gameStore = useGameStore()
     const pixiApp = usePixiApp(canvasState)
 
     // Scene graph
@@ -156,7 +158,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 }
                 // Update gameState flag based on overlay visibility
                 if (gameState.showingWinOverlay.value && !winOverlay.isShowing()) {
-                    gameState.showingWinOverlay.value = false
+                    gameStore.hideWinOverlay()
                 }
             }
         }
@@ -211,7 +213,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             const w = canvasState.canvasWidth.value
             const h = canvasState.canvasHeight.value
             winOverlay.show(intensity, amount, w, h)
-            gameState.showingWinOverlay.value = true
+            gameStore.showWinOverlay()
         }
     }
 
