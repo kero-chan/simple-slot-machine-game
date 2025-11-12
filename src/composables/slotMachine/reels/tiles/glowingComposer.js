@@ -2,7 +2,7 @@
 import { Container, Sprite, Texture, Graphics } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
-import { isTileGolden, isBonusTile } from '../../../../utils/tileHelpers'
+import { isBonusTile, isTileWildcard } from '../../../../utils/tileHelpers'
 
 // Basic reel layout
 const COLS = 5
@@ -142,12 +142,15 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
     maskGraphics.rect(mainRect.x, mainRect.y, boardW, boardH)
     maskGraphics.fill(0xffffff)
 
-    // Match reels positioning with small margins on sides
+    // Match reels positioning with small margins on sides and tile spacing
+    const TILE_SPACING = 5  // Spacing between tiles (must match reels/index.js)
     const margin = 10  // Small margin on left and right
-    const availableWidth = canvasW - (margin * 2)
-    const scaledTileW = availableWidth / COLS  // Each tile takes 1/5 of available width
+    const totalSpacingX = TILE_SPACING * (COLS - 1)  // Total horizontal spacing
+    const availableWidth = canvasW - (margin * 2) - totalSpacingX
+    const scaledTileW = availableWidth / COLS  // Each tile width
     const scaledTileH = scaledTileW * (tileH / tileW)  // Maintain aspect ratio
-    const stepX = scaledTileW  // No spacing between tiles, they touch
+    const stepX = scaledTileW + TILE_SPACING  // Tile width + spacing
+    const stepY = scaledTileH + TILE_SPACING  // Tile height + spacing
     const originX = margin  // Start from left margin
 
     const startY = mainRect.y - (1 - TOP_PARTIAL) * scaledTileH
@@ -156,13 +159,13 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
     const used = new Set()
 
     for (let col = 0; col < COLS; col++) {
-      const offsetTiles = gridState.spinOffsets?.value?.[col] ?? 0
-      const reelStrip = gridState.reelStrips?.value?.[col] || []
-      const reelTop = gridState.reelTopIndex?.value?.[col] ?? 0
+      const offsetTiles = gridState.spinOffsets?.[col] ?? 0
+      const reelStrip = gridState.reelStrips?.[col] || []
+      const reelTop = gridState.reelTopIndex?.[col] ?? 0
 
       for (let r = 0; r <= ROWS_FULL + 1; r++) {
         const xCell = originX + col * stepX
-        const yCell = startY + r * scaledTileH + offsetTiles * scaledTileH
+        const yCell = startY + r * stepY + offsetTiles * stepY
 
         // Convert visual row to grid row (accounting for buffer offset)
         const BUFFER_OFFSET = 4
@@ -174,16 +177,16 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
           const idx = ((reelTop + r) % reelStrip.length + reelStrip.length) % reelStrip.length
           symbol = reelStrip[idx]
         } else {
-          symbol = gridState.grid?.value?.[col]?.[gridRow]
+          symbol = gridState.grid?.[col]?.[gridRow]
         }
 
-        // Only golden tiles and bonus tiles should have glow effects
-        if (!isTileGolden(symbol) && !isBonusTile(symbol)) continue
+        // Only bonus and wild tiles should have glow effects (not golden tiles)
+        if (!isBonusTile(symbol) && !isTileWildcard(symbol)) continue
 
         const key = `${col}:${r}`
 
-        // Spawn and update dots
-        spawnDot(key, tileW, tileH, xCell, yCell, timestamp)
+        // Spawn and update dots with actual rendered tile size
+        spawnDot(key, scaledTileW, scaledTileH, xCell, yCell, timestamp)
         const dotEntry = dotsMap.get(key)
         if (dotEntry) updateDots(dotEntry, timestamp)
 
