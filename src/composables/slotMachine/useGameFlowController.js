@@ -1,6 +1,7 @@
 import { watch } from 'vue'
 import { useGameStore, GAME_STATES } from '../../stores/gameStore'
 import { useWinningStore } from '../../stores/winningStore'
+import { useTimingStore } from '../../stores/timingStore'
 import { getBufferOffset } from '../../utils/gameHelpers'
 import { CONFIG } from '../../config/constants'
 
@@ -11,14 +12,8 @@ import { CONFIG } from '../../config/constants'
 export function useGameFlowController(gameLogic, gridState, render) {
   const gameStore = useGameStore()
   const winningStore = useWinningStore()
+  const timingStore = useTimingStore()
   const BUFFER_OFFSET = getBufferOffset()
-
-  // Duration constants (moved from timeouts to config)
-  const DURATIONS = {
-    GOLD_WAIT: 0,        // No wait needed - tiles already hidden from flip
-    CASCADE_WAIT: 1000,  // Wait 1 second after cascade before next win check
-    GOLD_TRANSFORM: 200  // Gold transformation animation
-  }
 
   // Track active timers so we can clean them up
   let activeTimer = null
@@ -144,13 +139,13 @@ export function useGameFlowController(gameLogic, gridState, render) {
     gameLogic.highlightWinsAnimation(wins)
 
     // Wait for highlight duration before starting flip
-    await new Promise(resolve => setTimeout(resolve, winningStore.TIMINGS.HIGHLIGHT_BEFORE_FLIP))
+    await new Promise(resolve => setTimeout(resolve, timingStore.HIGHLIGHT_BEFORE_FLIP))
 
     // Transition to FLIPPING state
     winningStore.setFlipping()
 
     // Wait for flip to complete
-    await new Promise(resolve => setTimeout(resolve, winningStore.TIMINGS.FLIP_DURATION))
+    await new Promise(resolve => setTimeout(resolve, timingStore.FLIP_DURATION))
 
     // Transition to FLIPPED state
     winningStore.setFlipped()
@@ -180,7 +175,7 @@ export function useGameFlowController(gameLogic, gridState, render) {
     clearActiveTimer()
     activeTimer = setTimeout(() => {
       gameStore.completeGoldWait()
-    }, DURATIONS.GOLD_WAIT)
+    }, timingStore.GOLD_WAIT)
   }
 
   const handleDisappearingTiles = async () => {
@@ -222,7 +217,7 @@ export function useGameFlowController(gameLogic, gridState, render) {
     clearActiveTimer()
     activeTimer = setTimeout(() => {
       gameStore.completeCascadeWait()
-    }, DURATIONS.CASCADE_WAIT)
+    }, timingStore.CASCADE_WAIT)
   }
 
   const handleNoWins = () => {
@@ -245,7 +240,6 @@ export function useGameFlowController(gameLogic, gridState, render) {
 
   return {
     startWatching,
-    clearActiveTimer,
-    DURATIONS
+    clearActiveTimer
   }
 }

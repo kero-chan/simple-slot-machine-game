@@ -9,6 +9,7 @@ import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
+import { useTimingStore } from '../../../stores/timingStore'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -16,6 +17,7 @@ export function useReels(gameState, gridState) {
     const framesContainer = new Container()  // Container for frames (not masked)
 
     const winningStore = useWinningStore()
+    const timingStore = useTimingStore()
     const { ensureBackdrop } = createBackdrop(tilesContainer)
     const winningEffects = createWinningEffects()
     const winningFrames = createWinningFrameManager()
@@ -23,7 +25,6 @@ export function useReels(gameState, gridState) {
     const bumpAnimations = createBumpAnimationManager()
     let previousSpinning = false // Track previous spinning state
     let lastCascadeTime = 0 // Track when cascade last happened
-    const CASCADE_RESET_WINDOW = 300 // Reset sprites within 300ms of cascade
 
     // Add containers in order: background, tiles, frames
     container.addChild(tilesContainer)
@@ -233,7 +234,7 @@ export function useReels(gameState, gridState) {
         }
 
         // Within cascade window, force reset all sprites
-        const inCascadeWindow = lastCascadeTime > 0 && (Date.now() - lastCascadeTime) < CASCADE_RESET_WINDOW
+        const inCascadeWindow = lastCascadeTime > 0 && (Date.now() - lastCascadeTime) < timingStore.CASCADE_RESET_WINDOW
 
         previousSpinning = spinning
 
@@ -377,8 +378,7 @@ export function useReels(gameState, gridState) {
                 else if (winningState === WINNING_STATES.FLIPPING) {
                     // Calculate flip progress (0 to 1)
                     const elapsed = Date.now() - winningStateTime
-                    const FLIP_DURATION = 300 // ms
-                    const progress = Math.min(elapsed / FLIP_DURATION, 1)
+                    const progress = Math.min(elapsed / timingStore.FLIP_DURATION, 1)
 
                     // Animate flip: scale.x from scaleX to 0
                     sp.scale.x = scaleX * (1 - progress)

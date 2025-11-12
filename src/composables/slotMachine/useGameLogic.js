@@ -3,6 +3,7 @@ import { getRandomSymbol, getBufferOffset, enforceBonusLimit } from '../../utils
 import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '../../utils/tileHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
+import { useTimingStore } from '../../stores/timingStore'
 
 /**
  * Game Logic - State machine based architecture
@@ -11,6 +12,7 @@ import { useGameStore } from '../../stores/gameStore'
  */
 export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const gameStore = useGameStore()
+  const timingStore = useTimingStore()
 
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
@@ -222,7 +224,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   let stopHighlightRequested = false
 
   const highlightWinsAnimation = (wins) => {
-    const duration = 2500 // ms
+    const duration = timingStore.HIGHLIGHT_ANIMATION_DURATION
     const startTime = Date.now()
     gridState.highlightAnim = { start: startTime, duration }
     highlightAnimationActive = true
@@ -282,7 +284,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const animateDisappear = (wins) => {
     // After flip completes, wait a moment before cascading
     // This gives users time to see the tiles have disappeared
-    const DISAPPEAR_MS = 400  // 400ms to see tiles are gone before cascade
+    const DISAPPEAR_MS = timingStore.DISAPPEAR_WAIT
 
     const positions = []
     wins.forEach(win => {
@@ -375,7 +377,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   const animateCascade = () => {
     const startTime = Date.now()
-    const MAX_WAIT = 5000
+    const MAX_WAIT = timingStore.CASCADE_MAX_WAIT
 
     return new Promise(resolve => {
       const animate = () => {

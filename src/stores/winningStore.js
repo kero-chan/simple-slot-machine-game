@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useTimingStore } from './timingStore'
 
 // Winning tile states for visual control
 export const WINNING_STATES = {
@@ -23,17 +24,22 @@ export const useWinningStore = defineStore('winning', {
     stateStartTime: 0,
 
     // Cell keys of tiles in the current win (e.g., ["0:1", "0:2", "1:1"])
-    winningCellKeys: [],
-
-    // Duration constants for timing calculations
-    TIMINGS: {
-      HIGHLIGHT_BEFORE_FLIP: 600,  // Show highlight for 600ms before starting flip
-      FLIP_DURATION: 300,           // Flip animation duration
-      FLIP_TO_DISAPPEAR: 100        // Wait after flip completes before disappearing
-    }
+    winningCellKeys: []
   }),
 
   getters: {
+    /**
+     * Get timing constants from central timing store
+     */
+    TIMINGS: () => {
+      const timingStore = useTimingStore()
+      return {
+        HIGHLIGHT_BEFORE_FLIP: timingStore.HIGHLIGHT_BEFORE_FLIP,
+        FLIP_DURATION: timingStore.FLIP_DURATION,
+        FLIP_TO_DISAPPEAR: timingStore.DISAPPEAR_WAIT
+      }
+    },
+
     /**
      * Check if a specific cell is part of the current win
      */
