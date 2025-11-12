@@ -96,11 +96,14 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(winOverlay.container)
         }
 
-        // Initialize consecutive wins composed textures
-        if (header?.initializeComposedTextures) {
+        // Initialize consecutive wins composed textures (removed from here - will be called after asset loading)
+        return true
+    }
+
+    async function initializeComposedTextures() {
+        if (header?.initializeComposedTextures && app) {
             header.initializeComposedTextures(app)
         }
-        return true
     }
 
     function updateOnce(timestamp = 0) {
@@ -234,5 +237,5 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay }
+    return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay, initializeComposedTextures }
 }

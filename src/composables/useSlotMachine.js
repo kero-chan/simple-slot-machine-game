@@ -41,6 +41,9 @@ export function useSlotMachine(canvasRef) {
         gameStore.updateLoadingProgress(loaded, total)
       })
 
+      // Initialize composed textures AFTER assets are loaded
+      await renderer.initializeComposedTextures()
+
       unwatchFlow = flowController.startWatching()
       renderer.startAnimation()
       

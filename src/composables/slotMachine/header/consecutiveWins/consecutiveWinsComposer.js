@@ -12,10 +12,17 @@ export function composeConsecutiveWinsTextures(app) {
     Object.entries(CONSECUTIVE_WINS_CONFIG).forEach(([symbol, cfg]) => {
       if (ASSETS.loadedImages?.[symbol]) return
 
-      // Select the appropriate sheet based on iconAsset
-      let sheetTex = ASSETS.loadedImages?.[cfg.iconAsset] || ASSETS.imagePaths?.[cfg.iconAsset]
-      const source = sheetTex?.source || sheetTex?.baseTexture
-      if (!source) return
+      // Get the texture from loadedImages (should be already loaded by imageLoader)
+      let sheetTex = ASSETS.loadedImages?.[cfg.iconAsset]
+      
+      if (!sheetTex || !(sheetTex instanceof Texture)) {
+        return
+      }
+      
+      const source = sheetTex.source
+      if (!source) {
+        return
+      }
 
       const outSize = cfg.outSize || 512
       const container = new Container()
