@@ -114,6 +114,11 @@ export const ASSETS = {
       new URL('../assets/audio/background_noise/noise_9.mp3', import.meta.url).href,
       new URL('../assets/audio/background_noise/noise_10.mp3', import.meta.url).href,
       new URL('../assets/audio/background_noise/noise_11.mp3', import.meta.url).href
-    ]
+    ],
+    //effect
+    lot: new URL('../assets/audio/effect/lot.m4a', import.meta.url).href,
+    reel_spin: new URL('../assets/audio/effect/reel_spin.m4a', import.meta.url).href,
+    reel_spin_stop: new URL('../assets/audio/effect/reel_spin_stop.m4a', import.meta.url).href,
+    reach_bonus: new URL('../assets/audio/effect/reach_bonus.m4a', import.meta.url).href
   }
 }

@@ -161,10 +161,31 @@ export function useAudioEffects() {
     }
   };
 
+  const playEffect = (effect) => {
+    try {
+      const audio = new Audio(ASSETS.audioPaths[effect]);
+      audio.volume = 0.6; // 60% volume for effect sounds
+
+      audio.addEventListener("error", (e) => {
+        console.error(`Error loading effect audio (${effect}):`, e);
+      });
+
+      audio.play().catch((err) => {
+        console.warn(
+          `Failed to play effect audio (${effect}):`,
+          err
+        );
+      });
+    } catch (err) {
+      console.error("Error creating effect audio:", err);
+    }
+  }
+
   return {
     playWinSound,
     playConsecutiveWinSound,
     playWinningAnnouncement,
     stopWinningAnnouncement,
+    playEffect,
   };
 }

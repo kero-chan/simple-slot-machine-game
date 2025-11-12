@@ -20,7 +20,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const VISIBLE_ROWS = 4
   const VISIBLE_END_ROW = VISIBLE_START_ROW + VISIBLE_ROWS - 1
 
-  const { playConsecutiveWinSound, playWinSound } = useAudioEffects()
+  const { playConsecutiveWinSound, playWinSound, playEffect } = useAudioEffects()
 
   const getWinIntensity = (wins) => {
     if (!wins || wins.length === 0) return 'small'
@@ -446,6 +446,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const started = gameStore.startSpinCycle()
     if (!started) return
 
+    playEffect("lot")
+    playEffect("reel_spin")
     await animateSpin()
     gameStore.completeSpinAnimation()
   }
@@ -473,6 +475,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     getWinIntensity,
     playConsecutiveWinSound,
     playWinSound,
+    playEffect,
     showWinOverlay: showWinOverlayFn
   }
 }
