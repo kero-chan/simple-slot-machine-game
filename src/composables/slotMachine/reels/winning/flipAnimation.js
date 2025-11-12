@@ -22,7 +22,7 @@ export function createFlipAnimationManager() {
       startTime: Date.now(),
       sprite: sprite,
       duration: 300, // 300ms for complete flip
-      delay: 2300, // Start flip at 2.3s, runs during disappear phase (2.5-2.8s)
+      delay: 0, // No delay - flip starts immediately when highlights appear (controlled by state)
       baseScaleX: baseScaleX
     })
   }

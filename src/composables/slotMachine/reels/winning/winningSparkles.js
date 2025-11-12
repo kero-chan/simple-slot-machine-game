@@ -4,6 +4,7 @@
 import { Container, Sprite, Texture } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
+import { useTimingStore } from '../../../../stores/timingStore'
 
 // Basic reel layout
 const COLS = 5
@@ -52,6 +53,7 @@ export function createWinningSparkles() {
   const container = new Container()
   container.zIndex = 1001 // Above glow overlay
 
+  const timingStore = useTimingStore()
   const dotsMap = new Map() // key -> { list: [] }
 
   function spawnDot(key, tileW, tileH, xCell, yCell, timestamp) {
@@ -138,20 +140,20 @@ export function createWinningSparkles() {
 
     // Get winning positions
     const winningPositions = new Set()
-    const wins = gridState.highlightWins?.value || []
+    const wins = gridState.highlightWins || []
     wins.forEach(win => {
       win.positions.forEach(([col, row]) => {
         winningPositions.add(`${col},${row}`)
       })
     })
 
-    // Check if we're in the flip animation window (2.3s - 2.6s after highlight starts)
+    // Check if we're in the flip animation window
     // NOTE: highlightAnim uses Date.now(), but timestamp is performance.now()
     // We need to use Date.now() for consistency
     const now = Date.now()
-    const highlightAnim = gridState.highlightAnim?.value
-    const FLIP_DELAY = 2300 // Same as flipAnimation.js
-    const FLIP_DURATION = 300 // Same as flipAnimation.js
+    const highlightAnim = gridState.highlightAnim
+    const FLIP_DELAY = timingStore.HIGHLIGHT_BEFORE_FLIP
+    const FLIP_DURATION = timingStore.FLIP_DURATION
     let isFlipTime = false
 
     if (highlightAnim && highlightAnim.start > 0) {
