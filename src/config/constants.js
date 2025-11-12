@@ -31,10 +31,10 @@ export const CONFIG = {
     reelStagger: 150
   },
   game: {
-    initialCredits: 1000000,
-    minBet: 5,
+    initialCredits: 100000,
+    minBet: 10,
     maxBet: 100,
-    betStep: 5,
+    betStep: 10,
     freeSpinsPerScatter: 12,
     bonusScattersPerSpin: 2
   }

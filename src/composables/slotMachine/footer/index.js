@@ -10,6 +10,8 @@ export function useFooter(gameState) {
     decreaseBet: () => {}
   }
 
+  const amountLabels = {};
+
   let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiTextSprite, mutedIconSprite, notiMask, spinHoverCircle
   let hoverAnimating = false;
   let hoverAlphaDir = 1; // 1 = tăng alpha, -1 = giảm alpha
@@ -28,13 +30,15 @@ export function useFooter(gameState) {
     const setting = getDeepSetting(key)
     if (!setting) return null
 
-    const source = ASSETS.loadedImages?.[setting.assetName] || ASSETS.imagePaths?.[setting.assetName]
+    const sheetTex = ASSETS.loadedImages?.[setting.assetName] || ASSETS.imagePaths?.[setting.assetName]
+
+    const source = sheetTex?.source || sheetTex?.baseTexture
     if (!source) return null
 
-    const x = setting.position.x < 0 ? source.frame.x : setting.position.x
-    const y = setting.position.y < 0 ? source.frame.y : setting.position.y
-    const w = setting.position.w <= 0 ? source.frame.width : setting.position.w
-    const h = setting.position.h <= 0 ? source.frame.height : setting.position.h
+    const x = setting.position.x < 0 ? sheetTex.frame.x : setting.position.x
+    const y = setting.position.y < 0 ? sheetTex.frame.y : setting.position.y
+    const w = setting.position.w <= 0 ? source.width : setting.position.w
+    const h = setting.position.h <= 0 ? source.height : setting.position.h
 
     return new Texture({ source, frame: new Rectangle(x, y, w, h)})
   }
@@ -80,6 +84,13 @@ export function useFooter(gameState) {
 
   let lastTs = 0
   const VALUE_NAME_PREFIX = 'footer-pill-value-'
+
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num)
+  }
 
 
   function build(rect) {
@@ -160,12 +171,13 @@ export function useFooter(gameState) {
       fitTextToBox(label, pillHeight, 0.6)
       label.anchor.set(0.5)
       label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, rectY+baseRect.height/2)
+      amountLabels[key] = label
       container.addChild(label)
     }
 
-    buildAmountRect('wallet_icon', 0, '100,000.00')
-    buildAmountRect('bet_amount_icon', 1, '12.00')
-    buildAmountRect('win_amount_icon', 2, '0.00')
+    buildAmountRect('wallet_icon', 0, formatNumber(gameState.credits.value))
+    buildAmountRect('bet_amount_icon', 1, formatNumber(gameState.bet.value))
+    buildAmountRect('win_amount_icon', 2, formatNumber(gameState.currentWin.value))
 
 
     // Bet Setting
@@ -610,18 +622,9 @@ export function useFooter(gameState) {
 
   // Refresh pill values each frame so they reflect game state
   function updateValues() {
-    const vals = [
-      Number(gameState.credits.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      Number(gameState.bet.value).toFixed(2),
-      Number(gameState.currentWin.value).toFixed(2)
-    ]
-    for (let i = 0; i < container.children.length; i++) {
-      const child = container.children[i]
-      if (child instanceof Text && child.name && child.name.startsWith(VALUE_NAME_PREFIX)) {
-        const idx = Number(child.name.replace(VALUE_NAME_PREFIX, ''))
-        child.text = vals[idx]
-      }
-    }
+    amountLabels.wallet_icon.text = formatNumber(gameState.credits.value);
+    amountLabels.bet_amount_icon.text = formatNumber(gameState.bet.value);
+    amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value);
   }
 
   let notiState = 'idle'; // 'idle' = đứng yên trước scroll, 'scroll' = chạy text, 'waitAfterScroll' = chờ sau scroll

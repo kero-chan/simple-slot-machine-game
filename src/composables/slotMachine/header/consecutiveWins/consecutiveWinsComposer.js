@@ -19,8 +19,8 @@ export function composeConsecutiveWinsTextures(app) {
 
       const outSize = cfg.outSize || 512
       const container = new Container()
-      const x = cfg.icon.x < 0 ? 0 : cfg.icon.x
-      const y = cfg.icon.y < 0 ? 0 : cfg.icon.y
+      const x = cfg.icon.x < 0 ? sheetTex.frame.x : cfg.icon.x
+      const y = cfg.icon.y < 0 ? sheetTex.frame.y : cfg.icon.y
       const w = cfg.icon.w <= 0 ? source.width : cfg.icon.w
       const h = cfg.icon.h <= 0 ? source.height : cfg.icon.h
 
