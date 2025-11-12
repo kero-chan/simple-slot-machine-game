@@ -28,13 +28,13 @@ export const SETTINGS = {
   },
   footer_bg: {
     rotation: 0,
-    position: { x: 0, y: 627, w: 758, h: 585 },
-    assetName: 'footer_bg',
+    position: { x: 0, y: 0, w: 0, h: 0 },
+    assetName: 'i43_03',
   },
   footer_bar: {
     rotation: 0,
-    position: { x: 0, y: 1570, w: 758, h: 103 },
-    assetName: 'footer_bg',
+    position: { x: 0, y: 0, w: 0, h: 0 },
+    assetName: 'i43_03',
   },
   footer_notification_bg: {
     rotation: 0,

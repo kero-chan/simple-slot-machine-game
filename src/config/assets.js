@@ -39,7 +39,17 @@ export const ASSETS = {
     win_grand: new URL('../assets/slotMachine/winAnnouncements/grand.png', import.meta.url).href,
     win_mega: new URL('../assets/slotMachine/winAnnouncements/mega.png', import.meta.url).href,
     win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href,
-    win_gold: new URL('../assets/slotMachine/winAnnouncements/gold.png', import.meta.url).href
+    win_gold: new URL('../assets/slotMachine/winAnnouncements/gold.png', import.meta.url).href,
+
+    // New icons
+    i43_01: new URL('../assets/images/43_01.png', import.meta.url).href,
+    i43_02: new URL('../assets/images/43_02.png', import.meta.url).href,
+    i43_03: new URL('../assets/images/43_03.png', import.meta.url).href,
+    i43_04: new URL('../assets/images/43_04.png', import.meta.url).href,
+    i43_05: new URL('../assets/images/43_05.png', import.meta.url).href,
+    i43_06: new URL('../assets/images/43_06.png', import.meta.url).href,
+    i43_07: new URL('../assets/images/43_07.png', import.meta.url).href,
+    i43_08: new URL('../assets/images/43_08.png', import.meta.url).href,
   },
   loadedImages: {},
   audioPaths: {

@@ -28,6 +28,7 @@ export function useFooter(gameState) {
     if (!setting) return null
 
     const source = ASSETS.loadedImages?.[setting.assetName] || ASSETS.imagePaths?.[setting.assetName]
+    console.log("key: ", key, " source: ", source)
     const rect = setting.position
 
     return new Texture({ source, frame: new Rectangle(rect.x, rect.y, rect.w, rect.h)})
