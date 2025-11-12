@@ -176,6 +176,11 @@ export function useFooter(gameState) {
     const btnYPos = y+h*0.65
     const targetButonHeightPer = 0.35
 
+    const mainMenuContainer = new Container()
+    mainMenuContainer.position.set(x, btnYPos)
+    mainMenuContainer.visible = true
+    container.addChild(mainMenuContainer)
+
     // menu hiden buttons
     const btnStartX = 0.12 * w
     const btnSpace = (w - 2*btnStartX) / 5
@@ -298,12 +303,7 @@ export function useFooter(gameState) {
       console.log("show history")
     })
     buildMenuIcon('close_icon', 5, '关闭', () => {
-      showButton(lightningContainer)
-      showButton(autoSpinContainer)
-      showButton(minusSprite)
-      showButton(plusSprite)
-      showButton(spinBtnContainer)
-      showButton(menuIconSprite)
+      showButton(mainMenuContainer)
       hideButton(menuSettingContainer)
     })
 
@@ -321,167 +321,179 @@ export function useFooter(gameState) {
       hoverCircle.fill()
     }
 
+    // Main Menu
+    const mainMenuBtnStartX = 0.12 * w
+    const mainMenuSpace = 0.15 * w
+    const spinBtnSpace = 0.23 * w
+
+    const lightningBgSetting = getDeepSetting('lightning_icon')
+    if (!!lightningBgSetting) {
+      const lightningBgSprite = new Sprite(subTex('lightning_bg_icon'))
+      lightningBgSprite.anchor.set(0.5)
+      lightningBgSprite.rotation = lightningBgSetting.rotation
+      lightningBgSprite.tint = iconColor
+      lightningBgSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX, 0)
+      lightningBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / lightningBgSprite.height)
+      mainMenuContainer.addChild(lightningBgSprite)
+
+      const lightningSetting = getDeepSetting('lightning_icon')
+      if (!!lightningSetting) {
+        const lightningSprite = new Sprite(subTex('lightning_icon'))
+        lightningSprite.anchor.set(0.5)
+        lightningSprite.tint = iconColor
+        lightningSprite.rotation = lightningSetting.rotation
+        lightningSprite.position.set(lightningBgSprite.x, lightningBgSprite.y)
+        lightningSprite.scale.set(0.8 * 0.6 * setRectHeight * targetButonHeightPer / lightningSprite.height)
+        mainMenuContainer.addChild(lightningSprite)
+      }
+
+      lightningBgSprite.eventMode = 'static';
+      lightningBgSprite.on('pointerover', () => {
+        drawHoverCircle(lightningBgSprite);
+        hoverCircle.visible = true;
+      });
+
+      lightningBgSprite.on('pointerout', () => {
+        hoverCircle.visible = false;
+      });
+    }
+
 
     // Minus / Plus buttons
-    const minusSprite = new Sprite(subTex('minus_icon'))
-    minusSprite.anchor.set(0.5)
-    minusSprite.position.set(centerX - 0.45*centerX, btnYPos)
-    minusSprite.tint = iconColor
-    minusSprite.scale.set(setRectHeight * targetButonHeightPer / minusSprite.height)
-    minusSprite.eventMode = 'static';
-    minusSprite.on('pointerover', () => {
-      drawHoverCircle(minusSprite);
-      hoverCircle.visible = true;
-    });
+    const minusSetting = getDeepSetting('minus_icon')
+    if (!!minusSetting) {
+      const minusSprite = new Sprite(subTex('minus_icon'))
+      minusSprite.anchor.set(0.5)
+      minusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace, 0)
+      minusSprite.tint = iconColor
+      minusSprite.scale.set(setRectHeight * targetButonHeightPer / minusSprite.height)
+      minusSprite.rotation = minusSetting.rotation
+      minusSprite.eventMode = 'static';
+      minusSprite.on('pointerover', () => {
+        drawHoverCircle(minusSprite);
+        hoverCircle.visible = true;
+      });
 
-    minusSprite.on('pointerout', () => {
-      hoverCircle.visible = false;
-    });
-    container.addChild(minusSprite)
+      minusSprite.on('pointerout', () => {
+        hoverCircle.visible = false;
+      });
 
-    const plusSprite = new Sprite(subTex('plus_icon'))
-    plusSprite.anchor.set(0.5)
-    plusSprite.position.set(centerX + 0.45*centerX, btnYPos)
-    plusSprite.tint = iconColor
-    plusSprite.scale.set(setRectHeight * targetButonHeightPer / plusSprite.height)
-    plusSprite.eventMode = 'static';
-    plusSprite.on('pointerover', () => {
-      drawHoverCircle(plusSprite);
-      hoverCircle.visible = true;
-    });
+      mainMenuContainer.addChild(minusSprite)
+    }
 
-    plusSprite.on('pointerout', () => {
-      hoverCircle.visible = false;
-    });
-    container.addChild(plusSprite)
+    const plusSetting = getDeepSetting('minus_icon')
+    if (!!plusSetting) {
+      const plusSprite = new Sprite(subTex('plus_icon'))
+      plusSprite.anchor.set(0.5)
+      plusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace + 2 * spinBtnSpace, 0)
+      plusSprite.tint = iconColor
+      plusSprite.scale.set(setRectHeight * targetButonHeightPer / plusSprite.height)
+      plusSprite.eventMode = 'static';
+      plusSprite.on('pointerover', () => {
+        drawHoverCircle(plusSprite);
+        hoverCircle.visible = true;
+      });
 
-    // lightning icon
-     const lightningContainer = new Container();
-    lightningContainer.position.set(centerX - 0.75 * centerX, btnYPos); // vị trí container
-    container.addChild(lightningContainer);
+      plusSprite.on('pointerout', () => {
+        hoverCircle.visible = false;
+      });
 
-    const lightningBgSprite = new Sprite(subTex('lightning_bg_icon'))
-    lightningBgSprite.anchor.set(0.5)
-    lightningBgSprite.position.set(0,0)
-    lightningBgSprite.tint = iconColor
-    lightningBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / lightningBgSprite.height)
+      mainMenuContainer.addChild(plusSprite)
+    }
 
-    lightningContainer.addChild(lightningBgSprite)
-    const lightningSprite = new Sprite(subTex('lightning_icon'))
-    lightningSprite.anchor.set(0.5)
-    lightningSprite.position.set(0,0)
-    lightningSprite.tint = iconColor
-    lightningSprite.scale.set(0.8 * 0.6 * setRectHeight * targetButonHeightPer / lightningSprite.height)
-    lightningContainer.addChild(lightningSprite)
-
-    lightningContainer.eventMode = 'static';
-    lightningContainer.on('pointerover', () => {
-      drawHoverCircle(lightningContainer);
-      hoverCircle.visible = true;
-    });
-
-    lightningContainer.on('pointerout', () => {
-      hoverCircle.visible = false;
-    });
 
     // auto spin icon
-    const autoSpinContainer = new Container();
-    autoSpinContainer.position.set(centerX + 0.75 * centerX, btnYPos); // vị trí container
-    container.addChild(autoSpinContainer);
+    const autoSpinBgSetting = getDeepSetting('auto_spin_bg_icon')
+    if (!!autoSpinBgSetting) {
+      const autoSpinBgSprite = new Sprite(subTex('auto_spin_bg_icon'))
+      autoSpinBgSprite.anchor.set(0.5)
+      autoSpinBgSprite.tint = iconColor
+      autoSpinBgSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace, 0);
+      autoSpinBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / autoSpinBgSprite.height)
+      mainMenuContainer.addChild(autoSpinBgSprite)
 
-    const autoSpinBgSprite = new Sprite(subTex('auto_spin_bg_icon'))
-    autoSpinBgSprite.anchor.set(0.5)
-    autoSpinBgSprite.position.set(0,0)
-    autoSpinBgSprite.tint = iconColor
-    autoSpinBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / autoSpinBgSprite.height)
-    autoSpinContainer.addChild(autoSpinBgSprite)
+      const autoSpinArrowSetting = getDeepSetting('auto_spin_arrow_icon')
+      if (!!autoSpinArrowSetting) {
+        const autoSpinArrowSprite = new Sprite(subTex('auto_spin_arrow_icon'))
+        autoSpinArrowSprite.anchor.set(0.5)
+        autoSpinArrowSprite.tint = iconColor
+        autoSpinArrowSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
+        autoSpinArrowSprite.scale.set(0.8 * 0.7 * setRectHeight * targetButonHeightPer / autoSpinArrowSprite.height)
+        autoSpinArrowSprite.rotation = autoSpinArrowSetting.rotation
+        mainMenuContainer.addChild(autoSpinArrowSprite)
+      }
 
-    const autoSpinArrowSetting = getDeepSetting('auto_spin_arrow_icon')
-    if (!!autoSpinArrowSetting) {
-      const autoSpinArrowSprite = new Sprite(subTex('auto_spin_arrow_icon'))
-      autoSpinArrowSprite.anchor.set(0.5)
-      autoSpinArrowSprite.position.set(0,0)
-      autoSpinArrowSprite.tint = iconColor
-      autoSpinArrowSprite.scale.set(0.8 * 0.7 * setRectHeight * targetButonHeightPer / autoSpinArrowSprite.height)
-      autoSpinArrowSprite.rotation = autoSpinArrowSetting.rotation
-      autoSpinContainer.addChild(autoSpinArrowSprite)
+      const autoSpinSetting = getDeepSetting('auto_spin_icon')
+      if (!!autoSpinSetting) {
+        const autoSpinSprite = new Sprite(subTex('auto_spin_icon'))
+        autoSpinSprite.anchor.set(0.5)
+        autoSpinSprite.tint = iconColor
+        autoSpinSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
+        autoSpinSprite.scale.set(0.8 * 0.32 * setRectHeight * targetButonHeightPer / autoSpinSprite.height)
+        autoSpinSprite.rotation = autoSpinSetting.rotation
+        mainMenuContainer.addChild(autoSpinSprite)
+      }
+
+      autoSpinBgSprite.eventMode = 'static';
+      autoSpinBgSprite.on('pointerover', () => {
+        drawHoverCircle(autoSpinBgSprite);
+        hoverCircle.visible = true;
+      });
+
+      autoSpinBgSprite.on('pointerout', () => {
+        hoverCircle.visible = false;
+      });
     }
 
-    const autoSpinSetting = getDeepSetting('auto_spin_icon')
-    if (!!autoSpinSetting) {
-      const autoSpinSprite = new Sprite(subTex('auto_spin_icon'))
-      autoSpinSprite.anchor.set(0.5)
-      autoSpinSprite.position.set(0,0)
-      autoSpinSprite.tint = iconColor
-      autoSpinSprite.scale.set(0.8 * 0.32 * setRectHeight * targetButonHeightPer / autoSpinSprite.height)
-      autoSpinSprite.rotation = autoSpinSetting.rotation
-      autoSpinContainer.addChild(autoSpinSprite)
-    }
-
-    autoSpinContainer.eventMode = 'static';
-    autoSpinContainer.on('pointerover', () => {
-      drawHoverCircle(autoSpinContainer);
-      hoverCircle.visible = true;
-    });
-
-    autoSpinContainer.on('pointerout', () => {
-      hoverCircle.visible = false;
-    });
 
      // Spin button
     const targetSpinBtnHeightPer = 0.8
-    const spinBtnContainer = new Container();
-    spinBtnContainer.position.set(centerX, btnYPos);
-    container.addChild(spinBtnContainer);
-
-
     const spinSetting = getDeepSetting('spin_btn_bg')
     if (!!spinSetting) {
       spinBtnSprite = new Sprite(subTex('spin_btn_bg'))
       spinBtnSprite.anchor.set(0.5)
-      spinBtnSprite.position.set(0, 0)
+      spinBtnSprite.position.set(mainMenuBtnStartX + mainMenuSpace + spinBtnSpace, 0)
       spinBtnSprite.scale.set(targetSpinBtnHeightPer * setRectHeight / spinBtnSprite.height)
       spinBtnSprite.rotation = spinSetting.rotation
-      spinBtnContainer.addChild(spinBtnSprite)
+      mainMenuContainer.addChild(spinBtnSprite)
+
+      // spint button arrow
+      spinBtnArrowSprite = new Sprite(subTex('spin_btn_arrows.normal'))
+      spinBtnArrowSprite.anchor.set(0.5)
+      spinBtnArrowSprite.position.set(spinBtnSprite.x, spinBtnSprite.y)
+      spinBtnArrowSprite.scale.set(0.65 * targetSpinBtnHeightPer * setRectHeight / spinBtnArrowSprite.height)
+      mainMenuContainer.addChild(spinBtnArrowSprite)
+
+      spinBtnSprite.eventMode = 'static'
+      spinBtnSprite.on('pointerdown', () => {
+        if (gameState.showStartScreen?.value) return
+        if (gameState.isSpinning?.value) return
+        if (!gameState.canSpin?.value) return
+
+        hoverCircle.visible = false
+        handlers.spin && handlers.spin()
+      })
+
+      spinBtnSprite.on('pointerover', () => {
+        drawSpinHoverCircle(spinBtnSprite);
+        spinHoverCircle.visible = true;
+        hoverAnimating = true;
+        hoverAlphaDir = 1;
+      });
+
+      spinBtnSprite.on('pointerout', () => {
+        hoverAnimating = false;
+        spinHoverCircle.visible = false;
+        spinHoverCircle.alpha = 0;
+      });
     }
 
-    // spint button arrow
-    spinBtnArrowSprite = new Sprite(subTex('spin_btn_arrows.normal'))
-    spinBtnArrowSprite.anchor.set(0.5)
-    spinBtnArrowSprite.position.set(0, 0)
-    spinBtnArrowSprite.scale.set(0.65 * targetSpinBtnHeightPer * setRectHeight / spinBtnArrowSprite.height)
-    spinBtnContainer.addChild(spinBtnArrowSprite)
-
-    spinBtnContainer.eventMode = 'static'
-    spinBtnContainer.on('pointerdown', () => {
-      if (gameState.showStartScreen?.value) return
-      if (gameState.isSpinning?.value) return
-      if (!gameState.canSpin?.value) return
-
-      hoverCircle.visible = false
-      handlers.spin && handlers.spin()
-    })
-
-    spinBtnContainer.on('pointerover', () => {
-      drawSpinHoverCircle(spinBtnContainer);
-      spinHoverCircle.visible = true;
-      hoverAnimating = true;
-      hoverAlphaDir = 1;
-    });
-
-    spinBtnContainer.on('pointerout', () => {
-      hoverAnimating = false;
-      spinHoverCircle.visible = false;
-      spinHoverCircle.alpha = 0;
-    });
-
-    container.addChild(spinBtnContainer)
 
     // spin btn hover
     spinHoverCircle = new Graphics();
     spinHoverCircle.visible = false; // mặc định ẩn
     spinHoverCircle.alpha = 0;
-    container.addChild(spinHoverCircle);
+    mainMenuContainer.addChild(spinHoverCircle);
 
     function drawSpinHoverCircle(sprite, x = null) {
       let xPos = x || sprite.x
@@ -496,17 +508,12 @@ export function useFooter(gameState) {
     if (!!menuSetting) {
       const menuIconSprite = new Sprite(subTex('menu_icon'))
       menuIconSprite.anchor.set(0.5)
-      menuIconSprite.position.set(centerX + 0.98*centerX, btnYPos)
+      menuIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2* spinBtnSpace + 0.9 * mainMenuBtnStartX, 0)
       menuIconSprite.scale.set(0.6 * setRectHeight * targetButonHeightPer / menuIconSprite.height)
       menuIconSprite.rotation = menuSetting.rotation
       menuIconSprite.eventMode = 'static';
       menuIconSprite.on('pointerdown', () => {
-        hideButton(lightningContainer)
-        hideButton(autoSpinContainer)
-        hideButton(minusSprite)
-        hideButton(plusSprite)
-        hideButton(spinBtnContainer)
-        hideButton(menuIconSprite)
+        hideButton(mainMenuContainer)
         showButton(menuSettingContainer)
         hoverCircle.visible = false
       })
@@ -519,7 +526,7 @@ export function useFooter(gameState) {
       menuIconSprite.on('pointerout', () => {
         hoverCircle.visible = false;
       });
-      container.addChild(menuIconSprite)
+      mainMenuContainer.addChild(menuIconSprite)
     }
 
   }
