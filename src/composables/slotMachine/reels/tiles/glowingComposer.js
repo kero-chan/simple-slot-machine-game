@@ -2,6 +2,7 @@
 import { Container, Sprite, Texture, Graphics } from 'pixi.js'
 import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../../config/assets'
+import { isTileGolden, isBonusTile } from '../../../../utils/tileHelpers'
 
 // Basic reel layout
 const COLS = 5
@@ -176,8 +177,8 @@ export function useGlowOverlay(gameState, gridState, options = {}) {
           symbol = gridState.grid?.value?.[col]?.[gridRow]
         }
 
-        // Only gold and bonus tiles
-        if (symbol !== 'gold' && symbol !== 'bonus') continue
+        // Only golden tiles and bonus tiles should have glow effects
+        if (!isTileGolden(symbol) && !isBonusTile(symbol)) continue
 
         const key = `${col}:${r}`
 

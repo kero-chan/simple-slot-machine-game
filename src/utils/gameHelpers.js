@@ -1,5 +1,6 @@
 import { ASSETS } from '../config/assets'
 import { CONFIG } from '../config/constants'
+import { isBonusTile } from './tileHelpers'
 
 /**
  * Get a random symbol, optionally with gold variant
@@ -8,6 +9,7 @@ import { CONFIG } from '../config/constants'
  * @param {number} options.visualRow - Visual row index (0-5)
  * @param {boolean} options.allowGold - Whether gold variants are allowed
  * @param {number} options.goldChance - Probability of gold (0-1), default 0.15
+ * @param {number} options.wildChance - Probability of wild (0-1), default 0.02
  * @param {number} options.bonusChance - Probability of bonus (0-1), default 0.03
  * @param {boolean} options.allowBonus - Whether bonus tiles are allowed, default true
  * @returns {string} Symbol name, possibly with "_gold" suffix
@@ -18,20 +20,26 @@ export function getRandomSymbol(options = {}) {
     visualRow,
     allowGold = false,
     goldChance = 0.15,
+    wildChance = 0.02,
     bonusChance = 0.03,
     allowBonus = true
   } = options
 
   // Prefer paytable keys; this is available before assets load
   const paytableSymbols = Object.keys(CONFIG.paytable || {})
-  // Filter out gold and bonus from the regular pool
-  const fromPaytable = paytableSymbols.filter(s => s !== 'gold' && s !== 'bonus')
+  // Filter out wild and bonus from the regular pool (they have special spawn logic)
+  const fromPaytable = paytableSymbols.filter(s => s !== 'wild' && s !== 'bonus')
 
   const imagePathSymbols = Object.keys(ASSETS.imagePaths || {})
-  const fromAssets = imagePathSymbols.filter(s => s !== 'gold' && s !== 'bonus')
+  const fromAssets = imagePathSymbols.filter(s => s !== 'wild' && s !== 'bonus')
 
   const pool = fromPaytable.length ? fromPaytable : fromAssets
   if (pool.length === 0) return 'fa'
+
+  // Small chance for wild tile (2% by default, lower than other tiles)
+  if (Math.random() < wildChance) {
+    return 'wild'
+  }
 
   // Small chance for bonus tile (3% by default)
   if (allowBonus && Math.random() < bonusChance) {
@@ -41,8 +49,9 @@ export function getRandomSymbol(options = {}) {
   let symbol = pool[Math.floor(Math.random() * pool.length)]
 
   // Check if we should make this a gold variant
+  // Gold variants only appear in columns 1, 2, 3 (middle 3 columns)
+  // Note: symbol from pool is already guaranteed to not be wild or bonus
   if (allowGold && Math.random() < goldChance) {
-    // Gold rules: only in columns 1,2,3 (zero-based) and visible rows 1-4
     const GOLD_ALLOWED_COLS = [1, 2, 3]
     const GOLD_ALLOWED_VISUAL_ROWS = [1, 2, 3, 4]
 
@@ -50,10 +59,7 @@ export function getRandomSymbol(options = {}) {
       (col === undefined || GOLD_ALLOWED_COLS.includes(col)) &&
       (visualRow === undefined || GOLD_ALLOWED_VISUAL_ROWS.includes(visualRow))
 
-    // Don't make special symbols gold
-    const canBeGold = symbol !== 'liangsuo' && symbol !== 'liangtong' && symbol !== 'bonus' && symbol !== 'gold'
-
-    if (isAllowedPosition && canBeGold) {
+    if (isAllowedPosition) {
       symbol = symbol + '_gold'
     }
   }
@@ -86,7 +92,7 @@ export function createEmptyGrid() {
       grid[col][row] = symbol
 
       // Track bonus tiles in visible rows
-      if (symbol === 'bonus' && isVisibleRow) {
+      if (isBonusTile(symbol) && isVisibleRow) {
         bonusCountInVisibleRows++
       }
     }
@@ -142,7 +148,7 @@ export function enforceBonusLimit(grid) {
       const visualRow = row - BUFFER_OFFSET
       const isVisibleRow = visualRow >= 1 && visualRow <= 4
 
-      if (isVisibleRow && grid[col][row] === 'bonus') {
+      if (isVisibleRow && isBonusTile(grid[col][row])) {
         bonusPositions.push(row)
       }
     }

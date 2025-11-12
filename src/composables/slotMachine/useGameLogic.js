@@ -1,5 +1,6 @@
 import { CONFIG } from '../../config/constants'
 import { getRandomSymbol, getBufferOffset, enforceBonusLimit } from '../../utils/gameHelpers'
+import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '../../utils/tileHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
 
@@ -47,41 +48,62 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const findWinningCombinations = () => {
-    const wins = []
+    const allWinCombos = []
+    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
 
-    const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong')
     for (const symbol of symbolsToCheck) {
-      const countsPerReel = []
       const positionsPerReel = []
 
       for (let col = 0; col < CONFIG.reels.count; col++) {
         const matches = []
+
         for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
           const cell = gridState.grid.value[col][row]
-          const baseCell = cell && cell.endsWith('_gold') ? cell.slice(0, -5) : cell
+          const baseSymbol = getTileBaseSymbol(cell)
+          const isWild = isTileWildcard(cell)
 
-          const isMatch = symbol === 'liangsuo'
-            ? baseCell === 'liangsuo'
-            : (baseCell === symbol || baseCell === 'liangsuo')
+          const isMatch = baseSymbol === symbol || isWild
           if (isMatch) {
             matches.push([col, row])
           }
         }
 
         if (matches.length === 0) break
-        countsPerReel.push(matches.length)
         positionsPerReel.push(matches)
       }
 
-      const matchedReels = countsPerReel.length
+      const matchedReels = positionsPerReel.length
+
       if (matchedReels >= 3) {
-        const ways = countsPerReel.reduce((a, b) => a * b, 1)
-        const positions = positionsPerReel.slice(0, matchedReels).flat()
-        wins.push({ symbol, count: matchedReels, ways, positions })
+        const firstColumnMatches = positionsPerReel[0]
+        const firstColHasSymbol = firstColumnMatches.some(([col, row]) => {
+          const cell = gridState.grid.value[col][row]
+          const baseSymbol = getTileBaseSymbol(cell)
+          return baseSymbol === symbol
+        })
+
+        if (!firstColHasSymbol) continue
+
+        const generateWayCombinations = (reelPositions, currentCombo = [], reelIndex = 0) => {
+          if (reelIndex === reelPositions.length) {
+            allWinCombos.push({
+              symbol,
+              count: reelPositions.length,
+              positions: [...currentCombo]
+            })
+            return
+          }
+
+          for (const position of reelPositions[reelIndex]) {
+            generateWayCombinations(reelPositions, [...currentCombo, position], reelIndex + 1)
+          }
+        }
+
+        generateWayCombinations(positionsPerReel)
       }
     }
 
-    return wins
+    return allWinCombos
   }
 
   const calculateWinAmount = (wins) => {
@@ -89,7 +111,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     for (const win of wins) {
       const paytable = CONFIG.paytable[win.symbol]
       if (paytable && paytable[win.count]) {
-        total += paytable[win.count] * win.ways
+        total += paytable[win.count]
       }
     }
     return total
@@ -214,14 +236,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     })
   }
 
-  const transformGoldTilesToGold = (wins) => {
+  const transformGoldTilesToWild = (wins) => {
     const transformedPositions = new Set()
 
     wins.forEach(win => {
       win.positions = win.positions.filter(([col, row]) => {
-        const currentSymbol = gridState.grid.value[col][row]
-        if (currentSymbol && currentSymbol.endsWith('_gold') && currentSymbol !== 'gold') {
-          gridState.grid.value[col][row] = 'gold'
+        const currentTile = gridState.grid.value[col][row]
+        const isGolden = isTileGolden(currentTile)
+        const isWild = isTileWildcard(currentTile)
+
+        if (isGolden && !isWild) {
+          gridState.grid.value[col][row] = 'wild'
           transformedPositions.add(`${col},${row}`)
           return false
         }
@@ -304,17 +329,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
       let bonusCountInVisibleRows = 0
       for (const tile of keptGameTiles) {
-        if (tile === 'bonus') bonusCountInVisibleRows++
+        if (isBonusTile(tile)) bonusCountInVisibleRows++
       }
       for (const tile of takeFromBuffer) {
-        if (tile === 'bonus') bonusCountInVisibleRows++
+        if (isBonusTile(tile)) bonusCountInVisibleRows++
       }
 
       for (let i = 0; i < needFromBuffer; i++) {
         const allowBonus = bonusCountInVisibleRows < 1
         const newSymbol = getRandomSymbol({ col, allowGold: true, allowBonus })
         newColumn.push(newSymbol)
-        if (newSymbol === 'bonus') {
+        if (isBonusTile(newSymbol)) {
           bonusCountInVisibleRows++
         }
       }
@@ -382,7 +407,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     findWinningCombinations,
     calculateWinAmount,
     highlightWinsAnimation,
-    transformGoldTilesToGold,
+    transformGoldTilesToWild,
     animateDisappear,
     cascadeSymbols,
     getWinIntensity,

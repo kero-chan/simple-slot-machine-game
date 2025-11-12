@@ -8,6 +8,7 @@ import { createFlipAnimationManager } from './winning/flipAnimation'
 import { createDropAnimationManager } from './dropAnimation'
 import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { getBufferOffset } from '../../../utils/gameHelpers'
+import { isBonusTile } from '../../../utils/tileHelpers'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -438,8 +439,7 @@ export function useReels(gameState, gridState) {
 
                 // Trigger bump animation for bonus tiles when they appear in visible rows
                 // Don't trigger during drop animations to prevent symbol issues
-                const baseSymbol = symbol?.replace('_gold', '')
-                const isBonus = baseSymbol === 'bonus'
+                const isBonus = isBonusTile(symbol)
                 const isVisibleRow = r >= 1 && r <= 4
                 const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
                 const hasActiveDrops = gridState.isDropAnimating?.value

@@ -141,11 +141,9 @@ export function useGameFlowController(gameLogic, gridState, render) {
       return
     }
 
-    // Transform gold tiles
-    await gameLogic.transformGoldTilesToGold(wins)
-    render() // Force render
+    await gameLogic.transformGoldTilesToWild(wins)
+    render()
 
-    // Complete
     gameStore.completeGoldTransformation()
   }
 
