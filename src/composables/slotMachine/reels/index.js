@@ -306,7 +306,7 @@ export function useReels(gameState, gridState) {
             // Visual rows -4 to -1 are buffer (offscreen), 0-3 are fully visible, 4-5 are partial (bottom)
             for (let r = -BUFFER_OFFSET; r <= ROWS_FULL + 1; r++) {
                 const xCell = originX + col * stepX
-                const yCell = startY + r * stepY + offsetTiles * stepY
+                const yCell = startY + r * stepY + offsetTiles * stepY // Positive = spin downward (top to bottom)
 
                 const gridRow = r + BUFFER_OFFSET // Convert visual row to grid row
 
