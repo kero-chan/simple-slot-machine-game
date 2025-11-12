@@ -141,8 +141,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
-    console.log('🎰 [SPIN START] totalRows:', totalRows, 'stripLength:', stripLength)
-
     // STEP 1: Pre-determine the final grid BEFORE animation starts
     // This ensures visual stability - what you see is what you get
     const finalGrid = createEmptyGrid()
@@ -156,22 +154,19 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     // Enforce bonus limit across visible rows
     enforceBonusLimit(finalGrid, BUFFER_OFFSET)
 
-    console.log('🎯 [FINAL GRID PRE-DETERMINED] Visible rows (4-8):')
-    for (let col = 0; col < cols; col++) {
-      const visibleSymbols = []
-      for (let row = BUFFER_OFFSET; row < BUFFER_OFFSET + 4; row++) {
-        visibleSymbols.push(finalGrid[col][row])
-      }
-      console.log(`  Col ${col}:`, visibleSymbols)
-    }
-
     // STEP 2: Build reel strips that will land on the pre-determined symbols
     // Each strip has random symbols for visual variety, with target symbols at the end
     for (let col = 0; col < cols; col++) {
       const strip = []
 
+      // IMPORTANT: Start with current grid symbols to prevent visual flicker
+      // When spin starts, we switch from reading grid→strip, so first symbols must match
+      for (let row = 0; row < totalRows; row++) {
+        strip.push(gridState.grid[col][row])
+      }
+
       // Add random spinning symbols (for visual effect during spin)
-      const spinSymbolCount = stripLength - totalRows
+      const spinSymbolCount = stripLength - (totalRows * 2) // Account for both current and final
       for (let i = 0; i < spinSymbolCount; i++) {
         strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: false }))
       }
@@ -182,9 +177,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       }
 
       gridState.reelStrips[col] = strip
-
-      // Log strip structure
-      console.log(`📜 [STRIP ${col}] Length: ${strip.length}, Last ${totalRows} symbols (target):`, strip.slice(-totalRows))
     }
 
     // Trigger reactivity for arrays
@@ -193,10 +185,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gridState.spinOffsets = Array(cols).fill(0)
     gridState.spinVelocities = Array(cols).fill(0)
 
-    // STEP 3: Update grid immediately with final results
-    // This way, when animation ends, grid is already correct (no flickering)
-    gridState.grid = [...finalGrid.map(col => [...col])]
-    console.log('✅ [GRID SET] Grid updated with final results immediately')
+    // DON'T update grid yet - keep old values to prevent flicker
+    // Grid will be updated when animation completes
 
     return new Promise(resolve => {
       const animate = () => {
@@ -214,7 +204,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const t = Math.min(elapsed / baseDuration, 1)
 
           // Calculate target position (where we want to end up)
-          const targetIndex = stripLength - totalRows // Position 90 for stripLength=100, totalRows=10
+          // Strip structure: [current(10), random(80), final(10)]
+          // We want to land on the final symbols at the end
+          const targetIndex = stripLength - totalRows // Last 10 symbols
 
           // Time's up - stop this reel
           if (t >= 1) {
@@ -222,16 +214,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             gridState.reelTopIndex[col] = targetIndex
             gridState.spinOffsets[col] = 0
             gridState.spinVelocities[col] = 0
-
-            // Log what this column should show
-            const strip = gridState.reelStrips[col]
-            const visibleSymbols = []
-            for (let row = 0; row < totalRows; row++) {
-              const stripIdx = (targetIndex + row) % strip.length
-              visibleSymbols.push(strip[stripIdx])
-            }
-            console.log(`🛑 [COL ${col} STOPPED] reelTopIndex=${targetIndex}, offset=${0}, showing:`, visibleSymbols.slice(BUFFER_OFFSET, BUFFER_OFFSET + 4))
-
             continue
           }
 
@@ -255,11 +237,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // This ensures we arrive at exactly targetIndex when t=1
           const velocity = Math.max(0, remainingDistance / framesRemaining)
 
-          // Log velocity calculation for debugging (only log occasionally to avoid spam)
-          if (col === 0 && Math.floor(t * 100) % 10 === 0) {
-            console.log(`⚡ [COL ${col} VELOCITY] t=${t.toFixed(3)}, currentPos=${currentPosition.toFixed(2)}, remainingDist=${remainingDistance.toFixed(2)}, framesLeft=${framesRemaining.toFixed(1)}, velocity=${velocity.toFixed(3)}`)
-          }
-
           // Update spinning state
           gridState.spinVelocities[col] = velocity
           gridState.spinOffsets[col] += velocity
@@ -276,15 +253,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // All reels stopped - grid is already set correctly, no updates needed
-          console.log('🏁 [ALL STOPPED] Final grid state:')
-          for (let col = 0; col < cols; col++) {
-            const visibleSymbols = []
-            for (let row = BUFFER_OFFSET; row < BUFFER_OFFSET + 4; row++) {
-              visibleSymbols.push(gridState.grid[col][row])
-            }
-            console.log(`  Col ${col}:`, visibleSymbols)
-          }
+          // All reels stopped - NOW update grid with final results
+          gridState.grid = [...finalGrid.map(col => [...col])]
           resolve()
         }
       }
