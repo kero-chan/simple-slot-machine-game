@@ -58,27 +58,47 @@ export function useCanvas(canvasRef) {
 
     ensureAspectLoaded()
 
-    // Visible viewport
-    const vh = document.documentElement.clientHeight
-    const vw = document.documentElement.clientWidth
-
-    // Always use same logic: height = screen height, width = 9/16 * height (max 1000px)
-    let height = vh
-    let width = Math.floor(height * (9 / 16))
-
-    if (vw / vh < 9 / 16) {
-      width = vw
-      height = Math.floor(width * (16 / 9))
+    // Find the gameView container
+    let gameViewEl = hostEl.parentElement // Should be .gameView
+    
+    if (!gameViewEl || !gameViewEl.classList.contains('gameView')) {
+      console.warn('[Canvas] gameView container not found, searching...')
+      gameViewEl = hostEl.closest('.gameView')
     }
     
-    // Cap maximum width at 1000px
-    if (width > 1000) {
-      width = 1000
+    if (!gameViewEl) {
+      console.error('[Canvas] Cannot find .gameView container!')
+      return
+    }
+    
+    // Get viewport dimensions
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const viewportRatio = vw / vh
+    const targetRatio = 9 / 16  // 0.5625
+    
+    let width, height
+    
+    // ALWAYS calculate based on 9:16 aspect ratio, don't trust gameView dimensions
+    if (viewportRatio < targetRatio) {
+      // Viewport is narrower than 9:16 (e.g., 246/689 = 0.357)
+      // Canvas should be constrained by width
+      width = vw
+      height = Math.floor(width * (16 / 9))
+    } else {
+      // Viewport is wider than 9:16
+      // Canvas should be constrained by height
+      height = vh
+      width = Math.floor(height * (9 / 16))
     }
 
     const dpr = window.devicePixelRatio || 1
+    
+    // Set canvas internal resolution (scaled by DPR for crisp rendering)
     canvasEl.width = Math.floor(width * dpr)
     canvasEl.height = Math.floor(height * dpr)
+    
+    // Set canvas CSS size
     canvasEl.style.width = `${width}px`
     canvasEl.style.height = `${height}px`
 

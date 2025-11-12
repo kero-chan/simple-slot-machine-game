@@ -37,8 +37,12 @@ export const useGameStore = defineStore('game', {
     freeSpins: 0,
     inFreeSpinMode: false,
 
+    // UI state
     showStartScreen: true,
-    animationComplete: false
+    animationComplete: false,
+
+     // Loading state
+    loadingProgress: { loaded: 0, total: 1 }
   }),
 
   getters: {
@@ -272,6 +276,12 @@ export const useGameStore = defineStore('game', {
       this.showStartScreen = true
     },
 
+    // Loading state
+    updateLoadingProgress(loaded, total) {
+      this.loadingProgress = { loaded, total }
+    },
+
+    // Reset game
     resetGame() {
       this.credits = CONFIG.game.initialCredits
       this.bet = CONFIG.game.minBet

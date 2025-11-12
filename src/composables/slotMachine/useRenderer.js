@@ -1,6 +1,5 @@
 import { Container } from 'pixi.js'
 import { usePixiApp } from './pixiApp'
-import { useStartScene } from './scenes/startScene'
 import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
@@ -18,7 +17,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     // Scene graph
     let app = null
     let root = null
-    let startScene = null
     let header = null
     let reels = null
     let footer = null
@@ -66,18 +64,20 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    // PixiJS-only renderer: start screen, header, reels, footer
-    function ensureStage(w, h) {
-        pixiApp.ensure(w, h)
+    // PixiJS-only renderer: header, reels, footer
+    async function ensureStage(w, h) {
+        await pixiApp.ensure(w, h)
         app = pixiApp.getApp()
-        if (!pixiApp.isReady()) return false
+        if (!pixiApp.isReady()) {
+            console.warn('[Renderer] PixiJS app not ready after ensure')
+            return false
+        }
 
         if (!root) {
             root = new Container()
             app.stage.sortableChildren = true
             app.stage.addChild(root)
 
-            startScene = useStartScene(gameState)
             header = useHeader(gameState)
             reels = useReels(gameState, gridState)
             footer = useFooter(gameState)
@@ -88,7 +88,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 footer.setHandlers(controlHandlers)
             }
 
-            root.addChild(startScene.container)
             root.addChild(header.container)
             root.addChild(reels.container)
             root.addChild(glowOverlay.container)
@@ -108,7 +107,16 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const w = canvasState.canvasWidth.value
         const h = canvasState.canvasHeight.value
         if (!w || !h) return
-        if (!ensureStage(w, h)) return
+        
+        // If stage not ready, skip this frame (will be called again)
+        if (!pixiApp.isReady()) return
+        
+        // Ensure stage is initialized (sync call after first init)
+        if (!root) {
+            // This shouldn't happen if init() was called properly
+            console.warn('[Renderer] Root not initialized in updateOnce')
+            return
+        }
 
         const resized = w !== lastW || h !== lastH
         lastW = w
@@ -117,24 +125,23 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const { headerRect, mainRect, footerRect, tileSize } = computeLayout(w, h)
 
         const showStart = !!gameState.showStartScreen.value
-        if (startScene?.container) startScene.container.visible = showStart
         if (header?.container) header.container.visible = !showStart
         if (reels?.container) reels.container.visible = !showStart
-        if (glowOverlay?.container) glowOverlay.container.visible = !showStart // <-- toggle overlay
+        if (glowOverlay?.container) glowOverlay.container.visible = !showStart
         if (winningSparkles?.container) winningSparkles.container.visible = !showStart
         if (footer?.container) footer.container.visible = !showStart
         // Win overlay visibility is controlled by its own show/hide methods
 
-        if (showStart && startScene) {
-            if (resized || startScene.container.children.length === 0) {
-                startScene.build(w, h)
-            }
-        }
-
         if (!showStart) {
+            // Game is visible - build and render everything
+            if (resized) {
+                console.log('[Renderer] Game visible and resized, rebuilding...')
+            }
+            
             // Build header/footer when play screen becomes visible (even without resize)
             if ((resized || header?.container.children.length === 0) && header) {
                 header.build(headerRect)
+                console.log('[Renderer] Header built')
             }
             if (header) header.updateValues()
 
@@ -173,8 +180,18 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         animationFrameId = requestAnimationFrame(renderFrame)
     }
 
-    const init = () => {
-        // lazy; stage is created on first updateOnce after app init
+    const init = async () => {
+        // Initialize stage
+        const w = canvasState.canvasWidth.value
+        const h = canvasState.canvasHeight.value
+        
+        if (w > 0 && h > 0) {
+            const stageReady = await ensureStage(w, h)
+        } else {
+            console.warn(`[Renderer] Canvas size not ready yet: ${w}x${h}`)
+            // Try to create stage anyway for later use
+            await ensureStage(1, 1)
+        }
     }
 
     const render = () => {
@@ -218,88 +235,4 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     }
 
     return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay }
-}
-
-// ----- Start screen rendering -----
-// Cache for lazy HTMLImage fallback
-let cachedStartBg = null
-let startBgLoading = false
-
-// ----- Start screen rendering -----
-function drawStartScreen(ctx, w, h, canvasState) {
-    const bgAsset = ASSETS.loadedImages.start_background
-
-    // Try to extract a CanvasImageSource from Pixi v8 Texture
-    let source = null
-    if (bgAsset && bgAsset.source && bgAsset.source.resource) {
-        source = bgAsset.source.resource.source || null
-    }
-
-    // Fallback to cached HTMLImage if present
-    if (!source && cachedStartBg) {
-        source = cachedStartBg
-    }
-
-    // Lazy-load an HTMLImageElement if nothing is ready yet
-    if (!source && !startBgLoading) {
-        startBgLoading = true
-        const url = ASSETS.imagePaths.start_background
-        const img = new Image()
-        img.onload = () => {
-            cachedStartBg = img
-            startBgLoading = false
-        }
-        img.onerror = () => {
-            console.error('Failed to load start background:', url)
-            startBgLoading = false
-        }
-        img.src = url
-    }
-
-    // Draw the image if we have a valid CanvasImageSource
-    if (source) {
-        try {
-            ctx.drawImage(source, 0, 0, w, h)
-        } catch (e) {
-            // Fallback gradient if drawImage fails (e.g., still initializing)
-            const grad = ctx.createLinearGradient(0, 0, 0, h)
-            grad.addColorStop(0, '#7a1a1a')
-            grad.addColorStop(1, '#3a0f0f')
-            ctx.fillStyle = grad
-            ctx.fillRect(0, 0, w, h)
-        }
-    } else {
-        // Initial frames: use gradient until image resolves
-        const grad = ctx.createLinearGradient(0, 0, 0, h)
-        grad.addColorStop(0, '#7a1a1a')
-        grad.addColorStop(1, '#3a0f0f')
-        ctx.fillStyle = grad
-        ctx.fillRect(0, 0, w, h)
-    }
-
-    // Start button (bottom-center)
-    const sb = canvasState.buttons.value.start
-    ctx.save()
-    ctx.fillStyle = '#ff4d4f'
-    ctx.strokeStyle = '#b02a2a'
-    ctx.lineWidth = 4
-    roundRect(ctx, sb.x, sb.y, sb.width, sb.height, Math.floor(sb.height / 2))
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#fff'
-    ctx.font = `bold ${Math.floor(sb.height * 0.45)}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('开始', sb.x + sb.width / 2, sb.y + sb.height / 2)
-    ctx.restore()
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.arcTo(x + w, y, x + w, y + h, r)
-    ctx.arcTo(x + w, y + h, x, y + h, r)
-    ctx.arcTo(x, y + h, x, y, r)
-    ctx.arcTo(x, y, x + w, y, r)
-    ctx.closePath()
 }

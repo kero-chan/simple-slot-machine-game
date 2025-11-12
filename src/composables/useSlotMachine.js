@@ -1,4 +1,4 @@
-import { nextTick } from 'vue'
+import { nextTick, watch } from 'vue'
 import { useGameState } from './slotMachine/useGameState'
 import { useCanvas } from './slotMachine/useCanvas'
 import { useRenderer } from './slotMachine/useRenderer'
@@ -28,12 +28,31 @@ export function useSlotMachine(canvasRef) {
   const init = async () => {
     try {
       await nextTick()
+      
       await canvasState.setupCanvas()
-      await loadAllAssets()
+      
+      await nextTick() // Give canvas time to settle
 
-      renderer.init()
+      // Initialize renderer first
+      await renderer.init()
+
+      // Load assets with progress tracking
+      await loadAllAssets((loaded, total) => {
+        gameStore.updateLoadingProgress(loaded, total)
+      })
+
       unwatchFlow = flowController.startWatching()
       renderer.startAnimation()
+      
+      // Watch for start screen changes to ensure render
+      watch(() => gameState.showStartScreen.value, (isShowing) => {
+        if (!isShowing) {
+          // Force a render when game becomes visible
+          nextTick(() => {
+            renderer.render()
+          })
+        }
+      })
     } catch (err) {
       console.error('SlotMachine init failed:', err)
     }

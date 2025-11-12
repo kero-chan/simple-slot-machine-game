@@ -5,6 +5,13 @@ import { useBackgroundMusic } from '../../useBackgroundMusic'
 export function useStartScene(gameState) {
     const container = new Container()
     const backgroundMusic = useBackgroundMusic()
+    
+    let progressBar = null
+    let progressBarBg = null
+    let progressText = null
+    let startButton = null
+    let startButtonText = null
+    let isLoading = true
 
     function build(w, h) {
         container.removeChildren()
@@ -26,23 +33,118 @@ export function useStartScene(gameState) {
         const safeBottom = Math.floor(Math.min(h * 0.20, 140))
         const buttonY = h - safeBottom - buttonH
 
-        const btn = new Graphics()
-        btn.roundRect(buttonX, buttonY, buttonW, buttonH, Math.floor(buttonH / 2))
-        btn.fill(0xff4d4f)
-        btn.eventMode = 'static'
-        btn.cursor = 'pointer'
-        btn.on('pointerdown', () => {
-            backgroundMusic.start();
-            gameState.showStartScreen.value = false
-        })
-        container.addChild(btn)
+        // Progress bar background
+        const progressBarW = Math.floor(w * 0.6)
+        const progressBarH = Math.floor(h * 0.03)
+        const progressBarX = Math.floor((w - progressBarW) / 2)
+        const progressBarY = buttonY - progressBarH - Math.floor(h * 0.05)
 
-        const btnText = new Text({ text: '开始', style: { fill: 0xffffff, fontSize: Math.floor(buttonH * 0.45), fontWeight: 'bold' } })
-        btnText.anchor.set(0.5)
-        btnText.x = buttonX + buttonW / 2
-        btnText.y = buttonY + buttonH / 2
-        container.addChild(btnText)
+        progressBarBg = new Graphics()
+        progressBarBg.roundRect(progressBarX, progressBarY, progressBarW, progressBarH, progressBarH / 2)
+        progressBarBg.fill({ color: 0x333333, alpha: 0.8 })
+        container.addChild(progressBarBg)
+
+        // Progress bar fill
+        progressBar = new Graphics()
+        container.addChild(progressBar)
+
+        // Progress text
+        progressText = new Text({ 
+            text: 'Loading... 0%', 
+            style: { 
+                fill: 0xffffff, 
+                fontSize: Math.floor(progressBarH * 0.8), 
+                fontWeight: 'bold',
+                align: 'center'
+            } 
+        })
+        progressText.anchor.set(0.5)
+        progressText.x = w / 2
+        progressText.y = progressBarY - progressBarH - 10
+        container.addChild(progressText)
+
+        // Start button (initially hidden during loading)
+        startButton = new Graphics()
+        startButton.roundRect(buttonX, buttonY, buttonW, buttonH, Math.floor(buttonH / 2))
+        startButton.fill(0xff4d4f)
+        startButton.alpha = 0.5 // Dimmed during loading
+        startButton.eventMode = 'none' // Disabled during loading
+        startButton.cursor = 'pointer'
+        container.addChild(startButton)
+
+        startButtonText = new Text({ 
+            text: '开始', 
+            style: { 
+                fill: 0xffffff, 
+                fontSize: Math.floor(buttonH * 0.45), 
+                fontWeight: 'bold' 
+            } 
+        })
+        startButtonText.anchor.set(0.5)
+        startButtonText.x = buttonX + buttonW / 2
+        startButtonText.y = buttonY + buttonH / 2
+        startButtonText.alpha = 0.5 // Dimmed during loading
+        container.addChild(startButtonText)
+
+        // Store dimensions for updateProgress
+        progressBar._dimensions = { x: progressBarX, y: progressBarY, w: progressBarW, h: progressBarH }
     }
 
-    return { container, build }
+    function updateProgress(loaded, total) {
+        console.log(`[StartScene] updateProgress called: ${loaded}/${total}`)
+        
+        if (!progressBar || !progressText || !progressBar._dimensions) {
+            console.warn('[StartScene] Progress elements not ready yet')
+            return
+        }
+        
+        const percentage = total > 0 ? (loaded / total) : 0
+        const { x, y, w, h } = progressBar._dimensions
+        
+        // Update progress bar fill
+        progressBar.clear()
+        const fillW = Math.floor(w * percentage)
+        if (fillW > 0) {
+            progressBar.roundRect(x, y, fillW, h, h / 2)
+            progressBar.fill({ color: 0x4caf50, alpha: 1 })
+        }
+        
+        // Update progress text
+        const percentText = Math.floor(percentage * 100)
+        progressText.text = `Loading... ${percentText}%`
+        
+        console.log(`[StartScene] Progress updated: ${percentText}%, isLoading: ${isLoading}`)
+        
+        // When loading is complete
+        if (loaded >= total && isLoading) {
+            console.log('[StartScene] Loading complete! Enabling start button...')
+            isLoading = false
+            
+            // Hide progress bar and text
+            if (progressBarBg) {
+                progressBarBg.visible = false
+                console.log('[StartScene] Progress bar hidden')
+            }
+            if (progressBar) progressBar.visible = false
+            if (progressText) progressText.visible = false
+            
+            // Enable start button
+            if (startButton) {
+                startButton.alpha = 1
+                startButton.eventMode = 'static'
+                startButton.off('pointerdown') // Remove old listeners
+                startButton.on('pointerdown', () => {
+                    console.log('[StartScene] Start button clicked!')
+                    backgroundMusic.start()
+                    gameState.showStartScreen.value = false
+                })
+                console.log('[StartScene] Start button enabled')
+            }
+            if (startButtonText) {
+                startButtonText.alpha = 1
+            }
+        }
+    }
+
+    return { container, build, updateProgress }
 }
