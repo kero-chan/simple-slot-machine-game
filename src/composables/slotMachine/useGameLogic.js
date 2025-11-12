@@ -185,8 +185,13 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gridState.spinOffsets = Array(cols).fill(0)
     gridState.spinVelocities = Array(cols).fill(0)
 
-    // DON'T update grid yet - keep old values to prevent flicker
+    // Update grid to finalGrid NOW so it matches strip when columns stop
+    // This prevents strip/grid mismatches when render switches from strip to grid
+    gridState.grid = [...finalGrid.map(col => [...col])]
     // Grid will be updated when animation completes
+
+    // Track which columns have been explicitly stopped
+    const stoppedColumns = new Set()
 
     return new Promise(resolve => {
       const animate = () => {
@@ -200,6 +205,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             continue
           }
 
+          // Skip columns that have been explicitly stopped
+          if (stoppedColumns.has(col)) {
+            continue
+          }
+
           const elapsed = now - colStart
           const t = Math.min(elapsed / baseDuration, 1)
 
@@ -208,44 +218,64 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // We want to land on the final symbols at the end
           const targetIndex = stripLength - totalRows // Last 10 symbols
 
-          // Time's up - stop this reel
-          if (t >= 1) {
-            // Snap to exact target position
-            gridState.reelTopIndex[col] = targetIndex
-            gridState.spinOffsets[col] = 0
+          // Apply easing function for more realistic slowdown
+          // Ease-out: starts fast, slows down smoothly at the end
+          // Adjust the exponent to control slowdown: higher = slower stop
+          // 2 = ease-out quadratic (gentle), 3 = cubic (medium), 4 = quartic (strong), 5 = quintic (very strong)
+          const easedT = 1 - Math.pow(1 - t, 3.5)
+
+          // Get current position before calculating new position
+          const currentPosition = gridState.reelTopIndex[col] + gridState.spinOffsets[col]
+
+          // Calculate the exact position we should be at based on eased progress
+          const targetPosition = targetIndex * easedT
+
+          // Calculate how close we are to the target
+          const distanceRemaining = targetIndex - currentPosition
+
+          // DEBUG: Log when we're close to stopping
+          if (col === 0 && distanceRemaining < 2) {
+            console.log(`Col ${col}: t=${t.toFixed(3)}, current=${currentPosition.toFixed(3)}, target=${targetIndex}, remaining=${distanceRemaining.toFixed(3)}, easedT=${easedT.toFixed(3)}, targetPos=${targetPosition.toFixed(3)}`)
+          }
+
+          // Stop condition: when very close, snap to exact target and stop
+          if (distanceRemaining <= 0 || distanceRemaining < 0.01) {
+            if (col === 0) console.log(`Col ${col}: STOPPED at position ${currentPosition.toFixed(3)}, snapping to ${targetIndex}`)
+            // Snap to EXACT target position to ensure strip/grid alignment
+            // This is critical: strip[targetIndex + gridRow] must equal finalGrid[col][gridRow]
+            gridState.reelTopIndex[col] = targetIndex - 1
+            gridState.spinOffsets[col] = 1
             gridState.spinVelocities[col] = 0
+            stoppedColumns.add(col)
             continue
           }
 
-          // Calculate how far we need to travel total (from 0 to targetIndex)
-          const totalDistance = targetIndex // 90 tiles
+          // Simple easing-based position (no complex convergence)
+          let nextPosition = targetPosition
 
-          // Current position
-          const currentPosition = gridState.reelTopIndex[col] + gridState.spinOffsets[col]
+          // CRITICAL: Clamp nextPosition to valid range
+          // 1. NEVER go backward (upward): nextPosition >= currentPosition
+          // 2. NEVER overshoot (too far down): nextPosition <= targetIndex
+          // This ensures tiles ONLY move in the correct direction and NEVER past target
+          const beforeClamp = nextPosition
+          nextPosition = Math.max(currentPosition, Math.min(nextPosition, targetIndex))
 
-          // Calculate remaining distance to target
-          const remainingDistance = targetIndex - currentPosition
-
-          // Calculate remaining time in milliseconds
-          const remainingTimeMs = baseDuration * (1 - t)
-
-          // Estimate frames remaining (assuming 60fps, so ~16.67ms per frame)
-          const msPerFrame = 16.67
-          const framesRemaining = Math.max(1, remainingTimeMs / msPerFrame)
-
-          // Calculate velocity needed to reach target position over remaining frames
-          // This ensures we arrive at exactly targetIndex when t=1
-          const velocity = Math.max(0, remainingDistance / framesRemaining)
-
-          // Update spinning state
-          gridState.spinVelocities[col] = velocity
-          gridState.spinOffsets[col] += velocity
-
-          // Wrap when crossing tile boundary
-          while (gridState.spinOffsets[col] >= 1) {
-            gridState.spinOffsets[col] -= 1
-            gridState.reelTopIndex[col] = (gridState.reelTopIndex[col] + 1) % gridState.reelStrips[col].length
+          if (col === 0 && distanceRemaining < 2 && beforeClamp !== nextPosition) {
+            console.log(`Col ${col}: CLAMPED from ${beforeClamp.toFixed(3)} to ${nextPosition.toFixed(3)}`)
           }
+
+          // Convert next position to reelTopIndex and offset
+          const newTopIndex = Math.floor(nextPosition)
+          const newOffset = nextPosition - newTopIndex
+
+          // Calculate velocity for this frame (used by render loop to determine if spinning)
+          const positionDelta = nextPosition - currentPosition
+          const nearStop = (targetIndex - currentPosition) < 0.5
+          gridState.spinVelocities[col] = nearStop ? 0 : positionDelta
+
+          // Update position
+          gridState.reelTopIndex[col] = newTopIndex % gridState.reelStrips[col].length
+          gridState.spinOffsets[col] = newOffset
 
           allStopped = false
         }
@@ -253,8 +283,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // All reels stopped - NOW update grid with final results
-          gridState.grid = [...finalGrid.map(col => [...col])]
+          // All reels stopped - animation complete
           resolve()
         }
       }
