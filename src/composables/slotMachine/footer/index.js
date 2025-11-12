@@ -196,7 +196,7 @@ export function useFooter(gameState) {
       const keySetting = getDeepSetting(key)
       if (!keySetting) return
 
-      let scaleRate = 0.75
+      let scaleRate = 0.72
 
       const xPosition = btnStartX + i * btnSpace
       const btnSprite = new Sprite(subTex(key))
@@ -230,7 +230,7 @@ export function useFooter(gameState) {
           btnSprite1.position.set(xPosition, 0)
           btnSprite1.tint = iconColor
           btnSprite1.rotation = setting1.rotation
-          btnSprite1.scale.set(0.62 * setRectHeight * targetButonHeightPer / btnSprite1.height)
+          btnSprite1.scale.set(1.05 * scaleRate * setRectHeight * targetButonHeightPer / btnSprite1.height)
           btnSprite1.eventMode = 'static'
           btnSprite1.cursor = 'pointer'
           btnSprite1.hitArea = new Rectangle(

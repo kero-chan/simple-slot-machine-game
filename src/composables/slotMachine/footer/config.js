@@ -3,7 +3,7 @@
 export const SETTINGS = {
   spin_btn_bg: {
     rotation: -(Math.PI / 2),
-    position: { x: -1, y: -1, w: -1, h: -1 },
+    position: { x: 7, y: 3, w: -1, h: 180 },
     assetName: 'i17_02',
   },
   auth_spin_btn_bg: {
@@ -131,7 +131,7 @@ export const SETTINGS = {
     assetName: 'i6_36',
   },
   volumn_open_icon: {
-    rotation: -(Math.PI / 2),
+    rotation: 0,
     position: { x: -1, y: -1, w: -1, h: -1 },
     assetName: 'i6_06',
   },
