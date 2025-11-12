@@ -1,5 +1,7 @@
 import { watch } from 'vue'
 import { useGameStore, GAME_STATES } from '../../stores/gameStore'
+import { useWinningStore } from '../../stores/winningStore'
+import { getBufferOffset } from '../../utils/gameHelpers'
 import { CONFIG } from '../../config/constants'
 
 /**
@@ -8,11 +10,13 @@ import { CONFIG } from '../../config/constants'
  */
 export function useGameFlowController(gameLogic, gridState, render) {
   const gameStore = useGameStore()
+  const winningStore = useWinningStore()
+  const BUFFER_OFFSET = getBufferOffset()
 
   // Duration constants (moved from timeouts to config)
   const DURATIONS = {
-    GOLD_WAIT: 250,      // Wait after gold transformation
-    CASCADE_WAIT: 2000,  // Wait after cascade before next win check
+    GOLD_WAIT: 0,        // No wait needed - tiles already hidden from flip
+    CASCADE_WAIT: 1000,  // Wait 1 second after cascade before next win check
     GOLD_TRANSFORM: 200  // Gold transformation animation
   }
 
@@ -37,6 +41,11 @@ export function useGameFlowController(gameLogic, gridState, render) {
         console.log(`[GameFlowController] State: ${oldState} -> ${newState}`)
 
         switch (newState) {
+          case GAME_STATES.SPINNING:
+            // Clear all winning state when spinning starts
+            winningStore.clearWinningState()
+            break
+
           case GAME_STATES.SPIN_COMPLETE:
             // Spin animation finished, start checking for wins
             gameStore.startCheckingWins()
@@ -127,10 +136,29 @@ export function useGameFlowController(gameLogic, gridState, render) {
       return
     }
 
-    // Run highlight animation
-    await gameLogic.highlightWinsAnimation(wins)
+    // Convert wins to cell keys and set to HIGHLIGHTED state
+    const cellKeys = winningStore.winsToCellKeys(wins, BUFFER_OFFSET)
+    winningStore.setHighlighted(cellKeys)
 
-    // Animation complete
+    // Start highlight animation (non-blocking)
+    gameLogic.highlightWinsAnimation(wins)
+
+    // Wait for highlight duration before starting flip
+    await new Promise(resolve => setTimeout(resolve, winningStore.TIMINGS.HIGHLIGHT_BEFORE_FLIP))
+
+    // Transition to FLIPPING state
+    winningStore.setFlipping()
+
+    // Wait for flip to complete
+    await new Promise(resolve => setTimeout(resolve, winningStore.TIMINGS.FLIP_DURATION))
+
+    // Transition to FLIPPED state
+    winningStore.setFlipped()
+
+    // Stop highlight animation immediately after flip completes
+    gameLogic.stopHighlightAnimation()
+
+    // Animation complete - move to next phase immediately
     gameStore.completeHighlighting()
   }
 
@@ -162,6 +190,9 @@ export function useGameFlowController(gameLogic, gridState, render) {
       return
     }
 
+    // Transition to DISAPPEARING state
+    winningStore.setDisappearing()
+
     // Run disappear animation
     await gameLogic.animateDisappear(wins)
 
@@ -175,6 +206,9 @@ export function useGameFlowController(gameLogic, gridState, render) {
       gameStore.completeCascade()
       return
     }
+
+    // Clear winning state since positions are changing during cascade
+    winningStore.clearWinningState()
 
     // Run cascade
     await gameLogic.cascadeSymbols(wins)

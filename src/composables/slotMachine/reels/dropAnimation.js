@@ -97,12 +97,11 @@ export function createDropAnimationManager() {
   }
 
   /**
-   * Check if ANY tiles are currently dropping OR in grace period
-   * Returns true if animations are active or recently completed
+   * Check if ANY tiles are currently dropping
+   * Only checks active animations, not completed ones in grace period
    */
   function hasActiveDrops() {
-    const active = dropStates.size > 0 || completedStates.size > 0
-    return active
+    return dropStates.size > 0
   }
 
   /**

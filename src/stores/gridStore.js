@@ -15,11 +15,11 @@ export const useGridStore = defineStore('grid', {
     spinOffsets: Array(CONFIG.reels.count).fill(0),
     spinVelocities: Array(CONFIG.reels.count).fill(0),
 
-    // Win highlight animation
+    // Win highlight animation (DEPRECATED - now managed by winningStore)
     highlightWins: null,
     highlightAnim: { start: 0, duration: 0 },
 
-    // Disappear animation
+    // Disappear animation (DEPRECATED - now managed by winningStore)
     disappearPositions: new Set(),
     disappearAnim: { start: 0, duration: 0 },
 

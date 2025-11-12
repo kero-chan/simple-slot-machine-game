@@ -51,21 +51,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const allWinCombos = []
     const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
 
-    console.log('=== WIN DETECTION START ===')
-    console.log('Visible rows:', VISIBLE_START_ROW, 'to', VISIBLE_END_ROW)
-    console.log('Grid state:')
-    for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
-      const rowData = []
-      for (let col = 0; col < CONFIG.reels.count; col++) {
-        rowData.push(gridState.grid[col][row])
-      }
-      console.log(`  Row ${row}:`, rowData)
-    }
-
     for (const symbol of symbolsToCheck) {
       const positionsPerReel = []
-
-      console.log(`\nChecking symbol: ${symbol}`)
 
       for (let col = 0; col < CONFIG.reels.count; col++) {
         const matches = []
@@ -78,24 +65,19 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const isMatch = baseSymbol === symbol || isWild
           if (isMatch) {
             matches.push([col, row])
-            console.log(`  Col ${col}, Row ${row}: "${cell}" matches (base="${baseSymbol}", isWild=${isWild})`)
           }
         }
 
         if (matches.length === 0) {
-          console.log(`  Col ${col}: NO MATCH - breaking chain`)
           break
         }
 
-        console.log(`  Col ${col}: ${matches.length} match(es)`)
         positionsPerReel.push(matches)
       }
 
       const matchedReels = positionsPerReel.length
 
       if (matchedReels >= 3) {
-        console.log(`  ✓ Found ${matchedReels} consecutive reels for ${symbol}`)
-
         const firstColumnMatches = positionsPerReel[0]
         const firstColHasSymbol = firstColumnMatches.some(([col, row]) => {
           const cell = gridState.grid[col][row]
@@ -104,11 +86,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         })
 
         if (!firstColHasSymbol) {
-          console.log(`  ✗ REJECTED: First column doesn't have actual ${symbol} (only wilds)`)
           continue
         }
-
-        console.log(`  ✓ First column has actual ${symbol}`)
 
         const generateWayCombinations = (reelPositions, currentCombo = [], reelIndex = 0) => {
           if (reelIndex === reelPositions.length) {
@@ -126,26 +105,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         }
 
         generateWayCombinations(positionsPerReel)
-        console.log(`  Generated win combinations for ${symbol}`)
-      } else {
-        console.log(`  ✗ Only ${matchedReels} consecutive reels (need 3+)`)
       }
     }
-
-    console.log(`\n=== WIN DETECTION COMPLETE ===`)
-    console.log(`Total win combinations found: ${allWinCombos.length}`)
 
     // IMPORTANT: Only return wins for ONE symbol type at a time
     // This prevents multiple different symbols being highlighted together
     if (allWinCombos.length > 0) {
       const firstSymbol = allWinCombos[0].symbol
       const singleSymbolWins = allWinCombos.filter(win => win.symbol === firstSymbol)
-
-      console.log(`Processing only "${firstSymbol}" wins (${singleSymbolWins.length} combinations)`)
-      console.log('Win details:')
-      singleSymbolWins.forEach((win, idx) => {
-        console.log(`  ${idx + 1}. ${win.symbol} x${win.count}:`, win.positions)
-      })
 
       return singleSymbolWins
     }
@@ -251,25 +218,41 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     })
   }
 
+  let highlightAnimationActive = false
+  let stopHighlightRequested = false
+
   const highlightWinsAnimation = (wins) => {
     const duration = 2500 // ms
     const startTime = Date.now()
     gridState.highlightAnim = { start: startTime, duration }
+    highlightAnimationActive = true
+    stopHighlightRequested = false
 
     return new Promise(resolve => {
       const animate = () => {
         const elapsed = Date.now() - startTime
-        if (elapsed < duration) {
-          gridState.highlightWins = wins
-          requestAnimationFrame(animate)
-        } else {
+
+        // Check if stop was requested
+        if (stopHighlightRequested || elapsed >= duration) {
           gridState.highlightWins = null
           gridState.highlightAnim = { start: 0, duration: 0 }
+          highlightAnimationActive = false
+          stopHighlightRequested = false
           resolve()
+          return
         }
+
+        gridState.highlightWins = wins
+        requestAnimationFrame(animate)
       }
       animate()
     })
+  }
+
+  const stopHighlightAnimation = () => {
+    if (highlightAnimationActive) {
+      stopHighlightRequested = true
+    }
   }
 
   const transformGoldTilesToWild = (wins) => {
@@ -293,12 +276,13 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     })
 
     gridState.grid = [...gridState.grid]
-    return new Promise(resolve => setTimeout(resolve, 200))
+    return Promise.resolve()  // Instant - tiles already hidden
   }
 
   const animateDisappear = (wins) => {
-    const DISAPPEAR_MS = 300
-    const startTime = Date.now()
+    // After flip completes, wait a moment before cascading
+    // This gives users time to see the tiles have disappeared
+    const DISAPPEAR_MS = 400  // 400ms to see tiles are gone before cascade
 
     const positions = []
     wins.forEach(win => {
@@ -307,21 +291,12 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gridState.disappearPositions = new Set(
       positions.map(([c, r]) => `${c},${r}`)
     )
-    gridState.disappearAnim = { start: startTime, duration: DISAPPEAR_MS }
+    gridState.disappearAnim = { start: Date.now(), duration: DISAPPEAR_MS }
 
     return new Promise(resolve => {
-      const loop = () => {
-        const elapsed = Date.now() - startTime
-        if (elapsed < DISAPPEAR_MS) {
-          requestAnimationFrame(loop)
-        } else {
-          gridState.disappearPositions.clear()
-          gridState.disappearAnim = { start: 0, duration: 0 }
-          render()
-          resolve()
-        }
-      }
-      loop()
+      setTimeout(() => {
+        resolve()
+      }, DISAPPEAR_MS)
     })
   }
 
@@ -404,6 +379,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
     return new Promise(resolve => {
       const animate = () => {
+        // Render to update isDropAnimating flag (set in draw loop)
+        render()
+
         const elapsed = Date.now() - startTime
         const shouldWait = gridState.isDropAnimating
 
@@ -413,7 +391,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           if (elapsed >= MAX_WAIT) {
             console.warn('⚠️ animateCascade: Hit max wait time')
           }
-          render()
           resolve()
         }
       }
@@ -445,6 +422,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     findWinningCombinations,
     calculateWinAmount,
     highlightWinsAnimation,
+    stopHighlightAnimation,
     transformGoldTilesToWild,
     animateDisappear,
     cascadeSymbols,

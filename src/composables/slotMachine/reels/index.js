@@ -4,28 +4,24 @@ import { getTextureForSymbol } from './textures'
 import { applyTileVisuals } from './visuals'
 import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
-import { createFlipAnimationManager } from './winning/flipAnimation'
 import { createDropAnimationManager } from './dropAnimation'
 import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
+import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
     const tilesContainer = new Container()  // Separate container for tiles (will be masked)
     const framesContainer = new Container()  // Container for frames (not masked)
 
+    const winningStore = useWinningStore()
     const { ensureBackdrop } = createBackdrop(tilesContainer)
     const winningEffects = createWinningEffects()
     const winningFrames = createWinningFrameManager()
-    const flipAnimations = createFlipAnimationManager()
     const dropAnimations = createDropAnimationManager()
     const bumpAnimations = createBumpAnimationManager()
     let previousSpinning = false // Track previous spinning state
-    const flippedTiles = new Set() // Track tiles that have already been flipped
-    let highlightsAppeared = false // Track if highlights have appeared this round
-    let readyToFlip = false // Ready to trigger flips
-    let savedWinningPositions = [] // Save winning positions when highlights appear
     let lastCascadeTime = 0 // Track when cascade last happened
     const CASCADE_RESET_WINDOW = 300 // Reset sprites within 300ms of cascade
 
@@ -68,8 +64,7 @@ export function useReels(gameState, gridState) {
         // but we've already applied finalGrid
         const anyVelocity = (gridState.spinVelocities || []).some(v => Math.abs(v) > 0.001)
 
-        // Update flip, drop, and bump animations every frame
-        flipAnimations.update()
+        // Update drop and bump animations every frame
         dropAnimations.update()
         bumpAnimations.update()
 
@@ -78,15 +73,10 @@ export function useReels(gameState, gridState) {
 
         const hasHighlights = gridState.highlightWins?.length > 0
 
-        // Clear flip animations and tracking when spinning starts
+        // Clear animations when spinning starts
         if (spinning && !previousSpinning) {
-            flipAnimations.clear()
             dropAnimations.clear()
             bumpAnimations.clear()
-            flippedTiles.clear()
-            highlightsAppeared = false
-            readyToFlip = false
-            savedWinningPositions = []
             lastCascadeTime = 0
             gridState.previousGridSnapshot = null
         }
@@ -240,48 +230,14 @@ export function useReels(gameState, gridState) {
 
 
             lastCascadeTime = cascadeTime
-            flipAnimations.clear()
-            flippedTiles.clear()
         }
 
         // Within cascade window, force reset all sprites
         const inCascadeWindow = lastCascadeTime > 0 && (Date.now() - lastCascadeTime) < CASCADE_RESET_WINDOW
 
-        // Detect when highlights appear and save positions
-        if (hasHighlights) {
-            // Get current winning positions (convert grid rows to visual rows for cellKey)
-            const currentPositions = (gridState.highlightWins || []).flatMap(win =>
-                win.positions.map(([col, gridRow]) => `${col}:${gridRow - BUFFER_OFFSET}`)
-            )
-
-            // Check if positions changed (new win in consecutive streak)
-            const positionsChanged = currentPositions.length !== savedWinningPositions.length ||
-                currentPositions.some(pos => !savedWinningPositions.includes(pos))
-
-            if (positionsChanged) {
-                highlightsAppeared = true
-
-                // Clear previous flip state for new highlights
-                // This is crucial because after cascade, new tiles occupy the same positions
-                flippedTiles.clear()
-                flipAnimations.clear() // This clears completedFlips too
-
-                // Save new winning positions
-                savedWinningPositions = currentPositions
-
-                // Mark ready to flip immediately when highlights appear
-                readyToFlip = true
-            }
-        }
-
-        // Don't clear completed flips when highlights disappear
-        // Only clear when new highlights appear (handled above) or when spinning starts
-        // This keeps tiles hidden during cascade until new tiles arrive
-
         previousSpinning = spinning
 
         const usedKeys = new Set()
-        const tilesToFlip = [] // Collect winning tiles to flip after draw loop
 
         // Position particle container at mainRect origin
         winningEffects.container.x = 0
@@ -353,11 +309,6 @@ export function useReels(gameState, gridState) {
                 // Check if symbol changed (after cascade) - reset sprite state
                 if (sp && sp.texture !== tex) {
                     symbolChanged = true
-                    // Reset any flip animation state for this tile
-                    if (flipAnimations.isAnimating(cellKey) || flipAnimations.hasCompleted(cellKey)) {
-                        flipAnimations.reset(cellKey, sp)
-                        flippedTiles.delete(cellKey)
-                    }
                     // Reset bump animation if symbol changed
                     if (bumpAnimations.isAnimating(cellKey) || bumpAnimations.hasBumped(cellKey)) {
                         bumpAnimations.reset(cellKey)
@@ -379,11 +330,9 @@ export function useReels(gameState, gridState) {
                         win.positions.some(([c, rr]) => c === col && rr === gridRow))
                     : false
 
-                // For flip animation, check saved positions (uses visual row cellKey)
-                const shouldFlip = savedWinningPositions.includes(cellKey)
-
-                const isAnimating = flipAnimations.isAnimating(cellKey)
-                const isInDelay = flipAnimations.isInDelay(cellKey)
+                // Get winning state from store (game-level, not tile-level)
+                const winningState = winningStore.getCellState(cellKey)
+                const winningStateTime = winningStore.stateStartTime
 
                 if (!sp) {
                     sp = new Sprite(tex)
@@ -402,41 +351,54 @@ export function useReels(gameState, gridState) {
                 const scaleX = w / sp.texture.width
                 const scaleY = h / sp.texture.height
 
-                // Check if this tile should be disappeared (game's disappear system uses grid rows)
-                const disappearKey = `${col},${gridRow}`
-                const shouldDisappear = gridState.disappearPositions?.has(disappearKey)
-
-                // Check if this tile has completed flipping
-                const hasCompletedFlip = flipAnimations.hasCompleted(cellKey)
-
-                // Handle scale based on animation state
+                // Handle scale and alpha based on tile state
                 const isBumping = bumpAnimations.isAnimating(cellKey)
+                const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
 
-                if (inCascadeWindow || symbolChanged || (!isAnimating && !hasCompletedFlip) || isInDelay) {
-                    // Cascade window, symbol changed, or not animating: set normal scale
-                    // Let the game's disappear system handle visibility
+                // Check if tile has an active winning state that should not be overridden
+                const hasActiveWinningState = winningState && winningState !== WINNING_STATES.IDLE
+
+                // PRIORITY 1: Drop animations override everything else
+                // BUT: Don't override winning states (HIGHLIGHTED, FLIPPING, etc) even during cascade window
+                if (isCurrentlyDropping || symbolChanged || (inCascadeWindow && !hasActiveWinningState)) {
+                    // During drop, cascade window (without active winning state), or symbol change: normal scale
                     sp.scale.x = scaleX
-                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
-                    sp.alpha = shouldDisappear ? 0 : 1
-                } else if (hasCompletedFlip) {
-                    // Tile has completed flipping: keep it at scale.x=0 until cascade
-                    sp.scale.x = 0
-                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
-                    sp.alpha = shouldDisappear ? 0 : 1
-                } else {
-                    // During flip animation: only update Y scale, preserve animated X scale
-                    if (!isBumping) sp.scale.y = scaleY  // Don't override bump animation
-                    // Don't touch alpha - game will handle it
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 1
                 }
+                // PRIORITY 2: HIGHLIGHTED state - reset tile to normal (visible) before flip starts
+                else if (winningState === WINNING_STATES.HIGHLIGHTED) {
+                    // Reset to normal scale and full opacity
+                    sp.scale.x = scaleX
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 1
+                }
+                // PRIORITY 3: Winning state animations
+                else if (winningState === WINNING_STATES.FLIPPING) {
+                    // Calculate flip progress (0 to 1)
+                    const elapsed = Date.now() - winningStateTime
+                    const FLIP_DURATION = 300 // ms
+                    const progress = Math.min(elapsed / FLIP_DURATION, 1)
 
-                // Collect winning tiles to flip when ready (use saved positions)
-                if (shouldFlip && readyToFlip && !isAnimating && !flippedTiles.has(cellKey)) {
-                    tilesToFlip.push({ key: cellKey, sprite: sp, scaleX })
-                    flippedTiles.add(cellKey) // Mark as flipped
-                } else if (!shouldFlip && isAnimating) {
-                    // Reset tile if it's no longer winning
-                    flipAnimations.reset(cellKey, sp)
-                    flippedTiles.delete(cellKey)
+                    // Animate flip: scale.x from scaleX to 0
+                    sp.scale.x = scaleX * (1 - progress)
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 1
+                } else if (winningState === WINNING_STATES.FLIPPED) {
+                    // Keep flipped (hidden)
+                    sp.scale.x = 0
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 1
+                } else if (winningState === WINNING_STATES.DISAPPEARING) {
+                    // Fade out (only if not dropping)
+                    sp.scale.x = 0  // Already flipped
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 0
+                } else {
+                    // Default: normal scale
+                    sp.scale.x = scaleX
+                    if (!isBumping) sp.scale.y = scaleY
+                    sp.alpha = 1
                 }
 
                 // Always apply tile visuals - this handles the tint and dark mask
@@ -446,7 +408,6 @@ export function useReels(gameState, gridState) {
                 // Don't trigger during drop animations to prevent symbol issues
                 const isBonus = isBonusTile(symbol)
                 const isVisibleRow = r >= 1 && r <= 4
-                const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
                 const hasActiveDrops = gridState.isDropAnimating
                 if (isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops && !bumpAnimations.hasBumped(cellKey) && !bumpAnimations.isAnimating(cellKey)) {
                     bumpAnimations.startBump(cellKey, sp)
@@ -477,14 +438,6 @@ export function useReels(gameState, gridState) {
             }
         }
         winningFrames.cleanup(usedKeys)
-
-        // Trigger flip animations for winning tiles after spinning stopped
-        if (tilesToFlip.length > 0) {
-            for (const { key, sprite, scaleX } of tilesToFlip) {
-                flipAnimations.startFlip(key, sprite, scaleX)
-            }
-            readyToFlip = false // Reset so we don't keep adding tiles
-        }
     }
 
     // Add winning effects and frames to their containers
