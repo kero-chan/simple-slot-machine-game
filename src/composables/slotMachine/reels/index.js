@@ -6,6 +6,7 @@ import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
 import { createDropAnimationManager } from './dropAnimation'
 import { createBumpAnimationManager } from './tiles/bumpAnimation'
+import { createLightBurstManager } from './tiles/lightBurstEffect'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
@@ -25,11 +26,14 @@ export function useReels(gameState, gridState) {
     const winningFrames = createWinningFrameManager()
     const dropAnimations = createDropAnimationManager()
     const bumpAnimations = createBumpAnimationManager()
+    const lightBursts = createLightBurstManager()
     let previousSpinning = false // Track previous spinning state
     let lastCascadeTime = 0 // Track when cascade last happened
 
-    // Add containers in order: background, tiles, frames
+    // Add containers in order: background, light bursts, tiles, frames
     container.addChild(tilesContainer)
+    tilesContainer.addChild(lightBursts.container)  // Add light bursts behind tiles
+    lightBursts.container.sortableChildren = true  // Enable z-index sorting
     container.addChild(framesContainer)
 
     const COLS = 5
@@ -80,6 +84,7 @@ export function useReels(gameState, gridState) {
         if (spinning && !previousSpinning) {
             dropAnimations.clear()
             bumpAnimations.clear()
+            lightBursts.clear()
             lastCascadeTime = 0
             gridState.previousGridSnapshot = null
         }
@@ -450,6 +455,9 @@ export function useReels(gameState, gridState) {
                 // Pass sprite's center position directly (bonus tiles don't get frames, only size/z-index effects)
                 winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y, false)
 
+                // Update rotating light burst for bonus tiles
+                lightBursts.updateBurst(cellKey, sp, shouldShowBonusEffects, timestamp)
+
                 if (!sp.parent) tilesContainer.addChild(sp)
                 usedKeys.add(cellKey)
             }
@@ -464,6 +472,7 @@ export function useReels(gameState, gridState) {
             }
         }
         winningFrames.cleanup(usedKeys)
+        lightBursts.cleanup(usedKeys)
     }
 
     // Add winning effects and frames to their containers

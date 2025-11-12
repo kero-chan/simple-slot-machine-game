@@ -21,6 +21,7 @@ export const ASSETS = {
     tile_zhong: new URL('../assets/slotMachine/tiles/zhong.png', import.meta.url).href,
     tile_zhong_gold: new URL('../assets/slotMachine/tiles/zhong_gold.png', import.meta.url).href,
     tiles_star: new URL('../assets/slotMachine/tiles/star.png', import.meta.url).href,
+    golden_light_burst: new URL('../assets/slotMachine/tiles/golden_light_burst.png', import.meta.url).href,
     // Winning announcements
     win_bg: new URL('../assets/slotMachine/winAnnouncements/bg.png', import.meta.url).href,
     win_small: new URL('../assets/slotMachine/winAnnouncements/small.png', import.meta.url).href,
