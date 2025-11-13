@@ -2,12 +2,15 @@ import { Container, Graphics, Text, Sprite, Texture, Rectangle } from "pixi.js";
 import { ASSETS } from "../../../config/assets";
 import { composeConsecutiveWinsTextures } from "./consecutiveWins/consecutiveWinsComposer";
 import { CONSECUTIVE_WINS_CONFIG } from "./consecutiveWins/config";
+import gsap from "gsap";
 
 export function useHeader(gameState) {
   const container = new Container();
   let multiplierSprites = []; // Store sprites for multiplier display
   let multiplierBackgrounds = []; // Store background sprites for active multipliers
   let app = null; // Store PIXI app reference
+  let isTransitioning = false; // Track if transition is in progress
+  let lastAutoSpinState = false; // Track previous auto-spin state
 
   function getConfiguredTexture(configKey) {
     const config = CONSECUTIVE_WINS_CONFIG[configKey];
@@ -39,8 +42,12 @@ export function useHeader(gameState) {
   }
 
   function getMultiplierTexture(multiplier, isActive) {
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
     const state = isActive ? "active" : "default";
-    const assetKey = `x${multiplier}_${state}`;
+    
+    // Use auto-spin assets when in auto-spin mode
+    const suffix = isAutoSpin ? "_auto" : "";
+    const assetKey = `x${multiplier}${suffix}_${state}`;
 
     // First try to get the composed texture
     const composedTexture = ASSETS.loadedImages?.[assetKey];
@@ -57,8 +64,12 @@ export function useHeader(gameState) {
   }
 
   function getMultiplierTextureAndScale(multiplier, isActive) {
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
     const state = isActive ? "active" : "default";
-    const assetKey = `x${multiplier}_${state}`;
+    
+    // Use auto-spin assets when in auto-spin mode
+    const suffix = isAutoSpin ? "_auto" : "";
+    const assetKey = `x${multiplier}${suffix}_${state}`;
 
     // Get configured texture and scale
     const { texture, scale } = getConfiguredTexture(assetKey);
@@ -72,13 +83,24 @@ export function useHeader(gameState) {
   }
 
   function getDisplayedMultiplier(consecutiveWins) {
-    // Map consecutive wins to displayed multiplier
-    // Default to X1 active even when no wins
-    if (consecutiveWins <= 0) return 1; // Default X1 active
-    if (consecutiveWins === 1) return 1;
-    if (consecutiveWins === 2) return 2;
-    if (consecutiveWins === 3) return 3;
-    return 5; // consecutiveWins >= 4
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
+    const multipliers = isAutoSpin ? [2, 4, 6, 10] : [1, 2, 3, 5];
+    
+    // Map consecutive wins to index in multiplier list
+    let index = 0;
+    if (consecutiveWins <= 0) index = 0;
+    else if (consecutiveWins === 1) index = 0;
+    else if (consecutiveWins === 2) index = 1;
+    else if (consecutiveWins === 3) index = 2;
+    else index = 3; // consecutiveWins >= 4
+    
+    return multipliers[index];
+  }
+
+  function getMultiplierList() {
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
+    // Return x2, x4, x6, x10 for auto-spin, x1, x2, x3, x5 for normal
+    return isAutoSpin ? [2, 4, 6, 10] : [1, 2, 3, 5];
   }
 
   function initializeComposedTextures(pixiApp) {
@@ -110,6 +132,9 @@ export function useHeader(gameState) {
     multiplierSprites = [];
     multiplierBackgrounds = [];
     const { x, y, w, h } = rect;
+
+    // Initialize lastAutoSpinState to current state
+    lastAutoSpinState = gameState.inFreeSpinMode?.value || false;
 
     // Create layered background system
     // bg_01: Top half background (lowest layer)
@@ -251,9 +276,9 @@ export function useHeader(gameState) {
     }
 
     // === MULTIPLIER DISPLAY (TOP LAYER) ===
-    // Create multiplier display: X1, X2, X3, X5
+    // Create multiplier display: X1, X2, X3, X5 (normal) or X2, X4, X6, X10 (auto-spin)
     // Position multipliers on top of bg_02 area (bottom section)
-    const multipliers = [1, 2, 3, 5];
+    const multipliers = getMultiplierList();
 
     // Layout configuration:
     // - Each multiplier: 14% default, 16% active
@@ -367,6 +392,16 @@ export function useHeader(gameState) {
   }
 
   function updateValues() {
+    // Check if auto-spin state changed
+    const currentAutoSpinState = gameState.inFreeSpinMode?.value || false;
+    if (currentAutoSpinState !== lastAutoSpinState) {
+      console.log('🔄 Auto-spin state changed:', lastAutoSpinState, '→', currentAutoSpinState);
+      lastAutoSpinState = currentAutoSpinState;
+      // Trigger full rebuild with transition when auto-spin state changes
+      transitionMultipliers();
+      return;
+    }
+
     // Update multiplier sprites based on current consecutive wins
     const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
     const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
@@ -463,6 +498,185 @@ export function useHeader(gameState) {
         sprite.style.fill = isActive ? 0xffd04d : 0x666666;
         sprite.style.fontSize = Math.floor(Math.min(multiplierWidth, spriteHeight) * 0.4);
       }
+    }
+  }
+
+  function transitionMultipliers() {
+    if (isTransitioning) return;
+    isTransitioning = true;
+
+    console.log('🎬 Starting multiplier transition...');
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
+    console.log('   Mode:', isAutoSpin ? 'AUTO-SPIN (x2,x4,x6,x10)' : 'NORMAL (x1,x2,x3,x5)');
+
+    // Get current container bounds for rebuilding
+    const containerBounds = container.getBounds();
+    
+    // Fade out current multipliers
+    const oldSprites = [...multiplierSprites];
+    const oldBackgrounds = [...multiplierBackgrounds];
+    
+    const spriteObjects = oldSprites.map(item => item.sprite);
+    
+    gsap.to(spriteObjects, {
+      alpha: 0,
+      scale: 0.8,
+      duration: 0.3,
+      ease: "power2.in",
+      onComplete: () => {
+        // Remove old sprites
+        oldSprites.forEach(item => {
+          if (item.sprite.parent) {
+            container.removeChild(item.sprite);
+          }
+        });
+        oldBackgrounds.forEach(bgItem => {
+          if (bgItem.sprite.parent) {
+            container.removeChild(bgItem.sprite);
+          }
+        });
+      }
+    });
+
+    // Wait a bit then rebuild and fade in new multipliers
+    setTimeout(() => {
+      const rect = {
+        x: 0,
+        y: 0,
+        w: containerBounds.width,
+        h: containerBounds.height
+      };
+      
+      // Rebuild just the multipliers section
+      rebuildMultipliers(rect);
+      
+      // Animate in new multipliers
+      const newSprites = multiplierSprites.map(item => item.sprite);
+      newSprites.forEach(sprite => {
+        sprite.alpha = 0;
+        const originalScaleX = sprite.scale.x;
+        const originalScaleY = sprite.scale.y;
+        sprite.scale.x = originalScaleX * 1.2;
+        sprite.scale.y = originalScaleY * 1.2;
+      });
+      
+      newSprites.forEach((sprite, index) => {
+        const originalScaleX = sprite.scale.x / 1.2;
+        const originalScaleY = sprite.scale.y / 1.2;
+        
+        gsap.to(sprite, {
+          alpha: 1,
+          scale: { x: originalScaleX, y: originalScaleY },
+          duration: 0.4,
+          ease: "back.out(1.4)",
+          delay: index * 0.05,
+          onComplete: () => {
+            if (index === newSprites.length - 1) {
+              isTransitioning = false;
+              console.log('✅ Multiplier transition complete');
+            }
+          }
+        });
+      });
+    }, 150);
+  }
+
+  function rebuildMultipliers(rect) {
+    const { x, y, w, h } = rect;
+    
+    const isAutoSpin = gameState.inFreeSpinMode?.value || false;
+    console.log('🔨 Rebuilding multipliers - Auto-spin:', isAutoSpin);
+    
+    // Clear current multiplier sprites and backgrounds
+    multiplierSprites.forEach(item => {
+      if (item.sprite.parent) {
+        container.removeChild(item.sprite);
+      }
+    });
+    multiplierBackgrounds.forEach(bgItem => {
+      if (bgItem.sprite.parent) {
+        container.removeChild(bgItem.sprite);
+      }
+    });
+    multiplierSprites = [];
+    multiplierBackgrounds = [];
+
+    // Get bg_02 position (approximate based on header height)
+    const bg02Y = y + h * 0.5;
+    const bg02Height = h * 0.5;
+    
+    const multipliers = getMultiplierList();
+    console.log('   Multipliers:', multipliers);
+    const defaultMultiplierWidth = w * 0.13;
+    const activeMultiplierWidth = w * 0.13;
+    const gapWidth = w * 0.055;
+    
+    const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
+    const displayedMult = getDisplayedMultiplier(currentConsecutiveWins);
+    
+    // Calculate total content width
+    let totalContentWidth = (multipliers.length - 1) * gapWidth;
+    for (const mult of multipliers) {
+      const isActive = mult === displayedMult;
+      totalContentWidth += isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+    }
+    
+    let currentX = x + (w - totalContentWidth) / 2;
+    const spriteHeight = Math.floor(bg02Height * 0.8);
+    
+    for (let i = 0; i < multipliers.length; i++) {
+      const mult = multipliers[i];
+      const isActive = mult === displayedMult;
+      const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      const centerX = currentX + multiplierWidth / 2;
+      const centerY = bg02Y + bg02Height / 2 + 4;
+      
+      const { texture, scale: configScale } = getMultiplierTextureAndScale(mult, isActive);
+      
+      if (texture) {
+        if (isActive) {
+          const activeBgTexture = ASSETS.loadedImages?.active_status_bg;
+          if (activeBgTexture) {
+            const bgSprite = new Sprite(activeBgTexture);
+            bgSprite.anchor.set(0.5);
+            bgSprite.x = centerX;
+            bgSprite.y = centerY - 50;
+            bgSprite.blendMode = 'screen';
+            
+            const baseScaleX = multiplierWidth / activeBgTexture.width;
+            const baseScaleY = spriteHeight / activeBgTexture.height;
+            const baseScale = Math.max(baseScaleX, baseScaleY);
+            const bgScale = baseScale * 2.5;
+            
+            bgSprite.width = activeBgTexture.width * bgScale;
+            bgSprite.height = activeBgTexture.height * bgScale;
+            
+            container.addChild(bgSprite);
+            multiplierBackgrounds.push({ sprite: bgSprite, multiplier: mult });
+          }
+        }
+        
+        const sprite = new Sprite(texture);
+        sprite.anchor.set(0.5);
+        sprite.x = centerX;
+        sprite.y = centerY;
+        
+        const baseWidth = texture.width * configScale;
+        const baseHeight = texture.height * configScale;
+        const maxWidth = multiplierWidth;
+        const maxHeight = spriteHeight;
+        const additionalScaleX = Math.min(1, maxWidth / baseWidth);
+        const additionalScaleY = Math.min(1, maxHeight / baseHeight);
+        const additionalScale = Math.min(additionalScaleX, additionalScaleY);
+        
+        sprite.width = baseWidth * additionalScale;
+        sprite.height = baseHeight * additionalScale;
+        
+        container.addChild(sprite);
+        multiplierSprites.push({ sprite, multiplier: mult });
+      }
+      
+      currentX += multiplierWidth + gapWidth;
     }
   }
 

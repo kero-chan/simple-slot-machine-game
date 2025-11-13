@@ -53,9 +53,15 @@ export const useGameStore = defineStore('game', {
 
   getters: {
     currentMultiplier(state) {
-      const multipliers = state.inFreeSpinMode
+      let multipliers = state.inFreeSpinMode
         ? CONFIG.freeSpinMultipliers
         : CONFIG.multipliers
+      
+      // Double multipliers when in free-spin mode
+      if (state.inFreeSpinMode) {
+        multipliers = multipliers.map(m => m * 2)
+      }
+      
       const index = Math.min(state.consecutiveWins, multipliers.length - 1)
       return multipliers[index]
     },
