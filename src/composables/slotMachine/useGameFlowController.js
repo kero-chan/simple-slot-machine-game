@@ -56,6 +56,18 @@ export function useGameFlowController(gameLogic, gridState, render) {
             await handleCheckBonus()
             break
 
+          case GAME_STATES.POPPING_BONUS_TILES:
+            // Pop bonus tiles animation (will be handled by the pop animation component)
+            // The pop animation will call gameStore.completeBonusTilePop() when done
+            console.log('💥 Popping bonus tiles...')
+            break
+
+          case GAME_STATES.SHOWING_JACKPOT_VIDEO:
+            // Show jackpot video (will be handled by the video overlay component)
+            // The video overlay will call gameStore.completeJackpotVideo() when done
+            console.log('🎬 Jackpot video playing...')
+            break
+
           case GAME_STATES.SHOWING_BONUS_OVERLAY:
             // Show bonus overlay (will be handled by the overlay component)
             handleShowBonusOverlay()
@@ -132,6 +144,34 @@ export function useGameFlowController(gameLogic, gridState, render) {
 
   const handleCheckBonus = async () => {
     const bonusCount = gameLogic.checkBonusTiles()
+
+    // If bonus is triggered, highlight bonus tiles and wait so user can see them
+    if (bonusCount >= CONFIG.game.minBonusToTrigger) {
+      console.log(`🎰 Bonus triggered! Highlighting bonus tiles...`)
+
+      // Find all bonus tile positions in visible rows
+      const bonusCellKeys = []
+      const VISIBLE_ROWS = 4
+      const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1
+
+      for (let col = 0; col < CONFIG.reels.count; col++) {
+        for (let row = BUFFER_OFFSET; row <= VISIBLE_END_ROW; row++) {
+          const cell = gridState.grid[col][row]
+          if (cell === 'bonus') {
+            bonusCellKeys.push(`${col}:${row}`)
+          }
+        }
+      }
+
+      // Highlight bonus tiles (show win_frame only, no flip)
+      if (bonusCellKeys.length > 0) {
+        winningStore.setHighlighted(bonusCellKeys)
+      }
+
+      // Clear highlighting before showing video
+      winningStore.clearWinningState()
+    }
+
     gameStore.setBonusResults(bonusCount)
   }
 

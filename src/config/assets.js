@@ -86,6 +86,9 @@ export const ASSETS = {
     i65_x10: new URL('../assets/images/65_x10.png', import.meta.url).href,
   },
   loadedImages: {},
+  videoPaths: {
+    jackpot: new URL('../assets/videos/jackpot.mp4', import.meta.url).href
+  },
   audioPaths: {
     background_music: new URL('../assets/audio/background_music.mp3', import.meta.url).href,
     game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,

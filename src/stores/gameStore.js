@@ -7,6 +7,8 @@ export const GAME_STATES = {
   SPINNING: 'spinning',
   SPIN_COMPLETE: 'spin_complete',
   CHECKING_BONUS: 'checking_bonus',
+  POPPING_BONUS_TILES: 'popping_bonus_tiles',
+  SHOWING_JACKPOT_VIDEO: 'showing_jackpot_video',
   SHOWING_BONUS_OVERLAY: 'showing_bonus_overlay',
   FREE_SPINS_ACTIVE: 'free_spins_active',
   CHECKING_WINS: 'checking_wins',
@@ -124,10 +126,21 @@ export const useGameStore = defineStore('game', {
       if (bonusCount >= CONFIG.game.minBonusToTrigger) {
         const freeSpinsAwarded = CONFIG.game.freeSpinsPerScatter
         this.addFreeSpins(freeSpinsAwarded)
-        this.transitionTo(GAME_STATES.SHOWING_BONUS_OVERLAY)
+        // Pop tiles first, then show video, then bonus overlay
+        this.transitionTo(GAME_STATES.POPPING_BONUS_TILES)
       } else {
         this.transitionTo(GAME_STATES.CHECKING_WINS)
       }
+    },
+
+    completeBonusTilePop() {
+      if (this.gameFlowState !== GAME_STATES.POPPING_BONUS_TILES) return
+      this.transitionTo(GAME_STATES.SHOWING_JACKPOT_VIDEO)
+    },
+
+    completeJackpotVideo() {
+      if (this.gameFlowState !== GAME_STATES.SHOWING_JACKPOT_VIDEO) return
+      this.transitionTo(GAME_STATES.SHOWING_BONUS_OVERLAY)
     },
 
     completeBonusOverlay() {
