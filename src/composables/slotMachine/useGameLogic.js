@@ -184,14 +184,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const strip = gridState.reelStrips[col]
 
       // Check all potential landing positions in the strip
-      // When reel lands at reelTop, grid row 'r' gets strip[reelTop + r]
-      for (let reelTop = totalRows; reelTop < stripLength - totalRows; reelTop++) {
+      // When reel lands at reelTop, grid row 'r' gets strip[reelTop - r] (top-to-bottom scrolling)
+      for (let reelTop = 0; reelTop < stripLength; reelTop++) {
         const bonusPositions = []
 
         // Check the fully visible rows (calculated dynamically)
         for (let gridRow = WIN_CHECK_START_ROW; gridRow <= WIN_CHECK_END_ROW; gridRow++) {
-          const stripIdx = reelTop + gridRow
-          if (stripIdx < strip.length && isBonusTile(strip[stripIdx])) {
+          const stripIdx = ((reelTop - gridRow) % strip.length + strip.length) % strip.length
+          if (isBonusTile(strip[stripIdx])) {
             bonusPositions.push({ idx: stripIdx, gridRow })
           }
         }
@@ -240,15 +240,25 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     // Store the reset start time for each slowdown column
     const columnSlowdownStartTimes = new Map()
 
-    // Helper: Check if a column has bonus tiles in visible rows
-    const hasBonusTilesInColumn = (col) => {
+    // Helper: Count bonus tiles in a column's visible rows
+    const countBonusTilesInColumn = (col) => {
+      let count = 0
       for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
         const cell = gridState.grid[col][row]
         if (isBonusTile(cell)) {
-          return true
+          count++
         }
       }
-      return false
+      return count
+    }
+
+    // Helper: Count total bonus tiles across all stopped columns
+    const countTotalBonusTiles = (stoppedCols) => {
+      let total = 0
+      for (const col of stoppedCols) {
+        total += countBonusTilesInColumn(col)
+      }
+      return total
     }
 
     return new Promise(resolve => {
@@ -260,18 +270,25 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         gridState.activeSlowdownColumn = currentSlowdownColumn
 
         // Check for anticipation mode on every frame
-        // Activate when ANY column stops with a bonus tile (the FIRST one to do so)
+        // Activate when there are EXACTLY 2 bonus tiles across stopped columns
         // This creates anticipation since 3 bonus tiles total trigger jackpot!
         // BUT: Skip anticipation mode during free spins (keep free spins fast and exciting!)
-        if (!gameStore.anticipationMode && !gameStore.inFreeSpinMode && firstBonusColumn === -1) {
-          // Check all stopped columns to find the first one with bonus tiles
-          for (const stoppedCol of stoppedColumns) {
-            if (hasBonusTilesInColumn(stoppedCol)) {
-              firstBonusColumn = stoppedCol
-              gameStore.activateAnticipationMode()
-              console.log(`🎰 ANTICIPATION MODE ACTIVATED! Column ${firstBonusColumn} has bonus tile (first bonus detected)`)
-              break
-            }
+        if (!gameStore.inFreeSpinMode) {
+          const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
+
+          // If we've reached 3 bonus tiles, immediately stop anticipation mode
+          if (gameStore.anticipationMode && totalBonusTiles >= 3) {
+            gameStore.deactivateAnticipationMode()
+            console.log(`🎯 ANTICIPATION MODE STOPPED! Reached ${totalBonusTiles} bonus tiles - jackpot incoming!`)
+            firstBonusColumn = -1 // Reset
+            currentSlowdownColumn = -1
+            gridState.activeSlowdownColumn = -1
+          }
+          // Activate anticipation mode when exactly 2 bonus tiles
+          else if (!gameStore.anticipationMode && firstBonusColumn === -1 && totalBonusTiles === 2) {
+            firstBonusColumn = Math.min(...Array.from(stoppedColumns))
+            gameStore.activateAnticipationMode()
+            console.log(`🎰 ANTICIPATION MODE ACTIVATED! Found ${totalBonusTiles} bonus tiles across stopped columns`)
           }
         }
 
@@ -331,8 +348,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
               slowdownActivated = false
               // RESET START TIME for this column's slowdown phase
               columnSlowdownStartTimes.set(col, now)
-              // Set consistent slowdown duration for ALL columns
-              columnDurations.set(col, baseDuration + anticipationExtraDuration)
+              // Set slowdown duration from config (default 5 seconds)
+              columnDurations.set(col, timingStore.ANTICIPATION_SLOWDOWN_DURATION)
               console.log(`🎯 Column ${col} is now the ACTIVE SLOWDOWN COLUMN (last stopped after bonus: ${lastStoppedAfterBonus})`)
               console.log(`🎰 Column ${col} entering DRAMATIC slowdown phase! Duration set to ${columnDurations.get(col)}ms`)
               playEffect("reach_bonus")
@@ -458,8 +475,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const strip = gridState.reelStrips[col]
 
     // Copy this column's strip positions to grid
+    // CRITICAL: Must match renderer's reading direction (reelTop - row) for top-to-bottom scrolling
     for (let row = 0; row < totalRows; row++) {
-      const stripIdx = (reelTop + row) % strip.length
+      const stripIdx = ((reelTop - row) % strip.length + strip.length) % strip.length
       gridState.grid[col][row] = strip[stripIdx]
     }
   }
