@@ -37,6 +37,7 @@ export const useGameStore = defineStore('game', {
     consecutiveWins: 0,
     currentWins: null,
     accumulatedWinAmount: 0,
+    lastWinAmount: 0,
     allWinsThisSpin: [],
 
     freeSpins: 0,
@@ -59,14 +60,14 @@ export const useGameStore = defineStore('game', {
       let multipliers = state.inFreeSpinMode
         ? CONFIG.freeSpinMultipliers
         : CONFIG.multipliers
-      
+
       // Double multipliers when in free-spin mode
       if (state.inFreeSpinMode) {
         multipliers = multipliers.map(m => m * 2)
       }
-      
+
       const index = Math.min(state.consecutiveWins, multipliers.length - 1)
-      return multipliers[index]
+      return multipliers[index] * CONFIG.game.bettingMultiplierRate
     },
 
     canSpin(state) {
@@ -107,6 +108,7 @@ export const useGameStore = defineStore('game', {
         this.credits -= this.bet
         // Only reset accumulated amount in normal mode
         this.accumulatedWinAmount = 0
+        this.lastWinAmount = 0
         this.allWinsThisSpin = []
       }
 
@@ -275,6 +277,7 @@ export const useGameStore = defineStore('game', {
     },
 
     addWinAmount(amount) {
+      this.lastWinAmount = amount
       this.accumulatedWinAmount += amount
     },
     increaseBet() {
@@ -401,6 +404,7 @@ export const useGameStore = defineStore('game', {
       this.inFreeSpinMode = false
       this.showStartScreen = true
       this.accumulatedWinAmount = 0
+      this.lastWinAmount = 0
       this.gameSound = true
       this.allWinsThisSpin = []
       this.anticipationMode = false

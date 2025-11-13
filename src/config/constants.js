@@ -35,9 +35,10 @@ export const CONFIG = {
     minBet: 10,
     maxBet: 100,
     betStep: 2,
+    bettingMultiplierRate: 0.1,
     freeSpinsPerScatter: 12,       // Number of free spins awarded when bonus is triggered
     bonusScattersPerSpin: 2,       // Max bonus tiles per spin (for spawn control)
-    minBonusToTrigger: 3           // Minimum bonus tiles required to trigger free spins
+    minBonusToTrigger: 3          // Minimum bonus tiles required to trigger free spins
   },
   spawnRates: {
     bonusChance: 0.25,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
