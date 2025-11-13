@@ -321,9 +321,10 @@ export function useReels(gameState, gridState) {
                     // Just completed animation - preserve the symbol that was animating
                     symbol = completedSymbol
                 } else if (thisColumnSpinning) {
-                    // Spinning: read from strip
+                    // Spinning: read from strip (top-to-bottom direction)
                     if (reelStrip.length === 0) continue
-                    const idx = ((reelTop + gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
+                    // Subtract gridRow so symbols move downward as reelTop increases
+                    const idx = ((reelTop - gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
                 } else {
                     // Stopped: read from grid
