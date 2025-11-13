@@ -14,8 +14,10 @@ export function createBonusTilePopAnimation(gridState, reels) {
   container.zIndex = 1100 // Below video overlay but above game elements
 
   const BUFFER_OFFSET = getBufferOffset()
-  const VISIBLE_ROWS = 4
-  const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1
+
+  // CENTRALIZED: Use winning check rows from CONFIG (single source of truth)
+  const WIN_CHECK_START_ROW = CONFIG.reels.winCheckStartRow // 5
+  const WIN_CHECK_END_ROW = CONFIG.reels.winCheckEndRow // 8
 
   let isPlaying = false
   let onCompleteCallback = null
@@ -32,10 +34,10 @@ export function createBonusTilePopAnimation(gridState, reels) {
 
     console.log('💥 Starting bonus tile pop animation...')
 
-    // Find all bonus tile positions
+    // Find all bonus tile positions in the winning check rows
     bonusTilePositions = []
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      for (let row = BUFFER_OFFSET; row <= VISIBLE_END_ROW; row++) {
+      for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
         const cell = gridState.grid[col][row]
         if (cell === 'bonus') {
           bonusTilePositions.push({ col, row })

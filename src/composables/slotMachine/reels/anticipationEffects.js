@@ -18,12 +18,10 @@ import { CONFIG } from '../../../config/constants'
 export function createAnticipationEffects() {
   const gameStore = useGameStore()
 
-  // Define the 4 visible rows where jackpot is calculated
-  // Adjusted by +1 to account for strip layout change (renderer reads strip[(reelTop-row)%100])
-  const bufferRows = CONFIG.reels.bufferRows || 4
-  const fullyVisibleRows = CONFIG.reels.fullyVisibleRows || 4
-  const WIN_CHECK_START_ROW = bufferRows + 1 // e.g., 5 (was 4 before strip layout fix)
-  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows // e.g., 8 (was 7 before strip layout fix)
+  // CENTRALIZED: Import winning check rows from single source of truth
+  // These define which grid rows are checked for wins/bonuses
+  const WIN_CHECK_START_ROW = CONFIG.reels.winCheckStartRow // 5
+  const WIN_CHECK_END_ROW = CONFIG.reels.winCheckEndRow // 8
 
   /**
    * Check if a tile should be highlighted during anticipation mode

@@ -14,6 +14,7 @@ import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
 import { useTimingStore } from '../../../stores/timingStore'
+import { CONFIG } from '../../../config/constants'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -356,8 +357,8 @@ export function useReels(gameState, gridState) {
 
                 // Check if this tile is in the winning positions (compare using grid rows)
                 // Don't check spinning - we want to show highlights during win animation
-                // Adjusted for strip layout fix: visual rows 1-4 (the 4 visible rows, which map to grid rows 5-8)
-                const winning = (r >= 1 && r <= 4)
+                // CENTRALIZED: Use visual row range from CONFIG (single source of truth)
+                const winning = (r >= CONFIG.reels.visualWinStartRow && r <= CONFIG.reels.visualWinEndRow)
                     ? (gridState.highlightWins || []).some(win =>
                         win.positions.some(([c, rr]) => c === col && rr === gridRow))
                     : false
@@ -440,7 +441,8 @@ export function useReels(gameState, gridState) {
 
                 // Check if this is a bonus tile that should get special effects
                 const isBonus = isBonusTile(symbol)
-                const isVisibleRow = r >= 1 && r <= 4  // Adjusted for strip layout fix: visual rows 1-4 are visible
+                // CENTRALIZED: Use visual row range from CONFIG (single source of truth)
+                const isVisibleRow = r >= CONFIG.reels.visualWinStartRow && r <= CONFIG.reels.visualWinEndRow
                 const hasActiveDrops = gridState.isDropAnimating
                 const shouldShowBonusEffects = isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops
 

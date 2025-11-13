@@ -7,10 +7,24 @@ export const CONFIG = {
     count: 5,
     rows: 6,
     bufferRows: 4, // Extra rows above for realistic drop animation
-    fullyVisibleRows: 4, // Number of fully visible rows to check for wins (rows 4-7)
+    fullyVisibleRows: 4, // Number of fully visible rows to check for wins
     stripLength: 100, // Longer strip = smoother spin animation, prevents gaps
     symbolSize: 70,
-    spacing: 8
+    spacing: 8,
+
+    // WINNING CHECK ROWS - Single source of truth for all winning/bonus/effect calculations
+    // These are the GRID row indices used for checking wins (adjusted for strip layout fix)
+    // Grid rows: 0-9 total (10 rows including buffer)
+    // Visual rows in renderer: -4 to 5 (where -4 to -1 are buffer, 0 is transition, 1-4 fully visible, 5 partial bottom)
+    // Relationship: gridRow = visualRow + bufferRows (e.g., gridRow 5 = visualRow 1)
+    // After strip layout fix: The 4 fully visible middle rows are visual rows 1-4 (grid rows 5-8)
+    winCheckStartRow: 5,  // Start checking wins from grid row 5 (visual row 1 = first fully visible row)
+    winCheckEndRow: 8,    // End checking wins at grid row 8 (visual row 4 = last fully visible row)
+
+    // For renderer: visual row equivalents (calculated from grid rows)
+    // visualRow = gridRow - bufferRows
+    get visualWinStartRow() { return this.winCheckStartRow - this.bufferRows }, // 5 - 4 = 1
+    get visualWinEndRow() { return this.winCheckEndRow - this.bufferRows }       // 8 - 4 = 4
   },
   paytable: {
     fa: { 3: 10, 4: 25, 5: 50 },

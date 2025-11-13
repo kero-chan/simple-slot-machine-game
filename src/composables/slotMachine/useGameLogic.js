@@ -22,11 +22,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const bufferRows = CONFIG.reels.bufferRows // e.g., 4
   const fullyVisibleRows = CONFIG.reels.fullyVisibleRows // e.g., 4
 
-  // Win check: Only check the fully visible rows
-  // Adjusted by +1 to account for strip layout change (renderer reads strip[(reelTop-row)%100])
-  // With bufferRows=4, fullyVisibleRows=4: rows 5-8 (was 4-7 before strip layout fix)
-  const WIN_CHECK_START_ROW = bufferRows + 1 // e.g., 5
-  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows // e.g., 4 + 4 = 8
+  // CENTRALIZED: Import winning check rows from single source of truth
+  // These define which grid rows are checked for wins/bonuses
+  const WIN_CHECK_START_ROW = CONFIG.reels.winCheckStartRow // 5
+  const WIN_CHECK_END_ROW = CONFIG.reels.winCheckEndRow // 8
 
   // Bonus checking: Same as win checking
   const BONUS_CHECK_START_ROW = WIN_CHECK_START_ROW
