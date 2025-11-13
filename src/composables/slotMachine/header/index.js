@@ -211,7 +211,9 @@ export function useHeader(gameState) {
       const centerY = y + (h - bg03.height) / 2; // Original center position
 
       // Use the higher position (closer to top) to ensure minimum bottom gap
-      bg03.y = Math.min(centerY, maxY);
+      // Add offset to move down a bit
+      const yOffset = h * 0.055; // Move down by 5.5% of header height
+      bg03.y = Math.min(centerY, maxY) + yOffset;
 
       container.addChild(bg03);
 
@@ -229,10 +231,13 @@ export function useHeader(gameState) {
       const pageTitle = new Sprite(pageTitleTexture);
       pageTitle.anchor.set(0.5);
       pageTitle.x = x + w / 2; // Center horizontally in header
-      pageTitle.y = bg03Y + bg03Height / 2 - 4; // Center vertically in bg_03
+      pageTitle.y = bg03Y + bg03Height / 2 - 2; // Center vertically in bg_03
 
-      // Fixed width: 40% of header width
-      const targetWidth = w * 0.4; // 40% of header width
+      // Make it slightly transparent for a softer look
+      pageTitle.alpha = 0.60; // 60% opacity (slightly faded)
+
+      // Fixed width: 41% of header width (increased from 40%)
+      const targetWidth = w * 0.41; // 41% of header width
       
       // Calculate height to maintain aspect ratio
       const originalAspectRatio = pageTitleTexture.width / pageTitleTexture.height;
@@ -251,11 +256,11 @@ export function useHeader(gameState) {
     const multipliers = [1, 2, 3, 5];
 
     // Layout configuration:
-    // - Each multiplier: 12% default, 14% active
+    // - Each multiplier: 14% default, 16% active
     // - Gap between multipliers: 6% of header width
-    const defaultMultiplierWidth = w * 0.12; // 12% width for default
-    const activeMultiplierWidth = w * 0.14; // 14% width for active (increased from 12.5%)
-    const gapWidth = w * 0.06; // 6% gap between multipliers
+    const defaultMultiplierWidth = w * 0.13; // 13% width for default
+    const activeMultiplierWidth = w * 0.13; // 18% width for active
+    const gapWidth = w * 0.055; // 5% gap between multipliers
 
     // Determine current active multiplier
     const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
@@ -281,7 +286,7 @@ export function useHeader(gameState) {
       // Get width based on active state
       const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
       const centerX = currentX + multiplierWidth / 2;
-      const centerY = bg02Y + bg02Height / 2; // Center within bg_02 area
+      const centerY = bg02Y + bg02Height / 2 + 4; // Center within bg_02 area
 
       // Get texture and config scale for active/inactive state
       const { texture, scale: configScale } = getMultiplierTextureAndScale(
@@ -372,8 +377,8 @@ export function useHeader(gameState) {
     const h = containerBounds.height;
 
     // Layout configuration (same as build)
-    const defaultMultiplierWidth = w * 0.12; // 12% width for default
-    const activeMultiplierWidth = w * 0.14; // 14% width for active (increased from 12.5%)
+    const defaultMultiplierWidth = w * 0.13; // 13% width for default
+    const activeMultiplierWidth = w * 0.13; // 18% width for active
 
     // Estimate bg02Height for spriteHeight calculation
     const bg02Height = h * 0.5; // Approximate

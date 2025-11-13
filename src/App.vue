@@ -75,6 +75,15 @@ body {
   background-repeat: no-repeat;
 }
 
+#app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: rgb(255 0 0 / 20%);
+  backdrop-filter: blur(5px);
+  z-index: 1;
+}
+
 .gameView {
   position: relative;
   max-width: 100vw;

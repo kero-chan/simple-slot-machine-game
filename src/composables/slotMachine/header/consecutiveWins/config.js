@@ -8,7 +8,7 @@ export const CONSECUTIVE_WINS_CONFIG = {
   x1_active: {
     iconAsset: 'i64_x1',
     icon: { x: -1, y: -1, w: -1, h: -1 },
-    iconScale: 0.9,
+    iconScale: 1,
     iconRotation: 0,
   },
   x2_default: {
