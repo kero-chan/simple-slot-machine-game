@@ -479,6 +479,29 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gameStore.decreaseBet()
   }
 
+  /**
+   * Check if 3 or more bonus tiles appear in the visible 4 rows
+   * Returns the count of bonus tiles found
+   */
+  const checkBonusTiles = () => {
+    let bonusCount = 0
+
+    // Only check the visible 4 rows (not all 6 rows)
+    const VISIBLE_ROWS = 4
+    const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1
+
+    for (let col = 0; col < CONFIG.reels.count; col++) {
+      for (let row = BUFFER_OFFSET; row <= VISIBLE_END_ROW; row++) {
+        const cell = gridState.grid[col][row]
+        if (isBonusTile(cell)) {
+          bonusCount++
+        }
+      }
+    }
+
+    return bonusCount
+  }
+
   return {
     spin,
     increaseBet,
@@ -495,6 +518,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     playConsecutiveWinSound,
     playWinSound,
     playEffect,
-    showWinOverlay: showWinOverlayFn
+    showWinOverlay: showWinOverlayFn,
+    checkBonusTiles
   }
 }

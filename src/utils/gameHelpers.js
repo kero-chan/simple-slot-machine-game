@@ -19,9 +19,9 @@ export function getRandomSymbol(options = {}) {
     col,
     visualRow,
     allowGold = false,
-    goldChance = 0.15,
-    wildChance = 0.02,
-    bonusChance = 0.03,
+    goldChance = CONFIG.spawnRates?.goldChance ?? 0.15,
+    wildChance = CONFIG.spawnRates?.wildChance ?? 0.02,
+    bonusChance = CONFIG.spawnRates?.bonusChance ?? 0.03,
     allowBonus = true
   } = options
 
