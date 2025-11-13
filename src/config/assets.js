@@ -90,10 +90,12 @@ export const ASSETS = {
   },
   loadedImages: {},
   videoPaths: {
-    jackpot: new URL('../assets/videos/jackpot.mp4', import.meta.url).href
+    jackpot: new URL('../assets/videos/jackpot.mp4', import.meta.url).href,
+    jackpot_result: new URL('../assets/videos/jackpot_result.mp4', import.meta.url).href
   },
   audioPaths: {
     background_music: new URL('../assets/audio/background_music.mp3', import.meta.url).href,
+    background_music_jackpot: new URL('../assets/audio/background_music_jackpot.mp3', import.meta.url).href,
     game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,
     consecutive_wins_2x: new URL('../assets/audio/consecutive_wins/2x.mp3', import.meta.url).href,
     consecutive_wins_3x: new URL('../assets/audio/consecutive_wins/3x.mp3', import.meta.url).href,
@@ -131,6 +133,7 @@ export const ASSETS = {
     lot: new URL('../assets/audio/effect/lot.m4a', import.meta.url).href,
     reel_spin: new URL('../assets/audio/effect/reel_spin.m4a', import.meta.url).href,
     reel_spin_stop: new URL('../assets/audio/effect/reel_spin_stop.m4a', import.meta.url).href,
-    reach_bonus: new URL('../assets/audio/effect/reach_bonus.m4a', import.meta.url).href
+    reach_bonus: new URL('../assets/audio/effect/reach_bonus.m4a', import.meta.url).href,
+    jackpot_finalize: new URL('../assets/audio/jackpot_finalize.m4a', import.meta.url).href
   }
 }

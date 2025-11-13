@@ -17,6 +17,8 @@ export function createJackpotResultOverlay(gameState) {
 
   let background = null
   let bgImage = null
+  let bgVideo = null // HTML video element for background
+  let videoSprite = null // PIXI Sprite for video
   let titleText = null
   let messageText = null
   let amountText = null
@@ -129,50 +131,82 @@ export function createJackpotResultOverlay(gameState) {
     // Play a special sound for free spin completion (different from normal wins)
     // You can add a specific sound file for this, e.g., 'free_spin_complete'
     if (totalAmount > 0) {
-      playEffect('reach_bonus')  // Reuse bonus sound, or add a new 'free_spin_complete' sound
+      playEffect('jackpot_finalize')  // Reuse bonus sound, or add a new 'free_spin_complete' sound
     }
 
     console.log('🎉 FREE SPIN RESULT OVERLAY - Total:', totalAmount)
 
     // Clear previous content
     container.removeChildren()
-
-    // Create dark background first
-    background = new Graphics()
-    background.rect(0, 0, canvasWidth, canvasHeight)
-    background.fill({ color: 0x000000, alpha: 0.8 })
-    container.addChild(background)
-
-    // Use jackpot image as FULLSCREEN background
-    let bgImageLoaded = false
-    try {
-      const imageSrc = ASSETS.loadedImages?.win_jackpot || ASSETS.imagePaths?.win_jackpot
-
-      if (imageSrc) {
-        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
-        bgImage = new Sprite(texture)
-        bgImage.anchor.set(0.5)
-        bgImage.x = canvasWidth / 2
-        bgImage.y = canvasHeight / 2
-
-        // Scale to cover entire canvas (fullscreen)
-        const scaleX = canvasWidth / bgImage.width
-        const scaleY = canvasHeight / bgImage.height
-        const scale = Math.max(scaleX, scaleY) // Cover entire screen
-        bgImage.scale.set(scale)
-
-        container.addChild(bgImage)
-        bgImageLoaded = true
-        console.log('✅ Jackpot fullscreen image loaded')
-      } else {
-        console.warn('❌ No imageSrc found for win_jackpot')
-      }
-    } catch (error) {
-      console.warn('Failed to load jackpot image:', error)
+    
+    // Stop and clean up previous video if exists
+    if (bgVideo) {
+      bgVideo.pause()
+      bgVideo.currentTime = 0
+      bgVideo.src = ''
+      bgVideo.load()
+      bgVideo = null
+    }
+    if (videoSprite) {
+      videoSprite.destroy(true)
+      videoSprite = null
     }
 
-    // If image failed to load, use colored background
-    if (!bgImageLoaded) {
+    // Use jackpot_result.mp4 video as FULLSCREEN background
+    let bgVideoLoaded = false
+    try {
+      const videoSrc = ASSETS.videoPaths?.jackpot_result
+
+      if (videoSrc) {
+        // Create HTML video element
+        bgVideo = document.createElement('video')
+        bgVideo.src = videoSrc
+        bgVideo.loop = true
+        bgVideo.muted = true
+        bgVideo.playsInline = true
+        bgVideo.preload = 'auto'
+        bgVideo.crossOrigin = 'anonymous'
+        
+        // Wait for video to be ready before creating texture
+        bgVideo.addEventListener('loadeddata', () => {
+          console.log('✅ Video data loaded, creating texture...')
+          
+          // Create PIXI texture from video AFTER it's loaded
+          const videoTexture = Texture.from(bgVideo)
+          videoSprite = new Sprite(videoTexture)
+          videoSprite.anchor.set(0.5)
+          videoSprite.x = canvasWidth / 2
+          videoSprite.y = canvasHeight / 2
+          
+          // Set proper scale
+          const scaleX = canvasWidth / bgVideo.videoWidth
+          const scaleY = canvasHeight / bgVideo.videoHeight
+          const scale = Math.max(scaleX, scaleY)
+          videoSprite.scale.set(scale)
+          
+          // Add to container (at the beginning so it's behind other elements)
+          container.addChildAt(videoSprite, 0)
+          
+          // Start playing
+          bgVideo.play().then(() => {
+            console.log('✅ Jackpot result video playing')
+          }).catch(err => {
+            console.warn('Failed to play video:', err)
+          })
+        }, { once: true })
+
+        // Load the video
+        bgVideo.load()
+        bgVideoLoaded = true
+      } else {
+        console.warn('❌ No videoSrc found for jackpot_result')
+      }
+    } catch (error) {
+      console.warn('Failed to load jackpot result video:', error)
+    }
+
+    // If video failed to load, use colored background
+    if (!bgVideoLoaded) {
       const fallbackBg = new Graphics()
       fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
       fallbackBg.fill({ color: 0x1a0a2a, alpha: 0.95 })
@@ -232,6 +266,19 @@ export function createJackpotResultOverlay(gameState) {
     isFadingOut = false
     clearParticles()
     container.removeChildren()
+    
+    // Clean up video
+    if (bgVideo) {
+      bgVideo.pause()
+      bgVideo.currentTime = 0
+      bgVideo.src = ''
+      bgVideo.load()
+      bgVideo = null
+    }
+    if (videoSprite) {
+      videoSprite.destroy(true)
+      videoSprite = null
+    }
 
     // Notify state machine that overlay is complete
     gameStore.completeWinOverlay()
@@ -257,6 +304,11 @@ export function createJackpotResultOverlay(gameState) {
       return
     }
 
+    // Update video texture if video is playing
+    if (videoSprite && bgVideo && !bgVideo.paused) {
+      videoSprite.texture.update()
+    }
+
     // Counter animation (0 to target over 3 seconds)
     const counterDuration = 3
     if (elapsed < counterDuration) {
@@ -279,22 +331,17 @@ export function createJackpotResultOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Subtle pulse animation for fullscreen jackpot background
-    if (bgImage && bgImage.texture) {
-      const scaleX = canvasWidth / bgImage.texture.width
-      const scaleY = canvasHeight / bgImage.texture.height
-      const baseScale = Math.max(scaleX, scaleY)
-      const pulse = baseScale * (1 + Math.sin(elapsed * 1.5) * 0.03) // Subtle pulse
-      bgImage.scale.set(pulse)
-    }
+    // Video plays automatically, no need for manual animation
+    // The video sprite will update automatically through PIXI's texture system
 
+    // Subtle pulse animation for amount text after counter finishes
     if (amountText && elapsed >= counterDuration) {
       const pulse = 1 + Math.sin(elapsed * 3) * 0.08
       amountText.scale.set(pulse)
     }
 
-    // Start fade out after 6 seconds total
-    const displayTime = counterDuration + 3
+    // Start fade out after 7 seconds (show only 7 seconds of the 10-second video)
+    const displayTime = 7
     if (elapsed > displayTime && !isFadingOut) {
       startFadeOut()
     }
@@ -310,14 +357,14 @@ export function createJackpotResultOverlay(gameState) {
       background.rect(0, 0, canvasWidth, canvasHeight)
       background.fill({ color: 0x000000, alpha: 0.8 })
 
-      // Reposition and rescale fullscreen jackpot image
-      if (bgImage) {
-        bgImage.x = canvasWidth / 2
-        bgImage.y = canvasHeight / 2
-        const scaleX = canvasWidth / bgImage.texture.width
-        const scaleY = canvasHeight / bgImage.texture.height
+      // Reposition and rescale video sprite
+      if (videoSprite && bgVideo) {
+        videoSprite.x = canvasWidth / 2
+        videoSprite.y = canvasHeight / 2
+        const scaleX = canvasWidth / bgVideo.videoWidth
+        const scaleY = canvasHeight / bgVideo.videoHeight
         const scale = Math.max(scaleX, scaleY)
-        bgImage.scale.set(scale)
+        videoSprite.scale.set(scale)
       }
       if (amountText) {
         amountText.x = canvasWidth / 2

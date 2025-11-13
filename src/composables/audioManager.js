@@ -44,6 +44,18 @@ class AudioManager {
       this.backgroundMusic.stop()
     }
   }
+
+  switchToJackpotMusic() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.switchToJackpotMusic()
+    }
+  }
+
+  switchToNormalMusic() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.switchToNormalMusic()
+    }
+  }
 }
 
 // Export singleton instance
