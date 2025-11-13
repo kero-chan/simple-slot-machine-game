@@ -8,6 +8,7 @@ import { createDropAnimationManager } from './dropAnimation'
 import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { createPopAnimationManager } from './tiles/popAnimation'
 import { createLightBurstManager } from './tiles/lightBurstEffect'
+import { createAnticipationEffects } from './anticipationEffects'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
@@ -29,6 +30,7 @@ export function useReels(gameState, gridState) {
     const bumpAnimations = createBumpAnimationManager()
     const popAnimations = createPopAnimationManager()
     const lightBursts = createLightBurstManager()
+    const anticipationEffects = createAnticipationEffects()
     let previousSpinning = false // Track previous spinning state
     let lastCascadeTime = 0 // Track when cascade last happened
 
@@ -419,8 +421,34 @@ export function useReels(gameState, gridState) {
                 const hasActiveDrops = gridState.isDropAnimating
                 const shouldShowBonusEffects = isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops
 
+                // Check for anticipation mode effects (gridRow already declared above)
+                // Determine if THIS SPECIFIC column is currently spinning (not the global spinning state)
+                // Only check this column's velocity, not the global spinning flag
+                const columnIsSpinning = gridState.spinVelocities && gridState.spinVelocities[col] > 0.001
+
+                // Get anticipation visual state, passing the spinning state
+                const anticipationState = anticipationEffects.getTileVisualState(col, gridRow, symbol, columnIsSpinning)
+
+                // Apply tile visuals with anticipation mode overrides
+                // If anticipation mode is active:
+                // - Bonus tiles in column 0 get highlighted (golden glow)
+                // - Stopped tiles (non-bonus) get dark masked
+                // - Spinning tiles remain normal
+                let effectiveHighlight = winning
+                let effectiveHasHighlights = hasHighlights
+
+                if (anticipationEffects.isActive()) {
+                    // Anticipation mode overrides normal win highlighting
+                    effectiveHighlight = anticipationState.highlight
+                    effectiveHasHighlights = anticipationState.shouldDim || anticipationState.highlight
+                }
+
                 // Always apply tile visuals - this handles the tint and dark mask
-                applyTileVisuals(sp, 1, winning, hasHighlights)
+                applyTileVisuals(sp, 1, effectiveHighlight, effectiveHasHighlights)
+
+                // Check if we should show anticipation burst for this tile
+                // Must be defined before use in z-index calculation
+                const shouldShowAnticipationBurst = anticipationEffects.isActive() && anticipationState.highlight
 
                 // Trigger bump animation for bonus tiles when they appear in visible rows
                 // Don't trigger during drop animations to prevent symbol issues
@@ -436,7 +464,9 @@ export function useReels(gameState, gridState) {
                 sp.y = dropAnimations.getDropY(cellKey, baseY)
 
                 // Set z-index for pop-out effect on bonus tiles
-                if (shouldShowBonusEffects) {
+                // Also elevate bonus tiles during anticipation mode
+                const shouldElevate = shouldShowBonusEffects || shouldShowAnticipationBurst
+                if (shouldElevate) {
                     sp.zIndex = 100  // Higher z-index makes bonus tiles appear above others
                 } else {
                     sp.zIndex = 0    // Normal tiles at base level
@@ -447,7 +477,9 @@ export function useReels(gameState, gridState) {
                 winningFrames.updateFrame(cellKey, sp, winning, sp.x, sp.y, false)
 
                 // Update rotating light burst for bonus tiles
-                lightBursts.updateBurst(cellKey, sp, shouldShowBonusEffects, timestamp)
+                // Also show burst for anticipation mode bonus tiles in first two columns
+                const shouldShowBurst = shouldShowBonusEffects || shouldShowAnticipationBurst
+                lightBursts.updateBurst(cellKey, sp, shouldShowBurst, timestamp)
 
                 if (!sp.parent) tilesContainer.addChild(sp)
                 usedKeys.add(cellKey)

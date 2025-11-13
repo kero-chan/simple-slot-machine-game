@@ -43,6 +43,9 @@ export const useTimingStore = defineStore('timing', {
     SPIN_BASE_DURATION: 2500,     // ms - Base duration for reel spin
     SPIN_REEL_STAGGER: 150,       // ms - Delay between each reel starting to spin
 
+    // ========== ANTICIPATION MODE TIMING ==========
+    ANTICIPATION_SLOWDOWN_DURATION: 2000,  // ms - Extra slow spin time per column during anticipation
+
     // ========== COMPUTED TIMING ==========
     // These are derived from the above constants for convenience
   }),

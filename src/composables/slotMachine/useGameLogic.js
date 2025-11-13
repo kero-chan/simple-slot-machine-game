@@ -153,6 +153,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
+    // Anticipation mode extra slowdown duration (configurable in timingStore)
+    const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION
+
     // Build reel strips - START with current grid to prevent visual snap
     // Then add random symbols where the reel will land
     for (let col = 0; col < cols; col++) {
@@ -223,10 +226,36 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     // Track which columns have been explicitly stopped
     const stoppedColumns = new Set()
 
+    // Track which columns are in slowdown phase (for sound effects)
+    const columnsInSlowdown = new Set()
+
+    // Helper: Check if a column has bonus tiles in visible rows
+    const hasBonusTilesInColumn = (col) => {
+      for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
+        const cell = gridState.grid[col][row]
+        if (isBonusTile(cell)) {
+          return true
+        }
+      }
+      return false
+    }
+
     return new Promise(resolve => {
       const animate = () => {
         const now = Date.now()
         let allStopped = true
+
+        // Check for anticipation mode on every frame
+        // Activate when column 0 (first column) has stopped with a bonus tile
+        // This creates anticipation since 3 bonus tiles total trigger jackpot!
+        // BUT: Skip anticipation mode during free spins (keep free spins fast and exciting!)
+        if (!gameStore.anticipationMode && !gameStore.inFreeSpinMode &&
+            stoppedColumns.has(0)) {
+          if (hasBonusTilesInColumn(0)) {
+            gameStore.activateAnticipationMode()
+            console.log('🎰 ANTICIPATION MODE ACTIVATED! First reel has bonus tile')
+          }
+        }
 
         for (let col = 0; col < cols; col++) {
           const colStart = startTime + col * stagger
@@ -241,7 +270,32 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           }
 
           const elapsed = now - colStart
-          const t = Math.min(elapsed / baseDuration, 1)
+
+          // Normal duration progress (0 to 1)
+          const normalProgress = Math.min(elapsed / baseDuration, 1)
+
+          // Check if this column should enter slowdown phase
+          // Enter slowdown when reaching 85% of normal duration AND anticipation is active
+          const shouldEnterSlowdown = gameStore.anticipationMode &&
+                                       col >= 1 &&
+                                       !columnsInSlowdown.has(col) &&
+                                       normalProgress >= 0.85
+
+          if (shouldEnterSlowdown) {
+            columnsInSlowdown.add(col)
+            console.log(`🎰 Column ${col} entering slowdown phase!`)
+            // Play sound when this column starts slowing down
+            playEffect("reach_bonus")
+          }
+
+          // Calculate effective duration
+          // If in slowdown, extend duration by anticipationExtraDuration
+          let effectiveDuration = baseDuration
+          if (columnsInSlowdown.has(col)) {
+            effectiveDuration = baseDuration + anticipationExtraDuration
+          }
+
+          const t = Math.min(elapsed / effectiveDuration, 1)
 
           // Get target position for this column (always start from 0)
           const startIndex = 0
