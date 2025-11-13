@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config/constants'
-import { getRandomSymbol, getBufferOffset, enforceBonusLimit, createEmptyGrid } from '../../utils/gameHelpers'
+import { getRandomSymbol, getBufferOffset } from '../../utils/gameHelpers'
 import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '../../utils/tileHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
@@ -137,12 +137,19 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const animateSpin = () => {
+    console.log(`🎯 [SPIN START] Beginning spin animation`)
     const startTime = Date.now()
     const baseDuration = timingStore.SPIN_BASE_DURATION
     const stagger = timingStore.SPIN_REEL_STAGGER
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
+
+    console.log(`📊 [GRID BEFORE SPIN] Current grid state:`)
+    for (let col = 0; col < cols; col++) {
+      const visibleTiles = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+      console.log(`  Col ${col}: [${visibleTiles.join(', ')}]`)
+    }
 
     // Build reel strips - START with current grid to prevent visual snap
     // Then add random symbols where the reel will land
@@ -220,6 +227,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
           // Stop condition: animation complete
           if (t >= 1) {
+            console.log(`⏹️  [STOP] Column ${col} stopping at targetIndex: ${targetIndex}`)
+
             // Snap to exact landing position
             gridState.reelTopIndex[col] = Math.floor(targetIndex)
             gridState.spinOffsets[col] = 0
@@ -228,9 +237,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             // This prevents jump when renderer switches from strip to grid
             syncColumnToGrid(col)
 
+            // Enforce bonus limit for this column immediately after syncing
+            // This prevents visible tile changes after reel stops
+            enforceBonusLimitForColumn(col)
+
+            console.log(`⏸️  [PRE-STOP] Column ${col} - velocity BEFORE: ${gridState.spinVelocities[col]}`)
+
             // Now safe to set velocity to 0 (renderer will switch to grid)
             gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
+
+            console.log(`✅ [STOPPED] Column ${col} - velocity AFTER: ${gridState.spinVelocities[col]}`)
             continue
           }
 
@@ -254,9 +271,15 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // All reels stopped - enforce bonus limits and trigger reactivity
-          enforceBonusLimit(gridState.grid, BUFFER_OFFSET)
+          console.log(`🏁 [ALL STOPPED] All reels stopped, triggering grid reactivity`)
+          // All reels stopped - trigger reactivity
+          // Note: Bonus limits are now enforced per-column as each reel stops
           gridState.grid = [...gridState.grid.map(col => [...col])]
+          console.log(`📊 [FINAL GRID] Final grid state:`)
+          for (let col = 0; col < CONFIG.reels.count; col++) {
+            const visibleTiles = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+            console.log(`  Col ${col}: [${visibleTiles.join(', ')}]`)
+          }
           resolve()
         }
       }
@@ -269,10 +292,62 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const reelTop = gridState.reelTopIndex[col]
     const strip = gridState.reelStrips[col]
 
+    console.log(`🔄 [SYNC] Column ${col} - reelTop: ${reelTop}`)
+
     // Copy this column's strip positions to grid
+    const beforeSync = []
     for (let row = 0; row < totalRows; row++) {
       const stripIdx = (reelTop + row) % strip.length
+      beforeSync.push(gridState.grid[col][row])
       gridState.grid[col][row] = strip[stripIdx]
+    }
+
+    // Log visible rows only (rows 1-4 in visual coordinates)
+    const visibleBefore = beforeSync.slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+    const visibleAfter = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+    console.log(`  Before: [${visibleBefore.join(', ')}]`)
+    console.log(`  After:  [${visibleAfter.join(', ')}]`)
+  }
+
+  const enforceBonusLimitForColumn = (col) => {
+    const bonusPositions = []
+
+    // Find all bonus tiles in visible rows (1-4 in visual coordinates)
+    for (let row = 0; row < gridState.grid[col].length; row++) {
+      const visualRow = row - BUFFER_OFFSET
+      const isVisibleRow = visualRow >= 1 && visualRow <= 4
+
+      if (isVisibleRow && isBonusTile(gridState.grid[col][row])) {
+        bonusPositions.push(row)
+      }
+    }
+
+    console.log(`🎰 [BONUS] Column ${col} - Found ${bonusPositions.length} bonus tiles at rows: ${bonusPositions}`)
+
+    // If more than 1 bonus tile, replace extras with random symbols
+    if (bonusPositions.length > 1) {
+      console.log(`  ⚠️  Replacing ${bonusPositions.length - 1} excess bonus tiles`)
+      const beforeReplace = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+
+      // Keep the first one, replace the rest
+      for (let i = 1; i < bonusPositions.length; i++) {
+        const row = bonusPositions[i]
+        const visualRow = row - BUFFER_OFFSET
+        const oldTile = gridState.grid[col][row]
+        // Replace with a random non-bonus symbol
+        const newTile = getRandomSymbol({
+          col,
+          visualRow,
+          allowGold: true,
+          allowBonus: false
+        })
+        gridState.grid[col][row] = newTile
+        console.log(`  Row ${row} (visual ${visualRow}): ${oldTile} → ${newTile}`)
+      }
+
+      const afterReplace = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
+      console.log(`  Before: [${beforeReplace.join(', ')}]`)
+      console.log(`  After:  [${afterReplace.join(', ')}]`)
     }
   }
 
