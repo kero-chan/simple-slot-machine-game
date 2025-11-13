@@ -1,0 +1,46 @@
+steps:
+  - id: cancelot
+    name: "gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine"
+    entrypoint: "bash"
+    args:
+      - .cloudbuild/scripts/cancelot.sh
+      - --same_trigger_only
+    env:
+      - CURRENT_BUILD_ID=$BUILD_ID
+      - PROJECT_ID=$PROJECT_ID
+      - REGION=$LOCATION
+
+  - id: build_mahjong
+    name: "gcr.io/kaniko-project/executor:latest"
+    args:
+      - --dockerfile=Dockerfile
+      - --destination=us-west1-docker.pkg.dev/ornate-time-270711/docker/mahjong:$COMMIT_SHA
+      - --destination=us-west1-docker.pkg.dev/ornate-time-270711/docker/mahjong:latest
+      - --cache=true
+      - --cache-ttl=720h
+      - --cache-repo=us-west1-docker.pkg.dev/ornate-time-270711/docker/mahjong/cache
+      - --cache-copy-layers=true
+      - --compressed-caching=false
+      - --snapshot-mode=redo
+      - --use-new-run=true
+      - --push-retry=3
+
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: "sh"
+    args:
+      - "-c"
+      - |
+        gcloud container clusters get-credentials --zone "$$CLOUDSDK_COMPUTE_ZONE" "$$CLOUDSDK_CONTAINER_CLUSTER"
+        kubectl set image deployment/mahjong mahjong=us-west1-docker.pkg.dev/ornate-time-270711/docker/mahjong:$COMMIT_SHA \
+        --namespace=ebisu-games-stg
+    waitFor: ['build_mahjong']
+
+options:
+  env:
+    - "CLOUDSDK_COMPUTE_ZONE=asia-east1"
+    - "CLOUDSDK_CONTAINER_CLUSTER=w2e-dev"
+  logging: CLOUD_LOGGING_ONLY
+  machineType: "E2_MEDIUM"
+  diskSizeGb: 100
+  substitution_option: "ALLOW_LOOSE"
+
