@@ -149,13 +149,13 @@ export function useGameFlowController(gameLogic, gridState, render) {
     if (bonusCount >= CONFIG.game.minBonusToTrigger) {
       console.log(`🎰 Bonus triggered! Highlighting bonus tiles...`)
 
-      // Find all bonus tile positions in visible rows
+      // Find all bonus tile positions in fully visible middle 4 rows
       const bonusCellKeys = []
-      const VISIBLE_ROWS = 4
-      const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1
+      const VISIBLE_START_ROW = BUFFER_OFFSET + 1  // Skip first partial row
+      const VISIBLE_END_ROW = BUFFER_OFFSET + 4    // Skip last partial row
 
       for (let col = 0; col < CONFIG.reels.count; col++) {
-        for (let row = BUFFER_OFFSET; row <= VISIBLE_END_ROW; row++) {
+        for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
           const cell = gridState.grid[col][row]
           if (cell === 'bonus') {
             bonusCellKeys.push(`${col}:${row}`)
