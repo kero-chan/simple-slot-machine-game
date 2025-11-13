@@ -6,6 +6,7 @@ import { createWinningEffects } from './winning/effects'
 import { createWinningFrameManager } from './winning/winningComposer'
 import { createDropAnimationManager } from './dropAnimation'
 import { createBumpAnimationManager } from './tiles/bumpAnimation'
+import { createPopAnimationManager } from './tiles/popAnimation'
 import { createLightBurstManager } from './tiles/lightBurstEffect'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
@@ -26,6 +27,7 @@ export function useReels(gameState, gridState) {
     const winningFrames = createWinningFrameManager()
     const dropAnimations = createDropAnimationManager()
     const bumpAnimations = createBumpAnimationManager()
+    const popAnimations = createPopAnimationManager()
     const lightBursts = createLightBurstManager()
     let previousSpinning = false // Track previous spinning state
     let lastCascadeTime = 0 // Track when cascade last happened
@@ -71,9 +73,10 @@ export function useReels(gameState, gridState) {
         // but we've already applied finalGrid
         const anyVelocity = (gridState.spinVelocities || []).some(v => Math.abs(v) > 0.001)
 
-        // Update drop and bump animations every frame
+        // Update drop, bump, and pop animations every frame
         dropAnimations.update()
         bumpAnimations.update()
+        popAnimations.update()
 
         // Update drop animation state for game logic to wait on
         gridState.isDropAnimating = dropAnimations.hasActiveDrops()
@@ -84,6 +87,7 @@ export function useReels(gameState, gridState) {
         if (spinning && !previousSpinning) {
             dropAnimations.clear()
             bumpAnimations.clear()
+            popAnimations.clear()
             lightBursts.clear()
             lastCascadeTime = 0
             gridState.previousGridSnapshot = null
@@ -369,6 +373,7 @@ export function useReels(gameState, gridState) {
 
                 // Handle scale and alpha based on tile state
                 const isBumping = bumpAnimations.isAnimating(cellKey)
+                const isPopping = popAnimations.isAnimating(cellKey)
                 const isCurrentlyDropping = dropAnimations.isDropping(cellKey)
 
                 // Check if tile has an active winning state that should not be overridden
@@ -378,7 +383,7 @@ export function useReels(gameState, gridState) {
                 // BUT: Don't override winning states (HIGHLIGHTED, FLIPPING, etc) even during cascade window
                 if (isCurrentlyDropping || symbolChanged || (inCascadeWindow && !hasActiveWinningState)) {
                     // During drop, cascade window (without active winning state), or symbol change: normal scale
-                    if (!isBumping) {
+                    if (!isBumping && !isPopping) {
                         sp.scale.x = scaleX
                         sp.scale.y = scaleY
                     }
@@ -387,7 +392,7 @@ export function useReels(gameState, gridState) {
                 // PRIORITY 2: HIGHLIGHTED state - reset tile to normal (visible) before flip starts
                 else if (winningState === WINNING_STATES.HIGHLIGHTED) {
                     // Reset to normal scale and full opacity
-                    if (!isBumping) {
+                    if (!isBumping && !isPopping) {
                         sp.scale.x = scaleX
                         sp.scale.y = scaleY
                     }
@@ -401,21 +406,21 @@ export function useReels(gameState, gridState) {
 
                     // Animate flip: scale.x from scaleX to 0
                     sp.scale.x = scaleX * (1 - progress)
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping && !isPopping) sp.scale.y = scaleY
                     sp.alpha = 1
                 } else if (winningState === WINNING_STATES.FLIPPED) {
                     // Keep flipped (hidden)
                     sp.scale.x = 0
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping && !isPopping) sp.scale.y = scaleY
                     sp.alpha = 1
                 } else if (winningState === WINNING_STATES.DISAPPEARING) {
                     // Fade out (only if not dropping)
                     sp.scale.x = 0  // Already flipped
-                    if (!isBumping) sp.scale.y = scaleY
+                    if (!isBumping && !isPopping) sp.scale.y = scaleY
                     sp.alpha = 0
                 } else {
                     // Default: normal scale
-                    if (!isBumping) {
+                    if (!isBumping && !isPopping) {
                         sp.scale.x = scaleX
                         sp.scale.y = scaleY
                     }
@@ -479,10 +484,21 @@ export function useReels(gameState, gridState) {
     container.addChild(winningEffects.container)
     framesContainer.addChild(winningFrames.container)
 
+    // Method to trigger pop animation on a specific tile
+    function triggerPop(col, visualRow) {
+        const cellKey = `${col}:${visualRow}`
+        const sprite = spriteCache.get(cellKey)
+        if (sprite) {
+            popAnimations.startPop(cellKey, sprite)
+        }
+    }
+
     // Expose API
     return {
         container,
         draw,
-        winningEffects
+        winningEffects,
+        triggerPop,
+        getSpriteCache: () => spriteCache // Expose sprite cache for pop animation
     }
 }

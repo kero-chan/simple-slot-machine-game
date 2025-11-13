@@ -29,12 +29,12 @@
 <script setup>
 import { computed } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
-import { useBackgroundMusic } from "../composables/useBackgroundMusic";
+import { audioManager } from "../composables/audioManager";
 import { useGameStore } from "../stores/gameStore";
 
 const gameState = useGameState();
 const gameStore = useGameStore();
-const backgroundMusic = useBackgroundMusic();
+const backgroundMusic = audioManager.initialize();
 
 const isLoading = computed(() => {
   const progress = gameState.loadingProgress?.value || { loaded: 0, total: 1 };

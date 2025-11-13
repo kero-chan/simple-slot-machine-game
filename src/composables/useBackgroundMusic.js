@@ -180,11 +180,36 @@ export function useBackgroundMusic() {
     }
   }
 
+  // Pause background music (for video playback)
+  const pause = () => {
+    if (currentAudio.value && !currentAudio.value.paused) {
+      currentAudio.value.pause()
+      console.log('🔇 Background music paused')
+    }
+    // Also stop noise loop
+    stopNoiseLoop()
+  }
+
+  // Resume background music (after video playback)
+  const resume = () => {
+    if (currentAudio.value && isPlaying.value && currentAudio.value.paused) {
+      currentAudio.value.play().catch(err => {
+        console.warn('Failed to resume audio:', err)
+      })
+      console.log('🔊 Background music resumed')
+    }
+    // Resume noise loop if it was playing
+    if (isPlaying.value) {
+      startNoiseLoop()
+    }
+  }
 
   return {
     isPlaying,
     start,
     stop,
+    pause,
+    resume,
     setVolume
   }
 }

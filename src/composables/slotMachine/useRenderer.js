@@ -7,6 +7,8 @@ import { ASSETS } from '../../config/assets'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
 import { createBonusOverlay } from './overlay/bonusOverlay'
+import { createJackpotVideoOverlay } from './overlay/jackpotVideoOverlay'
+import { createBonusTilePopAnimation } from './overlay/bonusTilePopAnimation'
 import { createFreeSpinsCountdown } from './overlay/freeSpinsCountdown'
 import { createJackpotResultOverlay } from './overlay/jackpotResultOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
@@ -28,6 +30,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let winningSparkles = null
     let winOverlay = null
     let bonusOverlay = null
+    let bonusTilePopAnimation = null
+    let jackpotVideoOverlay = null
     let freeSpinsCountdown = null
     let jackpotResultOverlay = null
 
@@ -92,6 +96,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             winningSparkles = createWinningSparkles()
             winOverlay = createWinOverlay(gameState)
             bonusOverlay = createBonusOverlay(gameState)
+            bonusTilePopAnimation = createBonusTilePopAnimation(gridState, reels)
+            jackpotVideoOverlay = createJackpotVideoOverlay()
             freeSpinsCountdown = createFreeSpinsCountdown()
             jackpotResultOverlay = createJackpotResultOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
@@ -106,6 +112,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(freeSpinsCountdown.container)
             root.addChild(winOverlay.container)
             root.addChild(jackpotResultOverlay.container)
+            root.addChild(bonusTilePopAnimation.container)
+            root.addChild(jackpotVideoOverlay.container)
             root.addChild(bonusOverlay.container)
 
             // Watch for bonus overlay state
@@ -113,6 +121,22 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 const w = canvasState.canvasWidth.value
                 const h = canvasState.canvasHeight.value
 
+                // Show tile pop animation first
+                if (newState === GAME_STATES.POPPING_BONUS_TILES && bonusTilePopAnimation) {
+                    const { mainRect, tileSize } = computeLayout(w, h)
+                    bonusTilePopAnimation.show(w, h, mainRect, tileSize, () => {
+                        gameStore.completeBonusTilePop()
+                    })
+                }
+
+                // Show jackpot video after pop animation
+                if (newState === GAME_STATES.SHOWING_JACKPOT_VIDEO && jackpotVideoOverlay) {
+                    jackpotVideoOverlay.show(w, h, () => {
+                        gameStore.completeJackpotVideo()
+                    })
+                }
+
+                // Then show bonus overlay after video
                 if (newState === GAME_STATES.SHOWING_BONUS_OVERLAY && bonusOverlay) {
                     const freeSpinsCount = gameStore.freeSpins
                     bonusOverlay.show(freeSpinsCount, w, h, () => {
@@ -214,6 +238,22 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 bonusOverlay.update(timestamp)
                 if (resized && bonusOverlay.container.visible) {
                     bonusOverlay.build(w, h)
+                }
+            }
+
+            // Update bonus tile pop animation
+            if (bonusTilePopAnimation) {
+                bonusTilePopAnimation.update(timestamp)
+                if (resized && bonusTilePopAnimation.container.visible) {
+                    bonusTilePopAnimation.build(w, h)
+                }
+            }
+
+            // Update jackpot video overlay
+            if (jackpotVideoOverlay) {
+                jackpotVideoOverlay.update(timestamp)
+                if (resized && jackpotVideoOverlay.container.visible) {
+                    jackpotVideoOverlay.build(w, h)
                 }
             }
 
