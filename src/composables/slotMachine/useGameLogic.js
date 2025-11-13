@@ -222,6 +222,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gridState.reelTopIndex = Array(cols).fill(0)
     gridState.spinOffsets = Array(cols).fill(0)
     gridState.spinVelocities = Array(cols).fill(10) // High initial velocity
+    gridState.activeSlowdownColumn = -1 // Reset active slowdown column
 
     // Track which columns have been explicitly stopped
     const stoppedColumns = new Set()
@@ -254,6 +255,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       const animate = () => {
         const now = Date.now()
         let allStopped = true
+
+        // Expose current slowdown column to gridState for renderer
+        gridState.activeSlowdownColumn = currentSlowdownColumn
 
         // Check for anticipation mode on every frame
         // Activate when ANY column stops with a bonus tile (the FIRST one to do so)
@@ -396,6 +400,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             // Now safe to set velocity to 0 (renderer will switch to grid)
             gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
+
+            // Clear current slowdown column if this was the active one
+            // Highlight should only show on SLOWING DOWN column, not stopped columns
+            if (currentSlowdownColumn === col) {
+              currentSlowdownColumn = -1
+              gridState.activeSlowdownColumn = -1
+            }
+
             continue
           }
 
@@ -426,6 +438,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             gameStore.deactivateAnticipationMode()
             console.log('🎯 Anticipation mode deactivated - removing dark mask')
           }
+
+          // Reset active slowdown column
+          gridState.activeSlowdownColumn = -1
 
           // Trigger reactivity
           // Note: Bonus limits are now enforced per-column as each reel stops

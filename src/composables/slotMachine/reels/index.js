@@ -9,6 +9,7 @@ import { createBumpAnimationManager } from './tiles/bumpAnimation'
 import { createPopAnimationManager } from './tiles/popAnimation'
 import { createLightBurstManager } from './tiles/lightBurstEffect'
 import { createAnticipationEffects } from './anticipationEffects'
+import { createColumnHighlightManager } from './columnHighlight'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
@@ -31,14 +32,17 @@ export function useReels(gameState, gridState) {
     const popAnimations = createPopAnimationManager()
     const lightBursts = createLightBurstManager()
     const anticipationEffects = createAnticipationEffects()
+    const columnHighlights = createColumnHighlightManager()
     let previousSpinning = false // Track previous spinning state
     let lastCascadeTime = 0 // Track when cascade last happened
+    let columnHighlightsInitialized = false // Track if column highlights are initialized
 
-    // Add containers in order: background, light bursts, tiles, frames
+    // Add containers in order: background, light bursts, tiles, frames, column highlights
     container.addChild(tilesContainer)
     tilesContainer.addChild(lightBursts.container)  // Add light bursts behind tiles
     lightBursts.container.sortableChildren = true  // Enable z-index sorting
     container.addChild(framesContainer)
+    container.addChild(columnHighlights.container)  // Add column highlights on top
 
     const COLS = 5
     const ROWS_FULL = 4
@@ -85,12 +89,30 @@ export function useReels(gameState, gridState) {
 
         const hasHighlights = gridState.highlightWins?.length > 0
 
+        // Initialize column highlights on first draw
+        if (!columnHighlightsInitialized) {
+            // Extend highlights to bottom but not above
+            const extraHeight = stepY * 0.7  // Add more extension at bottom
+            const columnHeight = ROWS_FULL * stepY + extraHeight
+            const highlightX = originX
+            const highlightY = mainRect.y  // Start at visible area top
+            console.log(`🔧 Initializing column highlights: cols=${COLS}, width=${scaledTileW}, height=${columnHeight}, x=${highlightX}, y=${highlightY}, stepX=${stepX}`)
+            columnHighlights.initialize(COLS, scaledTileW, columnHeight, highlightX, highlightY, stepX)
+            columnHighlightsInitialized = true
+            console.log('✅ Column highlights initialization complete')
+        }
+
+        // Update column highlights based on active slowdown column
+        const activeSlowdownColumn = gridState.activeSlowdownColumn ?? -1
+        columnHighlights.update(activeSlowdownColumn)
+
         // Clear animations when spinning starts
         if (spinning && !previousSpinning) {
             dropAnimations.clear()
             bumpAnimations.clear()
             popAnimations.clear()
             lightBursts.clear()
+            columnHighlights.hideAll()
             lastCascadeTime = 0
             gridState.previousGridSnapshot = null
         }
