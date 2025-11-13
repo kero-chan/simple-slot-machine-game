@@ -84,6 +84,9 @@ export const ASSETS = {
     i65_x5: new URL('../assets/images/65_x5.png', import.meta.url).href,
     i65_x6: new URL('../assets/images/65_x6.png', import.meta.url).href,
     i65_x10: new URL('../assets/images/65_x10.png', import.meta.url).href,
+
+    // Header consecutive wins background
+    active_status_bg: new URL('../assets/consecutiveWins/active_status_bg.png', import.meta.url).href,
   },
   loadedImages: {},
   videoPaths: {

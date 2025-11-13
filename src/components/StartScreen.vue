@@ -21,7 +21,13 @@
       </div>
 
       <!-- Start Button -->
-      <button v-else class="start-button" @click="handleStart">开始</button>
+      <img
+        v-else
+        src="../assets/images/start_button.png"
+        alt="Start Button"
+        class="start-button"
+        @click="handleStart"
+      />
     </div>
   </div>
 </template>
@@ -111,7 +117,7 @@ const handleStart = () => {
 /* Loading Section */
 .loading-container {
   position: absolute;
-  bottom: 18%;
+  bottom: 20%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -132,7 +138,7 @@ const handleStart = () => {
 
 .progress-bar-bg {
   width: 100%;
-  height: 20px;
+  height: 16px;
   background: linear-gradient(
     180deg,
     rgba(80, 40, 40, 0.6),
@@ -221,34 +227,20 @@ const handleStart = () => {
   left: 50%;
   bottom: 20%;
   transform: translateX(-50%);
-  background-image: linear-gradient(
-    180deg,
-    hsl(0deg 89.44% 64.47% / 66%),
-    rgb(235, 19, 19)
-  );
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-  background-origin: border-box;
-  border: 0.87px solid hsla(0, 0%, 100%, 0.4);
-  border-radius: 6px;
-  text-shadow: rgb(235, 19, 19) 0px 1px 2px;
   cursor: pointer;
-  color: white;
-  font-weight: bold;
   width: 35%;
-  height: 5%;
-  font-size: clamp(12px, 3vw, 18px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 300px;
+  height: auto;
+  transition: transform 0.2s ease, filter 0.2s ease;
 }
 
 .start-button:hover {
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%) scale(1.05);
+  filter: brightness(1.1);
 }
 
 .start-button:active {
-  transform: translateX(-50%) translateY(0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%) scale(0.98);
+  filter: brightness(0.95);
 }
 </style>
