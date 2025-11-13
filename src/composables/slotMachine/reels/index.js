@@ -356,8 +356,8 @@ export function useReels(gameState, gridState) {
 
                 // Check if this tile is in the winning positions (compare using grid rows)
                 // Don't check spinning - we want to show highlights during win animation
-                // Only check visual rows 0-3 (the 4 visible rows, which map to grid rows 4-7)
-                const winning = (r >= 0 && r <= 3)
+                // Adjusted for strip layout fix: visual rows 1-4 (the 4 visible rows, which map to grid rows 5-8)
+                const winning = (r >= 1 && r <= 4)
                     ? (gridState.highlightWins || []).some(win =>
                         win.positions.some(([c, rr]) => c === col && rr === gridRow))
                     : false
@@ -440,7 +440,7 @@ export function useReels(gameState, gridState) {
 
                 // Check if this is a bonus tile that should get special effects
                 const isBonus = isBonusTile(symbol)
-                const isVisibleRow = r >= 0 && r <= 3
+                const isVisibleRow = r >= 1 && r <= 4  // Adjusted for strip layout fix: visual rows 1-4 are visible
                 const hasActiveDrops = gridState.isDropAnimating
                 const shouldShowBonusEffects = isBonus && isVisibleRow && !spinning && !isCurrentlyDropping && !hasActiveDrops
 

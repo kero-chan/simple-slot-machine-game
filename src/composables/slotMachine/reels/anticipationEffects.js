@@ -19,10 +19,11 @@ export function createAnticipationEffects() {
   const gameStore = useGameStore()
 
   // Define the 4 visible rows where jackpot is calculated
+  // Adjusted by +1 to account for strip layout change (renderer reads strip[(reelTop-row)%100])
   const bufferRows = CONFIG.reels.bufferRows || 4
   const fullyVisibleRows = CONFIG.reels.fullyVisibleRows || 4
-  const WIN_CHECK_START_ROW = bufferRows // e.g., 4
-  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows - 1 // e.g., 7
+  const WIN_CHECK_START_ROW = bufferRows + 1 // e.g., 5 (was 4 before strip layout fix)
+  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows // e.g., 8 (was 7 before strip layout fix)
 
   /**
    * Check if a tile should be highlighted during anticipation mode
