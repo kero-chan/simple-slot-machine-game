@@ -16,11 +16,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
-  // Grid has 6 visible rows (BUFFER_OFFSET to BUFFER_OFFSET+5)
-  // But only middle 4 are FULLY visible (first and last are partial)
-  const VISIBLE_START_ROW = BUFFER_OFFSET + 1  // Skip first partial row
-  const FULLY_VISIBLE_ROWS = 4
-  const VISIBLE_END_ROW = BUFFER_OFFSET + FULLY_VISIBLE_ROWS  // Skip last partial row
+
+  // Calculate total rows dynamically
+  const totalRows = CONFIG.reels.rows + CONFIG.reels.bufferRows // e.g., 6 + 4 = 10
+  const bufferRows = CONFIG.reels.bufferRows // e.g., 4
+  const fullyVisibleRows = CONFIG.reels.fullyVisibleRows // e.g., 4
+
+  // Win check: Only check the fully visible rows
+  // Start at bufferRows, end at bufferRows + fullyVisibleRows - 1
+  // With bufferRows=4, fullyVisibleRows=4: rows 4-7
+  const WIN_CHECK_START_ROW = bufferRows // e.g., 4
+  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows - 1 // e.g., 4 + 4 - 1 = 7
+
+  // Bonus checking: Same as win checking
+  const BONUS_CHECK_START_ROW = WIN_CHECK_START_ROW
+  const BONUS_CHECK_END_ROW = WIN_CHECK_END_ROW
 
   const { playConsecutiveWinSound, playWinSound, playEffect } = useAudioEffects()
 
@@ -52,7 +62,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const findWinningCombinations = () => {
-
     const allWinCombos = []
     const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
 
@@ -62,7 +71,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       for (let col = 0; col < CONFIG.reels.count; col++) {
         const matches = []
 
-        for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
+        // Check only the fully visible rows (excluding partially visible top and bottom)
+        for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
           const cell = gridState.grid[col][row]
           const baseSymbol = getTileBaseSymbol(cell)
           const isWild = isTileWildcard(cell)
@@ -118,7 +128,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     if (allWinCombos.length > 0) {
       const firstSymbol = allWinCombos[0].symbol
       const singleSymbolWins = allWinCombos.filter(win => win.symbol === firstSymbol)
-
       return singleSymbolWins
     }
 
@@ -173,23 +182,22 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
       // Check all potential landing positions in the strip
       // When reel lands at reelTop, grid row 'r' gets strip[reelTop + r]
-      // Visible rows are grid rows (BUFFER_OFFSET + 1) through (BUFFER_OFFSET + 4)
       for (let reelTop = totalRows; reelTop < stripLength - totalRows; reelTop++) {
         const bonusPositions = []
 
-        // Check the 4 fully visible rows
-        for (let visualRow = 1; visualRow <= 4; visualRow++) {
-          const gridRow = BUFFER_OFFSET + visualRow
+        // Check the fully visible rows (calculated dynamically)
+        for (let gridRow = WIN_CHECK_START_ROW; gridRow <= WIN_CHECK_END_ROW; gridRow++) {
           const stripIdx = reelTop + gridRow
           if (stripIdx < strip.length && isBonusTile(strip[stripIdx])) {
-            bonusPositions.push({ idx: stripIdx, visualRow })
+            bonusPositions.push({ idx: stripIdx, gridRow })
           }
         }
 
         // If more than 1 bonus in this window, replace extras
         if (bonusPositions.length > 1) {
           for (let i = 1; i < bonusPositions.length; i++) {
-            const { idx, visualRow } = bonusPositions[i]
+            const { idx, gridRow } = bonusPositions[i]
+            const visualRow = gridRow - BUFFER_OFFSET
             strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
           }
         }
@@ -491,9 +499,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
         } else {
-          if (elapsed >= MAX_WAIT) {
-            console.warn('⚠️ animateCascade: Hit max wait time')
-          }
           resolve()
         }
       }
@@ -520,15 +525,15 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   /**
-   * Check if 3 or more bonus tiles appear in the fully visible 4 middle rows
+   * Check if 3 or more bonus tiles appear in the fully visible rows
    * Returns the count of bonus tiles found
    */
   const checkBonusTiles = () => {
     let bonusCount = 0
 
-    // Only check the 4 fully visible middle rows (skip partial top and bottom rows)
+    // Only check the fully visible rows (excluding partially visible top and bottom)
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
+      for (let row = BONUS_CHECK_START_ROW; row <= BONUS_CHECK_END_ROW; row++) {
         const cell = gridState.grid[col][row]
         if (isBonusTile(cell)) {
           bonusCount++

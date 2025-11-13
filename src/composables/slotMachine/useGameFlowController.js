@@ -59,13 +59,11 @@ export function useGameFlowController(gameLogic, gridState, render) {
           case GAME_STATES.POPPING_BONUS_TILES:
             // Pop bonus tiles animation (will be handled by the pop animation component)
             // The pop animation will call gameStore.completeBonusTilePop() when done
-            console.log('💥 Popping bonus tiles...')
             break
 
           case GAME_STATES.SHOWING_JACKPOT_VIDEO:
             // Show jackpot video (will be handled by the video overlay component)
             // The video overlay will call gameStore.completeJackpotVideo() when done
-            console.log('🎬 Jackpot video playing...')
             break
 
           case GAME_STATES.SHOWING_BONUS_OVERLAY:
@@ -147,12 +145,12 @@ export function useGameFlowController(gameLogic, gridState, render) {
 
     // If bonus is triggered, highlight bonus tiles and wait so user can see them
     if (bonusCount >= CONFIG.game.minBonusToTrigger) {
-      console.log(`🎰 Bonus triggered! Highlighting bonus tiles...`)
-
-      // Find all bonus tile positions in fully visible middle 4 rows
+      // Find all bonus tile positions in fully visible rows
       const bonusCellKeys = []
-      const VISIBLE_START_ROW = BUFFER_OFFSET + 1  // Skip first partial row
-      const VISIBLE_END_ROW = BUFFER_OFFSET + 4    // Skip last partial row
+      const bufferRows = CONFIG.reels.bufferRows
+      const fullyVisibleRows = CONFIG.reels.fullyVisibleRows
+      const VISIBLE_START_ROW = bufferRows
+      const VISIBLE_END_ROW = bufferRows + fullyVisibleRows - 1
 
       for (let col = 0; col < CONFIG.reels.count; col++) {
         for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
@@ -191,9 +189,9 @@ export function useGameFlowController(gameLogic, gridState, render) {
       // Add to accumulated total
       gameStore.addWinAmount(multipliedWays)
 
-      // Log wins during free spins (silent accumulation)
+      // Silent accumulation during free spins
       if (gameStore.inFreeSpinMode) {
-        console.log(`💎 Free spin win: ${multipliedWays} (multiplier: ${gameStore.currentMultiplier}x) | Total so far: ${gameStore.accumulatedWinAmount}`)
+        // Wins accumulate silently during free spins
       } else {
         // Normal mode - play sounds
         // Play consecutive win sound (multiplier sound)
