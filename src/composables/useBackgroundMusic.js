@@ -26,6 +26,7 @@ export function useBackgroundMusic() {
   const currentAudio = ref(null)
   const isPlaying = ref(false)
   const wasPlayingBeforeHidden = ref(false)
+  const currentMusicType = ref('normal') // 'normal' or 'jackpot'
   let visibilityListenerAdded = false
   let gameStartTimeout = null
   let noiseStartTimeout = null
@@ -243,12 +244,96 @@ export function useBackgroundMusic() {
     }
   }
 
+  // Switch to jackpot background music
+  const switchToJackpotMusic = () => {
+    if (currentMusicType.value === 'jackpot') return // Already playing jackpot music
+
+    console.log('🎰 Switching to jackpot background music')
+    
+    // Stop current music
+    if (currentAudio.value) {
+      currentAudio.value.pause()
+      currentAudio.value = null
+    }
+
+    try {
+      // Use preloaded jackpot music
+      const audio = getAudio('background_music_jackpot')
+      if (!audio) {
+        console.warn('Jackpot background music not found')
+        return
+      }
+
+      audio.volume = 0.5 // Set volume to 50%
+      audio.loop = true // Loop the audio infinitely
+
+      currentAudio.value = audio
+      currentMusicType.value = 'jackpot'
+
+      // Handle errors
+      audio.addEventListener('error', (e) => {
+        console.error('Error playing jackpot music:', e)
+      })
+
+      audio.play().catch(err => {
+        console.warn('Failed to play jackpot music:', err)
+      })
+
+      console.log('✅ Jackpot music playing')
+    } catch (err) {
+      console.error('Error creating jackpot music:', err)
+    }
+  }
+
+  // Switch back to normal background music
+  const switchToNormalMusic = () => {
+    if (currentMusicType.value === 'normal') return // Already playing normal music
+
+    console.log('🎵 Switching back to normal background music')
+    
+    // Stop current music
+    if (currentAudio.value) {
+      currentAudio.value.pause()
+      currentAudio.value = null
+    }
+
+    try {
+      // Use preloaded normal music
+      const audio = getAudio('background_music')
+      if (!audio) {
+        console.warn('Normal background music not found')
+        return
+      }
+
+      audio.volume = 0.5 // Set volume to 50%
+      audio.loop = true // Loop the audio infinitely
+
+      currentAudio.value = audio
+      currentMusicType.value = 'normal'
+
+      // Handle errors
+      audio.addEventListener('error', (e) => {
+        console.error('Error playing normal music:', e)
+      })
+
+      audio.play().catch(err => {
+        console.warn('Failed to play normal music:', err)
+      })
+
+      console.log('✅ Normal music playing')
+    } catch (err) {
+      console.error('Error creating normal music:', err)
+    }
+  }
+
   return {
     isPlaying,
     start,
     stop,
     pause,
     resume,
-    setVolume
+    setVolume,
+    switchToJackpotMusic,
+    switchToNormalMusic
   }
 }

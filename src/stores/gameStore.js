@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { CONFIG } from '../config/constants'
+import { audioManager } from '../composables/audioManager'
 
 // Game state machine states
 export const GAME_STATES = {
@@ -354,11 +355,15 @@ export const useGameStore = defineStore('game', {
 
     enterFreeSpinMode() {
       this.inFreeSpinMode = true
+      // Switch to jackpot background music
+      audioManager.switchToJackpotMusic()
     },
 
     exitFreeSpinMode() {
       this.inFreeSpinMode = false
       this.freeSpins = 0
+      // Switch back to normal background music
+      audioManager.switchToNormalMusic()
     },
 
     hideStartScreen() {
