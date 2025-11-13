@@ -276,13 +276,35 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!gameStore.inFreeSpinMode) {
           const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
 
-          // If we've reached 3 bonus tiles, immediately stop anticipation mode
-          if (gameStore.anticipationMode && totalBonusTiles >= 3) {
-            gameStore.deactivateAnticipationMode()
-            console.log(`🎯 ANTICIPATION MODE STOPPED! Reached ${totalBonusTiles} bonus tiles - jackpot incoming!`)
-            firstBonusColumn = -1 // Reset
+          // If we've reached minimum bonus tiles for jackpot, IMMEDIATELY stop all reels and exit to jackpot
+          if (totalBonusTiles >= CONFIG.game.minBonusToTrigger) {
+            console.log(`🎯 JACKPOT DETECTED! ${totalBonusTiles} bonus tiles (min required: ${CONFIG.game.minBonusToTrigger}) - stopping all reels immediately!`)
+
+            // Stop ALL columns immediately
+            for (let c = 0; c < cols; c++) {
+              if (gridState.spinVelocities[c] > 0) {
+                // Sync this column's current position to grid
+                syncColumnToGrid(c)
+                // Stop the column
+                gridState.spinVelocities[c] = 0
+                stoppedColumns.add(c)
+              }
+            }
+
+            // Deactivate anticipation mode
+            if (gameStore.anticipationMode) {
+              gameStore.deactivateAnticipationMode()
+            }
+
+            // Reset state
+            firstBonusColumn = -1
             currentSlowdownColumn = -1
             gridState.activeSlowdownColumn = -1
+
+            // Trigger reactivity and exit immediately
+            gridState.grid = [...gridState.grid.map(col => [...col])]
+            resolve()
+            return // Exit the animation loop
           }
           // Activate anticipation mode when exactly 2 bonus tiles
           else if (!gameStore.anticipationMode && firstBonusColumn === -1 && totalBonusTiles === 2) {
