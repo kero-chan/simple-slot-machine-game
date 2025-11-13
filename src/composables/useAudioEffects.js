@@ -35,7 +35,7 @@ export function useAudioEffects() {
     stopWinningAnnouncement();
 
     try {
-      winningAnnouncementAudio = getAudio('winning_announcement');
+      winningAnnouncementAudio = getAudio("winning_announcement");
       if (!winningAnnouncementAudio) {
         console.warn("Winning announcement audio not found");
         return;
@@ -82,48 +82,44 @@ export function useAudioEffects() {
       return win.count >= 3 && ["bonus"].includes(win.symbol);
     });
 
-    if (hasJackpot) {
-      audioKey = "win_megagrand";
-    } else {
-      // Check for all boy (fa, zhong, bai, bawan)
-      const boySymbols = ["fa", "zhong", "bai", "bawan"];
-      const allBoy = wins.every((win) => boySymbols.includes(win.symbol));
+    // Check for all boy (fa, zhong, bai, bawan)
+    const boySymbols = ["fa", "zhong", "bai", "bawan"];
+    const allBoy = wins.every((win) => boySymbols.includes(win.symbol));
 
-      // Check for all girl (wusuo, wutong, liangsuo, liangtong)
-      const girlSymbols = ["wusuo", "wutong", "liangsuo", "liangtong"];
-      const allGirl = wins.every((win) => girlSymbols.includes(win.symbol));
+    // Check for all girl (wusuo, wutong, liangsuo, liangtong)
+    const girlSymbols = ["wusuo", "wutong", "liangsuo", "liangtong"];
+    const allGirl = wins.every((win) => girlSymbols.includes(win.symbol));
 
-      // Play sound for the highest value symbol
-      const symbolPriority = [
-        "fa",
-        "zhong",
-        "bai",
-        "bawan",
-        "wusuo",
-        "wutong",
-        "liangsuo",
-        "liangtong",
-      ];
+    // Play sound for the highest value symbol
+    const symbolPriority = [
+      "fa",
+      "zhong",
+      "bai",
+      "bawan",
+      "wusuo",
+      "wutong",
+      "liangsuo",
+      "liangtong",
+    ];
 
-      for (const symbol of symbolPriority) {
-        const hasSymbol = wins.some((win) => win.symbol === symbol);
-        if (hasSymbol) {
-          // Map symbol to audio key
-          const symbolAudioMap = {
-            fa: "win_fa",
-            zhong: "zhong",
-            bai: "win_bai",
-            liangsuo: "win_liangsuo",
-            liangtong: "win_liangtong",
-            wusuo: "win_wusuo",
-            wutong: "win_wutong",
-            bawan: "win_bawan",
-          };
+    for (const symbol of symbolPriority) {
+      const hasSymbol = wins.some((win) => win.symbol === symbol);
+      if (hasSymbol) {
+        // Map symbol to audio key
+        const symbolAudioMap = {
+          fa: "win_fa",
+          zhong: "zhong",
+          bai: "win_bai",
+          liangsuo: "win_liangsuo",
+          liangtong: "win_liangtong",
+          wusuo: "win_wusuo",
+          wutong: "win_wutong",
+          bawan: "win_bawan",
+        };
 
-          if (symbolAudioMap[symbol]) {
-            audioKey = symbolAudioMap[symbol];
-            break;
-          }
+        if (symbolAudioMap[symbol]) {
+          audioKey = symbolAudioMap[symbol];
+          break;
         }
       }
     }
@@ -155,7 +151,7 @@ export function useAudioEffects() {
   // Play consecutive wins sound based on multiplier
   const playConsecutiveWinSound = (consecutiveWins, isFreeSpin = false) => {
     let audioKey = null;
-    
+
     // Map consecutive wins to audio file based on mode
     if (isFreeSpin) {
       // Free spin mode: x2, x4, x6, x10
@@ -219,15 +215,12 @@ export function useAudioEffects() {
       });
 
       audio.play().catch((err) => {
-        console.warn(
-          `Failed to play effect audio (${effect}):`,
-          err
-        );
+        console.warn(`Failed to play effect audio (${effect}):`, err);
       });
     } catch (err) {
       console.error("Error creating effect audio:", err);
     }
-  }
+  };
 
   return {
     playWinSound,
