@@ -137,19 +137,12 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const animateSpin = () => {
-    console.log(`🎯 [SPIN START] Beginning spin animation`)
     const startTime = Date.now()
     const baseDuration = timingStore.SPIN_BASE_DURATION
     const stagger = timingStore.SPIN_REEL_STAGGER
     const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
-
-    console.log(`📊 [GRID BEFORE SPIN] Current grid state:`)
-    for (let col = 0; col < cols; col++) {
-      const visibleTiles = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-      console.log(`  Col ${col}: [${visibleTiles.join(', ')}]`)
-    }
 
     // Build reel strips - START with current grid to prevent visual snap
     // Then add random symbols where the reel will land
@@ -165,11 +158,42 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       // Fill rest of strip with random symbols (this is where we'll land)
       const randomCount = stripLength - totalRows
       for (let i = 0; i < randomCount; i++) {
-        const allowBonus = true // We'll enforce bonus limit after landing
-        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus }))
+        // Allow bonus tiles in strip - we'll enforce limits at landing positions
+        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: true }))
       }
 
       gridState.reelStrips[col] = strip
+    }
+
+    // CRITICAL: Enforce bonus limits in the landing area of each strip
+    // This ensures reels land with valid bonus counts (max 1 per column)
+    // so we don't need to modify tiles after the reel stops
+    for (let col = 0; col < cols; col++) {
+      const strip = gridState.reelStrips[col]
+
+      // Check all potential landing positions in the strip
+      // When reel lands at reelTop, grid row 'r' gets strip[reelTop + r]
+      // Visible rows are grid rows (BUFFER_OFFSET + 1) through (BUFFER_OFFSET + 4)
+      for (let reelTop = totalRows; reelTop < stripLength - totalRows; reelTop++) {
+        const bonusPositions = []
+
+        // Check the 4 fully visible rows
+        for (let visualRow = 1; visualRow <= 4; visualRow++) {
+          const gridRow = BUFFER_OFFSET + visualRow
+          const stripIdx = reelTop + gridRow
+          if (stripIdx < strip.length && isBonusTile(strip[stripIdx])) {
+            bonusPositions.push({ idx: stripIdx, visualRow })
+          }
+        }
+
+        // If more than 1 bonus in this window, replace extras
+        if (bonusPositions.length > 1) {
+          for (let i = 1; i < bonusPositions.length; i++) {
+            const { idx, visualRow } = bonusPositions[i]
+            strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
+          }
+        }
+      }
     }
 
     // Trigger reactivity for arrays
@@ -225,29 +249,31 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // Calculate current position
           const targetPosition = distanceTraveled
 
-          // Stop condition: animation complete
-          if (t >= 1) {
-            console.log(`⏹️  [STOP] Column ${col} stopping at targetIndex: ${targetIndex}`)
+          // Stop condition: animation complete OR very close to target
+          // Use a small threshold to smoothly transition to final position
+          const distanceToTarget = targetIndex - targetPosition
+          const isAtTarget = t >= 1 || distanceToTarget < 0.01
 
-            // Snap to exact landing position
-            gridState.reelTopIndex[col] = Math.floor(targetIndex)
-            gridState.spinOffsets[col] = 0
+          if (isAtTarget) {
+            // CRITICAL FIX: Don't change reelTop when stopping!
+            // Keep reelTop at its current position to avoid visual jump
+            // The renderer was showing strip[currentReelTop + row], so grid must match exactly
+            // DON'T set reelTop to targetIndex - that causes a 1-tile shift!
+
+            // Keep current reelTop and offset (don't change them)
+            // gridState.reelTopIndex[col] stays the same
+            // gridState.spinOffsets[col] stays the same
 
             // CRITICAL: Sync this column's grid BEFORE setting velocity to 0
             // This prevents jump when renderer switches from strip to grid
             syncColumnToGrid(col)
 
-            // Enforce bonus limit for this column immediately after syncing
-            // This prevents visible tile changes after reel stops
-            enforceBonusLimitForColumn(col)
-
-            console.log(`⏸️  [PRE-STOP] Column ${col} - velocity BEFORE: ${gridState.spinVelocities[col]}`)
+            // Note: Bonus limits are now enforced in the strip during spin setup
+            // No need to modify grid after landing - tiles are already correct!
 
             // Now safe to set velocity to 0 (renderer will switch to grid)
             gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
-
-            console.log(`✅ [STOPPED] Column ${col} - velocity AFTER: ${gridState.spinVelocities[col]}`)
             continue
           }
 
@@ -256,9 +282,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const newOffset = targetPosition - newTopIndex
 
           // Calculate velocity for this frame (for renderer to detect spinning)
-          // Keep velocity high enough to ensure renderer uses strip (threshold is 0.001)
-          const minVelocity = 0.1 // Well above threshold
-          const calculatedVelocity = totalDistance / baseDuration * 16.67 / 1000 // normalized velocity
+          // Reduce velocity as we approach target for smoother deceleration
+          const distanceRemaining = targetIndex - targetPosition
+          const normalizedDistance = Math.min(distanceRemaining / 2, 1) // Normalize to 0-1
+          const calculatedVelocity = normalizedDistance * 10 // Scale velocity based on distance
+          const minVelocity = distanceRemaining > 0.5 ? 0.1 : 0.01 // Lower threshold near stop
           gridState.spinVelocities[col] = Math.max(minVelocity, calculatedVelocity)
 
           // Update position (with wrapping)
@@ -271,15 +299,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          console.log(`🏁 [ALL STOPPED] All reels stopped, triggering grid reactivity`)
           // All reels stopped - trigger reactivity
           // Note: Bonus limits are now enforced per-column as each reel stops
           gridState.grid = [...gridState.grid.map(col => [...col])]
-          console.log(`📊 [FINAL GRID] Final grid state:`)
-          for (let col = 0; col < CONFIG.reels.count; col++) {
-            const visibleTiles = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-            console.log(`  Col ${col}: [${visibleTiles.join(', ')}]`)
-          }
           resolve()
         }
       }
@@ -292,62 +314,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const reelTop = gridState.reelTopIndex[col]
     const strip = gridState.reelStrips[col]
 
-    console.log(`🔄 [SYNC] Column ${col} - reelTop: ${reelTop}`)
-
     // Copy this column's strip positions to grid
-    const beforeSync = []
     for (let row = 0; row < totalRows; row++) {
       const stripIdx = (reelTop + row) % strip.length
-      beforeSync.push(gridState.grid[col][row])
       gridState.grid[col][row] = strip[stripIdx]
-    }
-
-    // Log visible rows only (rows 1-4 in visual coordinates)
-    const visibleBefore = beforeSync.slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-    const visibleAfter = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-    console.log(`  Before: [${visibleBefore.join(', ')}]`)
-    console.log(`  After:  [${visibleAfter.join(', ')}]`)
-  }
-
-  const enforceBonusLimitForColumn = (col) => {
-    const bonusPositions = []
-
-    // Find all bonus tiles in visible rows (1-4 in visual coordinates)
-    for (let row = 0; row < gridState.grid[col].length; row++) {
-      const visualRow = row - BUFFER_OFFSET
-      const isVisibleRow = visualRow >= 1 && visualRow <= 4
-
-      if (isVisibleRow && isBonusTile(gridState.grid[col][row])) {
-        bonusPositions.push(row)
-      }
-    }
-
-    console.log(`🎰 [BONUS] Column ${col} - Found ${bonusPositions.length} bonus tiles at rows: ${bonusPositions}`)
-
-    // If more than 1 bonus tile, replace extras with random symbols
-    if (bonusPositions.length > 1) {
-      console.log(`  ⚠️  Replacing ${bonusPositions.length - 1} excess bonus tiles`)
-      const beforeReplace = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-
-      // Keep the first one, replace the rest
-      for (let i = 1; i < bonusPositions.length; i++) {
-        const row = bonusPositions[i]
-        const visualRow = row - BUFFER_OFFSET
-        const oldTile = gridState.grid[col][row]
-        // Replace with a random non-bonus symbol
-        const newTile = getRandomSymbol({
-          col,
-          visualRow,
-          allowGold: true,
-          allowBonus: false
-        })
-        gridState.grid[col][row] = newTile
-        console.log(`  Row ${row} (visual ${visualRow}): ${oldTile} → ${newTile}`)
-      }
-
-      const afterReplace = gridState.grid[col].slice(BUFFER_OFFSET + 1, BUFFER_OFFSET + 5)
-      console.log(`  Before: [${beforeReplace.join(', ')}]`)
-      console.log(`  After:  [${afterReplace.join(', ')}]`)
     }
   }
 
