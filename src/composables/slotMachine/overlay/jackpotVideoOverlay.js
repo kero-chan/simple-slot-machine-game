@@ -69,6 +69,7 @@ export function createJackpotVideoOverlay() {
     // Show the preloaded video
     video.style.display = 'block'
     video.currentTime = 0 // Reset to beginning
+    video.muted = false // Unmute for playback (was muted during preload for mobile compatibility)
 
     // Set up event listeners (only once per show)
     const onEnded = () => {
