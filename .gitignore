@@ -40,3 +40,4 @@ logs/
 .claude
 logs.txt
 spec.txt
+fix_requests.txt

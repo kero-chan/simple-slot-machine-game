@@ -23,10 +23,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   const fullyVisibleRows = CONFIG.reels.fullyVisibleRows // e.g., 4
 
   // Win check: Only check the fully visible rows
-  // Start at bufferRows, end at bufferRows + fullyVisibleRows - 1
-  // With bufferRows=4, fullyVisibleRows=4: rows 4-7
-  const WIN_CHECK_START_ROW = bufferRows // e.g., 4
-  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows - 1 // e.g., 4 + 4 - 1 = 7
+  // Adjusted by +1 to account for strip layout change (renderer reads strip[(reelTop-row)%100])
+  // With bufferRows=4, fullyVisibleRows=4: rows 5-8 (was 4-7 before strip layout fix)
+  const WIN_CHECK_START_ROW = bufferRows + 1 // e.g., 5
+  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows // e.g., 4 + 4 = 8
 
   // Bonus checking: Same as win checking
   const BONUS_CHECK_START_ROW = WIN_CHECK_START_ROW
@@ -146,6 +146,25 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const animateSpin = () => {
+    /*
+     * FIX FOR: Tiles changing visually when hitting spin button (2nd spin onwards)
+     *
+     * ROOT CAUSE:
+     * - Strip was built with grid symbols at sequential positions strip[0-9]
+     * - But renderer reads using formula strip[(reelTop-row)%100], which at reelTop=0 reads:
+     *   strip[0], strip[99], strip[98], ... (not strip[0], strip[1], strip[2], ...)
+     * - This mismatch caused 1-tile visual jump when hitting spin
+     *
+     * SOLUTION:
+     * 1. Place current grid symbols at positions where renderer will read them at reelTop=0
+     *    - grid[0] at strip[0], grid[1] at strip[99], grid[2] at strip[98], etc.
+     * 2. Protect these positions from bonus enforcement to prevent changes
+     * 3. Stop only when animation fully completes (t>=1.0) to avoid fractional offsets
+     * 4. Explicitly set reelTop=targetIndex, offset=0 when stopping
+     *
+     * This satisfies spec.txt rules #4 and #5: no tile changes after spin stops or when hitting spin
+     */
+
     const startTime = Date.now()
     const baseDuration = timingStore.SPIN_BASE_DURATION
     const stagger = timingStore.SPIN_REEL_STAGGER
@@ -156,22 +175,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     // Anticipation mode extra slowdown duration (configurable in timingStore)
     const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION
 
-    // Build reel strips - START with current grid to prevent visual snap
-    // Then add random symbols where the reel will land
+    // Build reel strips - place current grid at positions the renderer will read at reelTop=0
+    // Renderer formula: strip[(reelTop - row) % 100], so at reelTop=0:
+    //   row 0 reads strip[0], row 1 reads strip[99], row 2 reads strip[98], etc.
     for (let col = 0; col < cols; col++) {
-      const strip = []
+      // Initialize strip with random symbols
+      const strip = Array(stripLength).fill(null).map(() =>
+        getRandomSymbol({ col, allowGold: true, allowBonus: true })
+      )
 
-      // CRITICAL: Start with current grid symbols for smooth transition
+      // CRITICAL: Place current grid symbols at positions renderer will read when reelTop=0
       // This ensures no visual change when spin button is clicked
+      const reelTopAtStart = 0
       for (let row = 0; row < totalRows; row++) {
-        strip.push(gridState.grid[col][row])
-      }
-
-      // Fill rest of strip with random symbols (this is where we'll land)
-      const randomCount = stripLength - totalRows
-      for (let i = 0; i < randomCount; i++) {
-        // Allow bonus tiles in strip - we'll enforce limits at landing positions
-        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: true }))
+        const stripIdx = ((reelTopAtStart - row) % stripLength + stripLength) % stripLength
+        strip[stripIdx] = gridState.grid[col][row]
       }
 
       gridState.reelStrips[col] = strip
@@ -181,8 +199,23 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     // This ensures reels land with valid bonus counts (configurable max per column)
     // so we don't need to modify tiles after the reel stops
     const maxBonusPerColumn = CONFIG.game.maxBonusPerColumn || 2
+
+    // Build protected positions set - these are the current grid symbols that must not change
+    // when the spin starts (to satisfy spec rule #5: no tile changes after hitting spin)
+    const protectedPositions = new Map()
+    for (let col = 0; col < cols; col++) {
+      const protectedSet = new Set()
+      const reelTopAtStart = 0
+      for (let row = 0; row < totalRows; row++) {
+        const stripIdx = ((reelTopAtStart - row) % stripLength + stripLength) % stripLength
+        protectedSet.add(stripIdx)
+      }
+      protectedPositions.set(col, protectedSet)
+    }
+
     for (let col = 0; col < cols; col++) {
       const strip = gridState.reelStrips[col]
+      const protectedSet = protectedPositions.get(col)
 
       // Check all potential landing positions in the strip
       // When reel lands at reelTop, grid row 'r' gets strip[reelTop - r] (top-to-bottom scrolling)
@@ -198,9 +231,13 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         }
 
         // If more than max bonus in this window, replace extras
+        // BUT skip protected positions (current grid at reelTop=0) to prevent visual change
         if (bonusPositions.length > maxBonusPerColumn) {
           for (let i = maxBonusPerColumn; i < bonusPositions.length; i++) {
             const { idx, gridRow } = bonusPositions[i]
+            // Skip if this is a protected position (current grid symbol)
+            if (protectedSet.has(idx)) continue
+
             const visualRow = gridRow - BUFFER_OFFSET
             strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
           }
@@ -219,7 +256,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       Math.floor(minLanding + Math.random() * (maxLanding - minLanding))
     )
 
-    // Initialize positions - start from 0 (current grid symbols)
+    // Initialize positions - start from 0 (current grid symbols are now at correct positions)
     gridState.reelTopIndex = Array(cols).fill(0)
     gridState.spinOffsets = Array(cols).fill(0)
     gridState.spinVelocities = Array(cols).fill(10) // High initial velocity
@@ -414,31 +451,25 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           // Calculate current position
           const targetPosition = distanceTraveled
 
-          // Stop condition: animation complete OR very close to target
-          // Use a small threshold to smoothly transition to final position
+          // Stop condition: ONLY when animation fully completes
+          // This ensures we stop at exactly the targetIndex with offset=0 (no fractional position)
+          // Previously allowed early stop at fractional positions which caused ~0.985 offset accumulation
           const distanceToTarget = targetIndex - targetPosition
-          const isAtTarget = t >= 1 || distanceToTarget < 0.01
+          const isAtTarget = t >= 1.0
 
           if (isAtTarget) {
-            console.log(`✅ Column ${col} STOPPED at t=${t.toFixed(2)}, elapsed=${actualElapsed.toFixed(0)}ms, effectiveDuration=${effectiveDuration}ms`)
-            // CRITICAL FIX: Don't change reelTop when stopping!
-            // Keep reelTop at its current position to avoid visual jump
-            // The renderer was showing strip[currentReelTop + row], so grid must match exactly
-            // DON'T set reelTop to targetIndex - that causes a 1-tile shift!
+            // Ensure we're at exactly the target position with zero offset
+            // When t=1.0, offset should naturally be 0, but we force it for safety
+            gridState.reelTopIndex[col] = targetIndex % gridState.reelStrips[col].length
+            gridState.spinOffsets[col] = 0
+            gridState.spinVelocities[col] = 0
 
-            // Keep current reelTop and offset (don't change them)
-            // gridState.reelTopIndex[col] stays the same
-            // gridState.spinOffsets[col] stays the same
+            console.log(`✅ Column ${col} STOPPED at target ${targetIndex} - reelTop=${gridState.reelTopIndex[col]}, offset=0`)
 
-            // CRITICAL: Sync this column's grid BEFORE setting velocity to 0
-            // This prevents jump when renderer switches from strip to grid
+            // CRITICAL: Sync this column's grid at target position
+            // The renderer will now switch from strip to grid (velocity=0)
             syncColumnToGrid(col)
 
-            // Note: Bonus limits are now enforced in the strip during spin setup
-            // No need to modify grid after landing - tiles are already correct!
-
-            // Now safe to set velocity to 0 (renderer will switch to grid)
-            gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
 
             // Clear current slowdown column if this was the active one
