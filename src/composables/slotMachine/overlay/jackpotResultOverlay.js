@@ -19,6 +19,9 @@ export function createJackpotResultOverlay(gameState) {
   let bgImage = null
   let bgVideo = null // HTML video element for background
   let videoSprite = null // PIXI Sprite for video
+  let clickOverlay = null // Graphics overlay for click detection
+  let canSkip = false // Flag to allow skipping video after 2 seconds
+  let skipEnableTimeout = null
   let titleText = null
   let messageText = null
   let amountText = null
@@ -33,6 +36,71 @@ export function createJackpotResultOverlay(gameState) {
   // Particle system for celebration
   const particlesContainer = new Container()
   const particles = []
+
+  /**
+   * Enable skip after 2 seconds
+   */
+  function enableSkipAfterDelay() {
+    // Clear any existing timeout
+    if (skipEnableTimeout) {
+      clearTimeout(skipEnableTimeout)
+    }
+    
+    canSkip = false
+    
+    // Enable skip after 2 seconds
+    skipEnableTimeout = setTimeout(() => {
+      if (isAnimating) {
+        canSkip = true
+        console.log('✅ Jackpot result overlay can now be skipped by clicking')
+      }
+    }, 2000) // 2 seconds
+  }
+
+  /**
+   * Disable skip and clear timeout
+   */
+  function disableSkip() {
+    canSkip = false
+    
+    if (skipEnableTimeout) {
+      clearTimeout(skipEnableTimeout)
+      skipEnableTimeout = null
+    }
+  }
+
+  /**
+   * Handle click on overlay to skip
+   */
+  function handleOverlayClick(event) {
+    if (canSkip && isAnimating) {
+      console.log('⏭️ Jackpot result overlay clicked - skipping')
+      startFadeOut()
+    } else {
+      console.log('⏸️ Jackpot result overlay clicked but skip not yet enabled')
+    }
+  }
+
+  /**
+   * Create clickable overlay
+   */
+  function createClickOverlay(width, height) {
+    if (clickOverlay) {
+      clickOverlay.clear()
+    } else {
+      clickOverlay = new Graphics()
+      clickOverlay.eventMode = 'static' // Enable interaction
+      clickOverlay.cursor = 'pointer'
+      clickOverlay.on('pointerdown', handleOverlayClick)
+    }
+    
+    // Create transparent overlay that covers the entire screen
+    clickOverlay.rect(0, 0, width, height)
+    clickOverlay.fill({ color: 0x000000, alpha: 0.001 }) // Nearly transparent
+    clickOverlay.zIndex = 999 // Below particles but above video
+    
+    return clickOverlay
+  }
 
   /**
    * Spawn celebration particles
@@ -243,9 +311,16 @@ export function createJackpotResultOverlay(gameState) {
     amountText.y = canvasHeight / 2 + 50
     container.addChild(amountText)
 
-    // Add particles container
+    // Add clickable overlay for skip functionality
+    const overlay = createClickOverlay(canvasWidth, canvasHeight)
+    container.addChild(overlay)
+
+    // Add particles container (on top of clickable overlay)
     container.addChild(particlesContainer)
     spawnParticles(canvasWidth, canvasHeight, 200)
+    
+    // Enable skip after 2 seconds
+    enableSkipAfterDelay()
   }
 
   /**
@@ -266,6 +341,16 @@ export function createJackpotResultOverlay(gameState) {
     isFadingOut = false
     clearParticles()
     container.removeChildren()
+    
+    // Disable skip functionality
+    disableSkip()
+    
+    // Clean up click overlay
+    if (clickOverlay) {
+      clickOverlay.off('pointerdown', handleOverlayClick)
+      clickOverlay.destroy()
+      clickOverlay = null
+    }
     
     // Clean up video
     if (bgVideo) {
@@ -351,11 +436,13 @@ export function createJackpotResultOverlay(gameState) {
    * Build/rebuild for canvas resize
    */
   function build(canvasWidth, canvasHeight) {
-    if (container.visible && background) {
-      // Rebuild background for new size
-      background.clear()
-      background.rect(0, 0, canvasWidth, canvasHeight)
-      background.fill({ color: 0x000000, alpha: 0.8 })
+    if (container.visible) {
+      // Rebuild clickable overlay for new size
+      if (clickOverlay) {
+        clickOverlay.clear()
+        clickOverlay.rect(0, 0, canvasWidth, canvasHeight)
+        clickOverlay.fill({ color: 0x000000, alpha: 0.001 })
+      }
 
       // Reposition and rescale video sprite
       if (videoSprite && bgVideo) {

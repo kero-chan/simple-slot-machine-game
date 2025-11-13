@@ -16,104 +16,50 @@ export function createJackpotVideoOverlay() {
   let isPlaying = false
   let onCompleteCallback = null
   let videoElement = null
-  let skipButton = null
-  let skipButtonTimeout = null
+  let canSkip = false // Flag to allow skipping after 2 seconds
+  let skipEnableTimeout = null
 
   /**
-   * Create skip button element
+   * Enable skip after 2 seconds
    */
-  function createSkipButton() {
-    if (!skipButton) {
-      skipButton = document.createElement('button')
-      skipButton.textContent = '点击退出视频'
-      skipButton.style.position = 'fixed'
-      skipButton.style.left = '50%'
-      skipButton.style.transform = 'translateX(-50%)'
-      skipButton.style.padding = '12px 30px'
-      skipButton.style.fontSize = '18px'
-      skipButton.style.fontWeight = 'bold'
-      skipButton.style.color = '#ffffff'
-      skipButton.style.backgroundColor = 'rgba(255, 215, 0, 0.9)'
-      skipButton.style.border = '2px solid #ffffff'
-      skipButton.style.borderRadius = '40px'
-      skipButton.style.cursor = 'pointer'
-      skipButton.style.zIndex = '10000'
-      skipButton.style.display = 'none'
-      skipButton.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.5)'
-      skipButton.style.transition = 'all 0.3s ease'
-      skipButton.style.fontFamily = 'Arial, sans-serif'
-      skipButton.style.whiteSpace = 'nowrap'
-      skipButton.style.minWidth = 'auto'
-      skipButton.style.maxWidth = '90vw'
-      
-      // Mobile responsive styles - use vh for viewport-relative positioning
-      const isMobile = window.innerWidth <= 768
-      if (isMobile) {
-        skipButton.style.fontSize = '14px'
-        skipButton.style.padding = '8px 20px'
-        skipButton.style.bottom = '5vh' // 5% from bottom of viewport
-        skipButton.style.borderRadius = '30px'
-      } else {
-        skipButton.style.bottom = '8vh' // 8% from bottom of viewport
-      }
-      
-      // Hover effect
-      skipButton.addEventListener('mouseenter', () => {
-        skipButton.style.backgroundColor = 'rgba(255, 215, 0, 1)'
-        skipButton.style.transform = 'translateX(-50%) scale(1.05)'
-      })
-      
-      skipButton.addEventListener('mouseleave', () => {
-        skipButton.style.backgroundColor = 'rgba(255, 215, 0, 0.9)'
-        skipButton.style.transform = 'translateX(-50%) scale(1)'
-      })
-      
-      // Click handler
-      skipButton.addEventListener('click', () => {
-        console.log('⏭️ Skip button clicked')
-        hide()
-      })
-      
-      document.body.appendChild(skipButton)
-    }
-    return skipButton
-  }
-
-  /**
-   * Show skip button after delay
-   */
-  function showSkipButtonAfterDelay() {
+  function enableSkipAfterDelay() {
     // Clear any existing timeout
-    if (skipButtonTimeout) {
-      clearTimeout(skipButtonTimeout)
+    if (skipEnableTimeout) {
+      clearTimeout(skipEnableTimeout)
     }
     
-    // Show button after 2 seconds
-    skipButtonTimeout = setTimeout(() => {
-      const btn = createSkipButton()
-      if (btn && isPlaying) {
-        btn.style.display = 'block'
-        console.log('✅ Skip button shown')
+    canSkip = false
+    
+    // Enable skip after 2 seconds
+    skipEnableTimeout = setTimeout(() => {
+      if (isPlaying) {
+        canSkip = true
+        console.log('✅ Video can now be skipped by clicking')
       }
     }, 2000) // 2 seconds
   }
 
   /**
-   * Hide skip button
+   * Disable skip and clear timeout
    */
-  function hideSkipButton() {
-    if (skipButtonTimeout) {
-      clearTimeout(skipButtonTimeout)
-      skipButtonTimeout = null
-    }
+  function disableSkip() {
+    canSkip = false
     
-    if (skipButton) {
-      skipButton.style.display = 'none'
-      // Also remove from DOM to ensure it's completely hidden
-      if (skipButton.parentNode) {
-        skipButton.parentNode.removeChild(skipButton)
-      }
-      skipButton = null
+    if (skipEnableTimeout) {
+      clearTimeout(skipEnableTimeout)
+      skipEnableTimeout = null
+    }
+  }
+
+  /**
+   * Handle click on video to skip
+   */
+  function handleVideoClick(event) {
+    if (canSkip && isPlaying) {
+      console.log('⏭️ Video clicked - skipping')
+      hide()
+    } else {
+      console.log('⏸️ Video clicked but skip not yet enabled')
     }
   }
 
@@ -136,7 +82,12 @@ export function createJackpotVideoOverlay() {
         videoElement.style.zIndex = '9999'
         videoElement.style.backgroundColor = 'transparent'
         videoElement.style.display = 'none' // Hidden until needed
+        videoElement.style.cursor = 'pointer' // Show pointer to indicate clickable
         videoElement.playsInline = true
+        
+        // Add click event listener
+        videoElement.addEventListener('click', handleVideoClick)
+        
         console.log('✅ Jackpot video ready from preloaded assets')
       } else {
         console.warn('❌ Jackpot video not found in preloaded assets')
@@ -186,8 +137,8 @@ export function createJackpotVideoOverlay() {
       hide()
     })
 
-    // Show skip button after 2 seconds
-    showSkipButtonAfterDelay()
+    // Enable skip after 2 seconds
+    enableSkipAfterDelay()
   }
 
   /**
@@ -197,8 +148,8 @@ export function createJackpotVideoOverlay() {
     container.visible = false
     isPlaying = false
 
-    // Hide skip button
-    hideSkipButton()
+    // Disable skip functionality
+    disableSkip()
 
     // Hide video but keep it preloaded for next time
     if (videoElement) {
