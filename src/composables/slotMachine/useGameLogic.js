@@ -178,8 +178,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     }
 
     // CRITICAL: Enforce bonus limits in the landing area of each strip
-    // This ensures reels land with valid bonus counts (max 1 per column)
+    // This ensures reels land with valid bonus counts (configurable max per column)
     // so we don't need to modify tiles after the reel stops
+    const maxBonusPerColumn = CONFIG.game.maxBonusPerColumn || 2
     for (let col = 0; col < cols; col++) {
       const strip = gridState.reelStrips[col]
 
@@ -196,9 +197,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           }
         }
 
-        // If more than 1 bonus in this window, replace extras
-        if (bonusPositions.length > 1) {
-          for (let i = 1; i < bonusPositions.length; i++) {
+        // If more than max bonus in this window, replace extras
+        if (bonusPositions.length > maxBonusPerColumn) {
+          for (let i = maxBonusPerColumn; i < bonusPositions.length; i++) {
             const { idx, gridRow } = bonusPositions[i]
             const visualRow = gridRow - BUFFER_OFFSET
             strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
@@ -634,8 +635,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (isBonusTile(tile)) bonusCountInVisibleRows++
       }
 
+      const maxBonusPerColumn = CONFIG.game.maxBonusPerColumn || 2
       for (let i = 0; i < needFromBuffer; i++) {
-        const allowBonus = bonusCountInVisibleRows < 1
+        const allowBonus = bonusCountInVisibleRows < maxBonusPerColumn
         const newSymbol = getRandomSymbol({ col, allowGold: true, allowBonus })
         newColumn.push(newSymbol)
         if (isBonusTile(newSymbol)) {
