@@ -32,9 +32,9 @@ export function createJackpotVideoOverlay() {
         videoElement.style.left = '0'
         videoElement.style.width = '100%'
         videoElement.style.height = '100%'
-        videoElement.style.objectFit = 'cover'
+        videoElement.style.objectFit = 'contain'
         videoElement.style.zIndex = '9999'
-        videoElement.style.backgroundColor = '#000'
+        videoElement.style.backgroundColor = 'transparent'
         videoElement.style.display = 'none' // Hidden until needed
         videoElement.playsInline = true
         console.log('✅ Jackpot video ready from preloaded assets')
