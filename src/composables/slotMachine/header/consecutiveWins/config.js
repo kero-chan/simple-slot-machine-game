@@ -47,6 +47,55 @@ export const CONSECUTIVE_WINS_CONFIG = {
     iconScale: 1,
     iconRotation: 0,
   },
+  // Auto-spin mode multipliers (x2, x4, x6, x10)
+  x2_auto_default: {
+    iconAsset: 'i65_x2',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x2_auto_active: {
+    iconAsset: 'i64_x2',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x4_auto_default: {
+    iconAsset: 'i65_x4',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x4_auto_active: {
+    iconAsset: 'i64_x4',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x6_auto_default: {
+    iconAsset: 'i65_x6',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x6_auto_active: {
+    iconAsset: 'i64_x6',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x10_auto_default: {
+    iconAsset: 'i65_x10',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
+  x10_auto_active: {
+    iconAsset: 'i64_x10',
+    icon: { x: -1, y: -1, w: -1, h: -1 },
+    iconScale: 1,
+    iconRotation: 0,
+  },
   page_title: {
     iconAsset: 'i58_03',
     icon: { x: -1, y: -1, w: -1, h: -1 },

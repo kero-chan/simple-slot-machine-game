@@ -14,6 +14,7 @@
     "@pixi/core": "^7.4.3",
     "@pixi/filter-blur": "^7.4.3",
     "@pixi/filter-glow": "^5.2.1",
+    "gsap": "^3.13.0",
     "pinia": "^3.0.4",
     "pixi-filters": "^6.1.4",
     "pixi.js": "^8.14.0",

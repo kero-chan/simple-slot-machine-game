@@ -97,7 +97,10 @@ export const ASSETS = {
     game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,
     consecutive_wins_2x: new URL('../assets/audio/consecutive_wins/2x.mp3', import.meta.url).href,
     consecutive_wins_3x: new URL('../assets/audio/consecutive_wins/3x.mp3', import.meta.url).href,
+    consecutive_wins_4x: new URL('../assets/audio/consecutive_wins/4x.mp3', import.meta.url).href,
     consecutive_wins_5x: new URL('../assets/audio/consecutive_wins/5x.mp3', import.meta.url).href,
+    consecutive_wins_6x: new URL('../assets/audio/consecutive_wins/6x.mp3', import.meta.url).href,
+    consecutive_wins_10x: new URL('../assets/audio/consecutive_wins/10x.mp3', import.meta.url).href,
     // Win sounds for specific symbols
     win_bai: new URL('../assets/audio/wins/bai.mp3', import.meta.url).href,
     win_zhong: new URL('../assets/audio/wins/zhong.mp3', import.meta.url).href,
