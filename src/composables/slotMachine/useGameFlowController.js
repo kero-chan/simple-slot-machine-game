@@ -194,10 +194,22 @@ export function useGameFlowController(gameLogic, gridState, render) {
       // Log wins during free spins (silent accumulation)
       if (gameStore.inFreeSpinMode) {
         console.log(`💎 Free spin win: ${multipliedWays} (multiplier: ${gameStore.currentMultiplier}x) | Total so far: ${gameStore.accumulatedWinAmount}`)
+        
+        // Play consecutive win sound for free spin mode
+        gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins, true)
+        
+        // Play win sound for symbol combinations
+        if (gameStore.consecutiveWins > 0) {
+          setTimeout(() => {
+            gameLogic.playWinSound(wins)
+          }, 500);
+        } else {
+          gameLogic.playWinSound(wins)
+        }
       } else {
         // Normal mode - play sounds
         // Play consecutive win sound (multiplier sound)
-        gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins)
+        gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins, false)
 
         // Play win sound for symbol combinations
         if (gameStore.consecutiveWins > 0) {

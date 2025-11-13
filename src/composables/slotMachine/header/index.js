@@ -11,6 +11,7 @@ export function useHeader(gameState) {
   let app = null; // Store PIXI app reference
   let isTransitioning = false; // Track if transition is in progress
   let lastAutoSpinState = false; // Track previous auto-spin state
+  let headerRect = { x: 0, y: 0, w: 0, h: 0 }; // Store header dimensions
 
   function getConfiguredTexture(configKey) {
     const config = CONSECUTIVE_WINS_CONFIG[configKey];
@@ -132,6 +133,9 @@ export function useHeader(gameState) {
     multiplierSprites = [];
     multiplierBackgrounds = [];
     const { x, y, w, h } = rect;
+
+    // Store header dimensions for later use
+    headerRect = { x, y, w, h };
 
     // Initialize lastAutoSpinState to current state
     lastAutoSpinState = gameState.inFreeSpinMode?.value || false;
@@ -285,6 +289,7 @@ export function useHeader(gameState) {
     // - Gap between multipliers: 6% of header width
     const defaultMultiplierWidth = w * 0.13; // 13% width for default
     const activeMultiplierWidth = w * 0.13; // 18% width for active
+    const x10MultiplierWidth = w * 0.18; // 18% width for x10 (larger)
     const gapWidth = w * 0.055; // 5% gap between multipliers
 
     // Determine current active multiplier
@@ -295,7 +300,16 @@ export function useHeader(gameState) {
     let totalContentWidth = (multipliers.length - 1) * gapWidth;
     for (const mult of multipliers) {
       const isActive = mult === displayedMult;
-      totalContentWidth += isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      const isX10 = mult === 10;
+      let itemWidth;
+      if (isX10) {
+        itemWidth = x10MultiplierWidth;
+      } else if (isActive) {
+        itemWidth = activeMultiplierWidth;
+      } else {
+        itemWidth = defaultMultiplierWidth;
+      }
+      totalContentWidth += itemWidth;
     }
     
     // Start position to center the group horizontally
@@ -307,9 +321,18 @@ export function useHeader(gameState) {
     for (let i = 0; i < multipliers.length; i++) {
       const mult = multipliers[i];
       const isActive = mult === displayedMult; // Only the current multiplier is active
+      const isX10 = mult === 10;
 
-      // Get width based on active state
-      const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      // Get width based on active state and multiplier value
+      let multiplierWidth;
+      if (isX10) {
+        multiplierWidth = x10MultiplierWidth;
+      } else if (isActive) {
+        multiplierWidth = activeMultiplierWidth;
+      } else {
+        multiplierWidth = defaultMultiplierWidth;
+      }
+      
       const centerX = currentX + multiplierWidth / 2;
       const centerY = bg02Y + bg02Height / 2 + 4; // Center within bg_02 area
 
@@ -414,6 +437,7 @@ export function useHeader(gameState) {
     // Layout configuration (same as build)
     const defaultMultiplierWidth = w * 0.13; // 13% width for default
     const activeMultiplierWidth = w * 0.13; // 18% width for active
+    const x10MultiplierWidth = w * 0.18; // 18% width for x10 (larger)
 
     // Estimate bg02Height for spriteHeight calculation
     const bg02Height = h * 0.5; // Approximate
@@ -433,6 +457,7 @@ export function useHeader(gameState) {
     for (const item of multiplierSprites) {
       const { sprite, multiplier } = item;
       const isActive = multiplier === displayedMult; // Only the current multiplier is active
+      const isX10 = multiplier === 10;
 
       // Add active status background if this multiplier is active
       if (isActive) {
@@ -446,8 +471,8 @@ export function useHeader(gameState) {
           // Set blend mode to 'screen' for better blending with dark background
           bgSprite.blendMode = 'screen';
           
-          // Get width based on active state
-          const multiplierWidth = activeMultiplierWidth;
+          // Get width based on multiplier value
+          const multiplierWidth = isX10 ? x10MultiplierWidth : (isActive ? activeMultiplierWidth : defaultMultiplierWidth);
           
           // Scale background to fit the multiplier area (slightly larger for effect)
           // Calculate base scale to fit the multiplier, then multiply by 1.5 for larger effect
@@ -479,8 +504,15 @@ export function useHeader(gameState) {
           const baseWidth = texture.width * configScale;
           const baseHeight = texture.height * configScale;
 
-          // Get width based on active state (important!)
-          const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+          // Get width based on multiplier value and active state
+          let multiplierWidth;
+          if (isX10) {
+            multiplierWidth = x10MultiplierWidth;
+          } else if (isActive) {
+            multiplierWidth = activeMultiplierWidth;
+          } else {
+            multiplierWidth = defaultMultiplierWidth;
+          }
           const maxWidth = multiplierWidth;
           const maxHeight = spriteHeight;
 
@@ -494,7 +526,8 @@ export function useHeader(gameState) {
         }
       } else if (sprite instanceof Text) {
         // Update text color and size for fallback
-        const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+        const isX10 = multiplier === 10;
+        const multiplierWidth = isX10 ? x10MultiplierWidth : (isActive ? activeMultiplierWidth : defaultMultiplierWidth);
         sprite.style.fill = isActive ? 0xffd04d : 0x666666;
         sprite.style.fontSize = Math.floor(Math.min(multiplierWidth, spriteHeight) * 0.4);
       }
@@ -509,8 +542,8 @@ export function useHeader(gameState) {
     const isAutoSpin = gameState.inFreeSpinMode?.value || false;
     console.log('   Mode:', isAutoSpin ? 'AUTO-SPIN (x2,x4,x6,x10)' : 'NORMAL (x1,x2,x3,x5)');
 
-    // Get current container bounds for rebuilding
-    const containerBounds = container.getBounds();
+    // Use stored header dimensions instead of containerBounds
+    const rect = { ...headerRect };
     
     // Fade out current multipliers
     const oldSprites = [...multiplierSprites];
@@ -540,14 +573,7 @@ export function useHeader(gameState) {
 
     // Wait a bit then rebuild and fade in new multipliers
     setTimeout(() => {
-      const rect = {
-        x: 0,
-        y: 0,
-        w: containerBounds.width,
-        h: containerBounds.height
-      };
-      
-      // Rebuild just the multipliers section
+      // Rebuild just the multipliers section using stored header dimensions
       rebuildMultipliers(rect);
       
       // Animate in new multipliers
@@ -609,6 +635,7 @@ export function useHeader(gameState) {
     console.log('   Multipliers:', multipliers);
     const defaultMultiplierWidth = w * 0.13;
     const activeMultiplierWidth = w * 0.13;
+    const x10MultiplierWidth = w * 0.18; // 18% width for x10 (larger)
     const gapWidth = w * 0.055;
     
     const currentConsecutiveWins = gameState.consecutiveWins?.value || 0;
@@ -618,7 +645,16 @@ export function useHeader(gameState) {
     let totalContentWidth = (multipliers.length - 1) * gapWidth;
     for (const mult of multipliers) {
       const isActive = mult === displayedMult;
-      totalContentWidth += isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      const isX10 = mult === 10;
+      let itemWidth;
+      if (isX10) {
+        itemWidth = x10MultiplierWidth;
+      } else if (isActive) {
+        itemWidth = activeMultiplierWidth;
+      } else {
+        itemWidth = defaultMultiplierWidth;
+      }
+      totalContentWidth += itemWidth;
     }
     
     let currentX = x + (w - totalContentWidth) / 2;
@@ -627,7 +663,18 @@ export function useHeader(gameState) {
     for (let i = 0; i < multipliers.length; i++) {
       const mult = multipliers[i];
       const isActive = mult === displayedMult;
-      const multiplierWidth = isActive ? activeMultiplierWidth : defaultMultiplierWidth;
+      const isX10 = mult === 10;
+      
+      // Get width based on multiplier value and active state
+      let multiplierWidth;
+      if (isX10) {
+        multiplierWidth = x10MultiplierWidth;
+      } else if (isActive) {
+        multiplierWidth = activeMultiplierWidth;
+      } else {
+        multiplierWidth = defaultMultiplierWidth;
+      }
+      
       const centerX = currentX + multiplierWidth / 2;
       const centerY = bg02Y + bg02Height / 2 + 4;
       
