@@ -1,6 +1,27 @@
 import { ref } from 'vue'
 import { ASSETS } from '../config/assets'
 
+/**
+ * Get preloaded audio or create new one if not preloaded
+ */
+function getAudio(audioKey) {
+  const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
+
+  if (preloadedAudio) {
+    // Clone the preloaded audio element
+    return preloadedAudio.cloneNode()
+  }
+
+  // Fallback
+  console.warn(`Audio "${audioKey}" not preloaded, loading from path`)
+  const audioPath = ASSETS.audioPaths?.[audioKey]
+  if (audioPath) {
+    return new Audio(audioPath)
+  }
+
+  return null
+}
+
 export function useBackgroundMusic() {
   const currentAudio = ref(null)
   const isPlaying = ref(false)
@@ -44,20 +65,27 @@ export function useBackgroundMusic() {
   // Play a random background noise
   const playRandomNoise = () => {
     if (!isPlaying.value || document.hidden) return
-    
+
     try {
       const noises = ASSETS.audioPaths.background_noises
       if (!noises || noises.length === 0) return
-      
+
       // Pick a random noise
       const randomIndex = Math.floor(Math.random() * noises.length)
-      const noiseAudio = new Audio(noises[randomIndex])
+
+      // Use preloaded audio (indexed as background_noises_0, background_noises_1, etc.)
+      const noiseAudio = getAudio(`background_noises_${randomIndex}`)
+      if (!noiseAudio) {
+        console.warn('Background noise not found')
+        return
+      }
+
       noiseAudio.volume = 0.7 // 70% volume for background noise
-      
+
       noiseAudio.addEventListener('error', (e) => {
-        console.error('Error loading background noise:', e)
+        console.error('Error playing background noise:', e)
       })
-      
+
       noiseAudio.play().catch(err => {
         console.warn('Failed to play background noise:', err)
       })
@@ -90,30 +118,35 @@ export function useBackgroundMusic() {
   // Start playing background music
   const start = () => {
     if (isPlaying.value) return
-    
+
     // Add visibility listener only once
     if (!visibilityListenerAdded) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
       visibilityListenerAdded = true
     }
-    
+
     try {
-      const audio = new Audio(ASSETS.audioPaths.background_music)
-      audio.volume = 0.5 // Set volume to 100% (adjust as needed)
+      // Use preloaded audio
+      const audio = getAudio('background_music')
+      if (!audio) {
+        console.warn('Background music not found')
+        return
+      }
+
+      audio.volume = 0.5 // Set volume to 50%
       audio.loop = true // Loop the audio infinitely
-      audio.preload = 'auto'
-      
+
       currentAudio.value = audio
-      
+
       // Handle errors
       audio.addEventListener('error', (e) => {
-        console.error('Error loading audio:', e)
+        console.error('Error playing audio:', e)
       })
-      
+
       audio.play().catch(err => {
         console.warn('Failed to play audio (autoplay may be blocked):', err)
       })
-      
+
       isPlaying.value = true
 
       // Play game start sound after 2 seconds
@@ -133,13 +166,19 @@ export function useBackgroundMusic() {
   // Play game start sound effect
   const playGameStartSound = () => {
     try {
-      const gameStartAudio = new Audio(ASSETS.audioPaths.game_start)
+      // Use preloaded audio
+      const gameStartAudio = getAudio('game_start')
+      if (!gameStartAudio) {
+        console.warn('Game start audio not found')
+        return
+      }
+
       gameStartAudio.volume = 0.6 // Slightly louder for effect
-      
+
       gameStartAudio.addEventListener('error', (e) => {
-        console.error('Error loading game start audio:', e)
+        console.error('Error playing game start audio:', e)
       })
-      
+
       gameStartAudio.play().catch(err => {
         console.warn('Failed to play game start audio:', err)
       })

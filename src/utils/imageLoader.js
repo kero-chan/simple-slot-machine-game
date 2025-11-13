@@ -2,51 +2,90 @@ import { Assets, Texture } from 'pixi.js'
 import { ASSETS } from '../config/assets'
 
 /**
- * Preload video element
+ * Preload video element - downloads entire video into memory
  */
-function preloadVideo(src) {
-  return new Promise((resolve) => {
+async function preloadVideo(src) {
+  try {
+    console.log('📹 Downloading video:', src)
+
+    // Fetch the video file completely
+    const response = await fetch(src)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video: ${response.statusText}`)
+    }
+
+    // Get video as blob
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+
+    console.log(`✅ Video downloaded (${(blob.size / 1024 / 1024).toFixed(2)} MB)`)
+
+    // Create video element with blob URL
     const video = document.createElement('video')
-    video.src = src
+    video.src = blobUrl
     video.preload = 'auto'
     video.style.display = 'none'
+    video.playsInline = true
 
-    video.addEventListener('loadeddata', () => {
-      console.log('✅ Video preloaded:', src)
-      resolve(video)
-    })
-
-    video.addEventListener('error', (e) => {
-      console.error('❌ Video preload error:', e)
-      resolve(null)
-    })
-
-    // Add to DOM to trigger loading
+    // Add to DOM
     document.body.appendChild(video)
-  })
+
+    // Wait for video to be ready
+    return new Promise((resolve) => {
+      video.addEventListener('loadeddata', () => {
+        console.log('✅ Video ready for playback')
+        resolve(video)
+      })
+
+      video.addEventListener('error', (e) => {
+        console.error('❌ Video element error:', e)
+        resolve(null)
+      })
+    })
+  } catch (error) {
+    console.error('❌ Video preload failed:', error)
+    return null
+  }
 }
 
 /**
- * Preload audio element
+ * Preload audio element - downloads entire audio into memory
  */
-function preloadAudio(src) {
-  return new Promise((resolve) => {
+async function preloadAudio(src) {
+  try {
+    // Fetch the audio file completely
+    const response = await fetch(src)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.statusText}`)
+    }
+
+    // Get audio as blob
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+
+    // Create audio element with blob URL
     const audio = new Audio()
-    audio.src = src
+    audio.src = blobUrl
     audio.preload = 'auto'
 
-    audio.addEventListener('canplaythrough', () => {
-      resolve(audio)
-    })
+    // Wait for audio to be ready
+    return new Promise((resolve) => {
+      audio.addEventListener('canplaythrough', () => {
+        resolve(audio)
+      })
 
-    audio.addEventListener('error', (e) => {
-      console.error('❌ Audio preload error:', e)
-      resolve(null)
-    })
+      audio.addEventListener('error', (e) => {
+        console.error('❌ Audio element error:', e)
+        resolve(null)
+      })
 
-    // Start loading
-    audio.load()
-  })
+      // Start loading from blob
+      audio.load()
+    })
+  } catch (error) {
+    console.error('❌ Audio preload failed:', error)
+    return null
+  }
 }
 
 export async function loadAllAssets(onProgress = null) {
@@ -89,6 +128,7 @@ export async function loadAllAssets(onProgress = null) {
   }
 
   // Register assets with Pixi's asset loader
+  console.log(`📸 Preparing ${entries.length} image(s)...`)
   for (const [alias, src] of entries) {
     try {
       Assets.add({ alias, src })
@@ -97,7 +137,9 @@ export async function loadAllAssets(onProgress = null) {
     }
   }
 
-  // Load all assets by alias with progress tracking
+  // Load all images by alias with progress tracking
+  // Pixi Assets.load() downloads full images and caches them as textures in memory
+  console.log(`📸 Downloading ${entries.length} image(s)...`)
   let loaded = {}
   try {
     loaded = await Assets.load(entries.map(([alias]) => alias), (progress) => {
@@ -105,8 +147,9 @@ export async function loadAllAssets(onProgress = null) {
       const currentLoaded = Math.floor(progress * totalAssets)
       if (onProgress) onProgress(currentLoaded, totalAssets)
     })
+    console.log(`✅ All images downloaded and cached`)
   } catch (error) {
-    console.error('Failed to load assets:', error)
+    console.error('Failed to load images:', error)
   }
 
   // Normalize and store textures into ASSETS.loadedImages
@@ -149,11 +192,13 @@ export async function loadAllAssets(onProgress = null) {
   }
 
   // Load audio files
-  console.log(`🔊 Loading ${audioEntries.length} audio file(s)...`)
+  console.log(`🔊 Downloading ${audioEntries.length} audio file(s)...`)
   for (const [alias, src] of audioEntries) {
     try {
       const audioElement = await preloadAudio(src)
-      ASSETS.loadedAudios[alias] = audioElement
+      if (audioElement) {
+        ASSETS.loadedAudios[alias] = audioElement
+      }
       loadedCount++
 
       // Report progress after each audio is loaded

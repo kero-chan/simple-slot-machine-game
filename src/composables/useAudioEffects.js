@@ -1,5 +1,30 @@
 import { ASSETS } from "../config/assets";
 
+/**
+ * Get preloaded audio or create new one if not preloaded
+ * Uses blob URL from preloaded audio to avoid network requests
+ */
+function getAudio(audioKey) {
+  // Try to get preloaded audio
+  const preloadedAudio = ASSETS.loadedAudios?.[audioKey];
+
+  if (preloadedAudio) {
+    // Clone the preloaded audio element
+    // This reuses the same blob URL without making network requests
+    const audio = preloadedAudio.cloneNode();
+    return audio;
+  }
+
+  // Fallback: create from path (shouldn't happen if preload works)
+  console.warn(`Audio "${audioKey}" not preloaded, loading from path`);
+  const audioPath = ASSETS.audioPaths?.[audioKey];
+  if (audioPath) {
+    return new Audio(audioPath);
+  }
+
+  return null;
+}
+
 export function useAudioEffects() {
   // Store reference to the winning announcement audio for loop control
   let winningAnnouncementAudio = null;
@@ -10,18 +35,17 @@ export function useAudioEffects() {
     stopWinningAnnouncement();
 
     try {
-      const audioPath = ASSETS.audioPaths.winning_announcement;
-      if (!audioPath) {
-        console.warn("Winning announcement audio path not found");
+      winningAnnouncementAudio = getAudio('winning_announcement');
+      if (!winningAnnouncementAudio) {
+        console.warn("Winning announcement audio not found");
         return;
       }
 
-      winningAnnouncementAudio = new Audio(audioPath);
       winningAnnouncementAudio.volume = 0.7; // 70% volume
       winningAnnouncementAudio.loop = true; // Loop the audio
 
       winningAnnouncementAudio.addEventListener("error", (e) => {
-        console.error("Error loading winning announcement audio:", e);
+        console.error("Error playing winning announcement audio:", e);
       });
 
       winningAnnouncementAudio.play().catch((err) => {
@@ -105,13 +129,18 @@ export function useAudioEffects() {
     }
 
     // Play the selected audio
-    if (audioKey && ASSETS.audioPaths[audioKey]) {
+    if (audioKey) {
       try {
-        const audio = new Audio(ASSETS.audioPaths[audioKey]);
+        const audio = getAudio(audioKey);
+        if (!audio) {
+          console.warn(`Win audio "${audioKey}" not found`);
+          return;
+        }
+
         audio.volume = 0.9; // 90% volume for win sounds
 
         audio.addEventListener("error", (e) => {
-          console.error(`Error loading win audio (${audioKey}):`, e);
+          console.error(`Error playing win audio (${audioKey}):`, e);
         });
 
         audio.play().catch((err) => {
@@ -140,11 +169,16 @@ export function useAudioEffects() {
     if (!audioKey) return;
 
     try {
-      const audio = new Audio(ASSETS.audioPaths[audioKey]);
+      const audio = getAudio(audioKey);
+      if (!audio) {
+        console.warn(`Consecutive wins audio "${audioKey}" not found`);
+        return;
+      }
+
       audio.volume = 0.6; // 60% volume for effect sounds
 
       audio.addEventListener("error", (e) => {
-        console.error(`Error loading consecutive wins audio (${audioKey}):`, e);
+        console.error(`Error playing consecutive wins audio (${audioKey}):`, e);
       });
 
       audio.play().catch((err) => {
@@ -160,11 +194,16 @@ export function useAudioEffects() {
 
   const playEffect = (effect) => {
     try {
-      const audio = new Audio(ASSETS.audioPaths[effect]);
+      const audio = getAudio(effect);
+      if (!audio) {
+        console.warn(`Effect audio "${effect}" not found`);
+        return;
+      }
+
       audio.volume = 0.6; // 60% volume for effect sounds
 
       audio.addEventListener("error", (e) => {
-        console.error(`Error loading effect audio (${effect}):`, e);
+        console.error(`Error playing effect audio (${effect}):`, e);
       });
 
       audio.play().catch((err) => {
