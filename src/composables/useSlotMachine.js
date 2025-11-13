@@ -5,7 +5,7 @@ import { useRenderer } from './slotMachine/useRenderer'
 import { useGameLogic } from './slotMachine/useGameLogic'
 import { useGameFlowController } from './slotMachine/useGameFlowController'
 import { loadAllAssets } from '../utils/imageLoader'
-import { useGameStore } from '../stores/gameStore'
+import { useGameStore, GAME_STATES } from '../stores/gameStore'
 import { useGridStore } from '../stores/gridStore'
 
 export function useSlotMachine(canvasRef) {
@@ -54,6 +54,32 @@ export function useSlotMachine(canvasRef) {
           nextTick(() => {
             renderer.render()
           })
+        }
+      })
+
+      // Watch for free spin auto-roll
+      let freeSpinAutoSpinScheduled = false
+
+      watch(() => gameStore.gameFlowState, (newState, oldState) => {
+        // When FREE_SPINS_ACTIVE state is entered, schedule auto-spin
+        if (newState === GAME_STATES.FREE_SPINS_ACTIVE &&
+            gameStore.inFreeSpinMode &&
+            gameStore.freeSpins > 0 &&
+            !freeSpinAutoSpinScheduled) {
+
+          freeSpinAutoSpinScheduled = true
+          console.log('🎰 Scheduling free spin auto-roll...')
+
+          // Wait for state to settle, then spin
+          setTimeout(() => {
+            freeSpinAutoSpinScheduled = false
+            if (gameStore.inFreeSpinMode &&
+                gameStore.freeSpins > 0 &&
+                gameStore.gameFlowState === GAME_STATES.IDLE) {
+              console.log('🎰 Auto-spinning! Remaining:', gameStore.freeSpins)
+              gameLogic.spin()
+            }
+          }, 1500)
         }
       })
     } catch (err) {

@@ -6,6 +6,9 @@ export const GAME_STATES = {
   IDLE: 'idle',
   SPINNING: 'spinning',
   SPIN_COMPLETE: 'spin_complete',
+  CHECKING_BONUS: 'checking_bonus',
+  SHOWING_BONUS_OVERLAY: 'showing_bonus_overlay',
+  FREE_SPINS_ACTIVE: 'free_spins_active',
   CHECKING_WINS: 'checking_wins',
   NO_WINS: 'no_wins',
   HIGHLIGHTING_WINS: 'highlighting_wins',
@@ -83,12 +86,20 @@ export const useGameStore = defineStore('game', {
 
     startSpinCycle() {
       if (this.gameFlowState !== GAME_STATES.IDLE) return false
-      if (this.credits < this.bet) return false
 
-      this.credits -= this.bet
+      // Free spin mode doesn't deduct credits but decrements free spins
+      if (this.inFreeSpinMode) {
+        if (this.freeSpins <= 0) return false
+        this.freeSpins--  // Decrement free spins count
+      } else {
+        if (this.credits < this.bet) return false
+        this.credits -= this.bet
+        // Only reset accumulated amount in normal mode
+        this.accumulatedWinAmount = 0
+        this.allWinsThisSpin = []
+      }
+
       this.currentWin = 0
-      this.accumulatedWinAmount = 0
-      this.allWinsThisSpin = []
       this.consecutiveWins = 0
       this.currentWins = null
 
@@ -104,9 +115,45 @@ export const useGameStore = defineStore('game', {
       this.isSpinning = false
     },
 
+    startCheckingBonus() {
+      if (this.gameFlowState !== GAME_STATES.SPIN_COMPLETE) return
+      this.transitionTo(GAME_STATES.CHECKING_BONUS)
+    },
+
+    setBonusResults(bonusCount) {
+      if (bonusCount >= CONFIG.game.minBonusToTrigger) {
+        const freeSpinsAwarded = CONFIG.game.freeSpinsPerScatter
+        this.addFreeSpins(freeSpinsAwarded)
+        this.transitionTo(GAME_STATES.SHOWING_BONUS_OVERLAY)
+      } else {
+        this.transitionTo(GAME_STATES.CHECKING_WINS)
+      }
+    },
+
+    completeBonusOverlay() {
+      if (this.gameFlowState !== GAME_STATES.SHOWING_BONUS_OVERLAY) return
+      this.enterFreeSpinMode()
+      // Reset accumulated amount when starting free spins
+      this.accumulatedWinAmount = 0
+      this.allWinsThisSpin = []
+      this.transitionTo(GAME_STATES.FREE_SPINS_ACTIVE)
+    },
+
+    startFreeSpinRound() {
+      if (!this.inFreeSpinMode) return false
+      if (this.freeSpins <= 0) {
+        this.exitFreeSpinMode()
+        return false
+      }
+
+      this.freeSpins--
+      return true
+    },
+
     startCheckingWins() {
       if (this.gameFlowState !== GAME_STATES.SPIN_COMPLETE &&
-          this.gameFlowState !== GAME_STATES.WAITING_AFTER_CASCADE) return
+          this.gameFlowState !== GAME_STATES.WAITING_AFTER_CASCADE &&
+          this.gameFlowState !== GAME_STATES.CHECKING_BONUS) return
       this.transitionTo(GAME_STATES.CHECKING_WINS)
     },
 
@@ -155,15 +202,33 @@ export const useGameStore = defineStore('game', {
     completeNoWins() {
       if (this.gameFlowState !== GAME_STATES.NO_WINS) return
 
-      if (this.accumulatedWinAmount > 0) {
-        this.transitionTo(GAME_STATES.SHOWING_WIN_OVERLAY)
+      // During free spins, skip win overlay and continue spinning
+      if (this.inFreeSpinMode) {
+        if (this.freeSpins > 0) {
+          // Continue to next free spin
+          this.transitionTo(GAME_STATES.FREE_SPINS_ACTIVE)
+        } else {
+          // All free spins done - show total accumulated wins
+          if (this.accumulatedWinAmount > 0) {
+            console.log('💰 FREE SPINS COMPLETE! Total win:', this.accumulatedWinAmount)
+            this.transitionTo(GAME_STATES.SHOWING_WIN_OVERLAY)
+          } else {
+            this.endSpinCycle()
+          }
+        }
       } else {
-        this.endSpinCycle()
+        // Normal mode - show overlay for this spin's wins
+        if (this.accumulatedWinAmount > 0) {
+          this.transitionTo(GAME_STATES.SHOWING_WIN_OVERLAY)
+        } else {
+          this.endSpinCycle()
+        }
       }
     },
 
     completeWinOverlay() {
       if (this.gameFlowState !== GAME_STATES.SHOWING_WIN_OVERLAY) return
+      // Win overlay shown - always end the cycle (free spins are done at this point)
       this.endSpinCycle()
     },
 
@@ -171,6 +236,11 @@ export const useGameStore = defineStore('game', {
       if (this.accumulatedWinAmount > 0) {
         this.credits += this.accumulatedWinAmount
         this.currentWin = this.accumulatedWinAmount
+      }
+
+      // Exit free spin mode if no spins left
+      if (this.inFreeSpinMode && this.freeSpins <= 0) {
+        this.exitFreeSpinMode()
       }
 
       this.transitionTo(GAME_STATES.IDLE)

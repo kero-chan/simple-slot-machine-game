@@ -6,8 +6,12 @@ import { useFooter } from './footer'
 import { ASSETS } from '../../config/assets'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
+import { createBonusOverlay } from './overlay/bonusOverlay'
+import { createFreeSpinsCountdown } from './overlay/freeSpinsCountdown'
+import { createFreeSpinResultOverlay } from './overlay/freeSpinResultOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
-import { useGameStore } from '../../stores/gameStore'
+import { useGameStore, GAME_STATES } from '../../stores/gameStore'
+import { watch } from 'vue'
 
 export function useRenderer(canvasState, gameState, gridState, controls) {
     // Composables
@@ -23,6 +27,9 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let glowOverlay = null
     let winningSparkles = null
     let winOverlay = null
+    let bonusOverlay = null
+    let freeSpinsCountdown = null
+    let freeSpinResultOverlay = null
 
     // Track last layout for rebuilds
     let lastW = 0
@@ -84,6 +91,9 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             glowOverlay = useGlowOverlay(gameState, gridState)
             winningSparkles = createWinningSparkles()
             winOverlay = createWinOverlay(gameState)
+            bonusOverlay = createBonusOverlay(gameState)
+            freeSpinsCountdown = createFreeSpinsCountdown()
+            freeSpinResultOverlay = createFreeSpinResultOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
             }
@@ -93,7 +103,38 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(glowOverlay.container)
             root.addChild(winningSparkles.container)
             root.addChild(footer.container)
+            root.addChild(freeSpinsCountdown.container)
             root.addChild(winOverlay.container)
+            root.addChild(freeSpinResultOverlay.container)
+            root.addChild(bonusOverlay.container)
+
+            // Watch for bonus overlay state
+            watch(() => gameStore.gameFlowState, (newState) => {
+                const w = canvasState.canvasWidth.value
+                const h = canvasState.canvasHeight.value
+
+                if (newState === GAME_STATES.SHOWING_BONUS_OVERLAY && bonusOverlay) {
+                    const freeSpinsCount = gameStore.freeSpins
+                    bonusOverlay.show(freeSpinsCount, w, h, () => {
+                        gameStore.completeBonusOverlay()
+                    })
+                }
+
+                if (newState === GAME_STATES.FREE_SPINS_ACTIVE && freeSpinsCountdown) {
+                    freeSpinsCountdown.show(gameStore.freeSpins, w, h)
+                }
+
+                if (newState === GAME_STATES.IDLE && gameStore.inFreeSpinMode === false && freeSpinsCountdown) {
+                    freeSpinsCountdown.hide()
+                }
+            })
+
+            // Watch for free spins count changes
+            watch(() => gameStore.freeSpins, (newCount) => {
+                if (freeSpinsCountdown && freeSpinsCountdown.isShowing()) {
+                    freeSpinsCountdown.updateCount(newCount)
+                }
+            })
         }
 
         // Initialize consecutive wins composed textures (removed from here - will be called after asset loading)
@@ -167,6 +208,30 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                     gameStore.hideWinOverlay()
                 }
             }
+
+            // Update bonus overlay animation
+            if (bonusOverlay) {
+                bonusOverlay.update(timestamp)
+                if (resized && bonusOverlay.container.visible) {
+                    bonusOverlay.build(w, h)
+                }
+            }
+
+            // Update free spins countdown
+            if (freeSpinsCountdown) {
+                freeSpinsCountdown.update(timestamp)
+                if (resized && freeSpinsCountdown.container.visible) {
+                    freeSpinsCountdown.build(w, h)
+                }
+            }
+
+            // Update free spin result overlay
+            if (freeSpinResultOverlay) {
+                freeSpinResultOverlay.update(timestamp)
+                if (resized && freeSpinResultOverlay.container.visible) {
+                    freeSpinResultOverlay.build(w, h)
+                }
+            }
         }
     }
 
@@ -225,9 +290,16 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
     // Expose win overlay for game logic to trigger
     const showWinOverlay = (intensity, amount) => {
-        if (winOverlay) {
-            const w = canvasState.canvasWidth.value
-            const h = canvasState.canvasHeight.value
+        const w = canvasState.canvasWidth.value
+        const h = canvasState.canvasHeight.value
+
+        // Show different overlay based on whether we're in free spin mode
+        if (gameStore.inFreeSpinMode && freeSpinResultOverlay) {
+            // Free spin mode - show free spin result overlay
+            freeSpinResultOverlay.show(amount, w, h)
+            gameStore.showWinOverlay()
+        } else if (winOverlay) {
+            // Normal mode - show regular win overlay
             winOverlay.show(intensity, amount, w, h)
             gameStore.showWinOverlay()
         }

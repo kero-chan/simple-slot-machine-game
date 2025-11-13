@@ -40,8 +40,35 @@ export function useGameFlowController(gameLogic, gridState, render) {
             break
 
           case GAME_STATES.SPIN_COMPLETE:
-            // Spin animation finished, start checking for wins
-            gameStore.startCheckingWins()
+            // Spin animation finished
+            // Only check for bonus tiles if NOT already in free spin mode
+            if (gameStore.inFreeSpinMode) {
+              // Skip bonus check during free spins, go directly to win checking
+              gameStore.startCheckingWins()
+            } else {
+              // Normal spin - check for bonus tiles
+              gameStore.startCheckingBonus()
+            }
+            break
+
+          case GAME_STATES.CHECKING_BONUS:
+            // Check for bonus tiles
+            await handleCheckBonus()
+            break
+
+          case GAME_STATES.SHOWING_BONUS_OVERLAY:
+            // Show bonus overlay (will be handled by the overlay component)
+            handleShowBonusOverlay()
+            break
+
+          case GAME_STATES.FREE_SPINS_ACTIVE:
+            // Free spins auto-roll is handled by watch in useSlotMachine
+            // Transition to IDLE after a short delay to allow the watch to detect the state
+            setTimeout(() => {
+              if (gameStore.gameFlowState === GAME_STATES.FREE_SPINS_ACTIVE) {
+                gameStore.transitionTo(GAME_STATES.IDLE)
+              }
+            }, 100)
             break
 
           case GAME_STATES.CHECKING_WINS:
@@ -103,6 +130,16 @@ export function useGameFlowController(gameLogic, gridState, render) {
 
   // ========== State Handlers ==========
 
+  const handleCheckBonus = async () => {
+    const bonusCount = gameLogic.checkBonusTiles()
+    gameStore.setBonusResults(bonusCount)
+  }
+
+  const handleShowBonusOverlay = () => {
+    // The overlay will be shown by the main game composable
+    // When user clicks "Start", it will call completeBonusOverlay
+  }
+
   const handleCheckWins = async () => {
     const wins = gameLogic.findWinningCombinations()
 
@@ -114,16 +151,22 @@ export function useGameFlowController(gameLogic, gridState, render) {
       // Add to accumulated total
       gameStore.addWinAmount(multipliedWays)
 
-      // Play consecutive win sound (multiplier sound)
-      gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins)
-
-      // Play win sound for symbol combinations
-      if (gameStore.consecutiveWins > 0) {
-        setTimeout(() => {
-          gameLogic.playWinSound(wins)
-        }, 500);
+      // Log wins during free spins (silent accumulation)
+      if (gameStore.inFreeSpinMode) {
+        console.log(`💎 Free spin win: ${multipliedWays} (multiplier: ${gameStore.currentMultiplier}x) | Total so far: ${gameStore.accumulatedWinAmount}`)
       } else {
-        gameLogic.playWinSound(wins)
+        // Normal mode - play sounds
+        // Play consecutive win sound (multiplier sound)
+        gameLogic.playConsecutiveWinSound(gameStore.consecutiveWins)
+
+        // Play win sound for symbol combinations
+        if (gameStore.consecutiveWins > 0) {
+          setTimeout(() => {
+            gameLogic.playWinSound(wins)
+          }, 500);
+        } else {
+          gameLogic.playWinSound(wins)
+        }
       }
     }
 
