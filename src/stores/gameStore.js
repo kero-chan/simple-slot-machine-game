@@ -43,6 +43,9 @@ export const useGameStore = defineStore('game', {
     inFreeSpinMode: false,
     gameSound: true,
 
+    // Anticipation mode (near-miss feature for bonus tiles)
+    anticipationMode: false,
+
     // UI state
     showStartScreen: true,
     animationComplete: false,
@@ -110,6 +113,7 @@ export const useGameStore = defineStore('game', {
       this.currentWin = 0
       this.consecutiveWins = 0
       this.currentWins = null
+      this.anticipationMode = false  // Reset anticipation mode at start of spin
 
       this.transitionTo(GAME_STATES.SPINNING)
       this.isSpinning = true
@@ -375,6 +379,15 @@ export const useGameStore = defineStore('game', {
       this.gameSound = !this.gameSound
     },
 
+    // Anticipation mode controls
+    activateAnticipationMode() {
+      this.anticipationMode = true
+    },
+
+    deactivateAnticipationMode() {
+      this.anticipationMode = false
+    },
+
     // Reset game
     resetGame() {
       this.credits = CONFIG.game.initialCredits
@@ -390,6 +403,7 @@ export const useGameStore = defineStore('game', {
       this.accumulatedWinAmount = 0
       this.gameSound = true
       this.allWinsThisSpin = []
+      this.anticipationMode = false
     }
   }
 })

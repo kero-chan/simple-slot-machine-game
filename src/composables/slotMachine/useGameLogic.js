@@ -153,6 +153,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
+    // Anticipation mode extra slowdown duration (configurable in timingStore)
+    const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION
+
     // Build reel strips - START with current grid to prevent visual snap
     // Then add random symbols where the reel will land
     for (let col = 0; col < cols; col++) {
@@ -219,14 +222,58 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     gridState.reelTopIndex = Array(cols).fill(0)
     gridState.spinOffsets = Array(cols).fill(0)
     gridState.spinVelocities = Array(cols).fill(10) // High initial velocity
+    gridState.activeSlowdownColumn = -1 // Reset active slowdown column
 
     // Track which columns have been explicitly stopped
     const stoppedColumns = new Set()
+
+    // Track the FIRST column that stopped with a bonus tile (triggers anticipation)
+    let firstBonusColumn = -1 // -1 means no bonus column detected yet
+
+    // Track which column is currently in slowdown phase (only ONE at a time!)
+    let currentSlowdownColumn = -1 // -1 means no column is slowing down
+    let slowdownActivated = false // Track if we've played the sound for this column
+
+    // Store the fixed effective duration for each column (calculated ONCE, used forever)
+    const columnDurations = new Map()
+
+    // Store the reset start time for each slowdown column
+    const columnSlowdownStartTimes = new Map()
+
+    // Helper: Check if a column has bonus tiles in visible rows
+    const hasBonusTilesInColumn = (col) => {
+      for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
+        const cell = gridState.grid[col][row]
+        if (isBonusTile(cell)) {
+          return true
+        }
+      }
+      return false
+    }
 
     return new Promise(resolve => {
       const animate = () => {
         const now = Date.now()
         let allStopped = true
+
+        // Expose current slowdown column to gridState for renderer
+        gridState.activeSlowdownColumn = currentSlowdownColumn
+
+        // Check for anticipation mode on every frame
+        // Activate when ANY column stops with a bonus tile (the FIRST one to do so)
+        // This creates anticipation since 3 bonus tiles total trigger jackpot!
+        // BUT: Skip anticipation mode during free spins (keep free spins fast and exciting!)
+        if (!gameStore.anticipationMode && !gameStore.inFreeSpinMode && firstBonusColumn === -1) {
+          // Check all stopped columns to find the first one with bonus tiles
+          for (const stoppedCol of stoppedColumns) {
+            if (hasBonusTilesInColumn(stoppedCol)) {
+              firstBonusColumn = stoppedCol
+              gameStore.activateAnticipationMode()
+              console.log(`🎰 ANTICIPATION MODE ACTIVATED! Column ${firstBonusColumn} has bonus tile (first bonus detected)`)
+              break
+            }
+          }
+        }
 
         for (let col = 0; col < cols; col++) {
           const colStart = startTime + col * stagger
@@ -241,7 +288,76 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           }
 
           const elapsed = now - colStart
-          const t = Math.min(elapsed / baseDuration, 1)
+
+          // Determine which column should be slowing down
+          // Only apply slowdown logic to columns AFTER the first bonus column
+          let effectiveDuration = baseDuration
+
+          if (gameStore.anticipationMode && firstBonusColumn >= 0 && col > firstBonusColumn) {
+            // This column is AFTER the trigger column, so it's eligible for slowdown
+
+            // Find the last stopped column that's after the first bonus column
+            const stoppedAfterBonus = Array.from(stoppedColumns).filter(c => c > firstBonusColumn)
+            const lastStoppedAfterBonus = stoppedAfterBonus.length > 0 ? Math.max(...stoppedAfterBonus) : firstBonusColumn
+            const nextColumnToSlowdown = lastStoppedAfterBonus + 1
+
+            // CRITICAL: If this column is NOT the next one to slow down, keep it spinning!
+            // This creates the sequential stop effect: only ONE column slows at a time
+            if (col !== nextColumnToSlowdown) {
+              // This column needs to wait - keep spinning at NORMAL FAST speed
+              allStopped = false
+
+              // Keep the reel spinning continuously by advancing position
+              const spinSpeed = 0.5 // Tiles per frame (adjust for speed)
+              const currentTop = gridState.reelTopIndex[col]
+              const currentOffset = gridState.spinOffsets[col]
+              const stripLength = gridState.reelStrips[col].length
+
+              // Advance position and wrap around
+              let newPosition = currentTop + currentOffset + spinSpeed
+              const newTopIndex = Math.floor(newPosition) % stripLength
+              const newOffset = newPosition - Math.floor(newPosition)
+
+              gridState.reelTopIndex[col] = newTopIndex
+              gridState.spinOffsets[col] = newOffset
+              gridState.spinVelocities[col] = spinSpeed // Show it's spinning fast
+
+              continue // Skip to next column
+            }
+
+            // Check if this column should be the active slowdown column
+            if (col === nextColumnToSlowdown && currentSlowdownColumn !== col) {
+              currentSlowdownColumn = col
+              slowdownActivated = false
+              // RESET START TIME for this column's slowdown phase
+              columnSlowdownStartTimes.set(col, now)
+              // Set consistent slowdown duration for ALL columns
+              columnDurations.set(col, baseDuration + anticipationExtraDuration)
+              console.log(`🎯 Column ${col} is now the ACTIVE SLOWDOWN COLUMN (last stopped after bonus: ${lastStoppedAfterBonus})`)
+              console.log(`🎰 Column ${col} entering DRAMATIC slowdown phase! Duration set to ${columnDurations.get(col)}ms`)
+              playEffect("reach_bonus")
+            }
+
+            // Calculate effective duration based on whether THIS column is the active slowdown column
+            if (currentSlowdownColumn === col) {
+              // Use the stored duration (calculated once, never changes)
+              effectiveDuration = columnDurations.get(col)
+            }
+          }
+
+          // Recalculate elapsed time if this column has a reset start time (slowdown phase)
+          let actualElapsed = elapsed
+          if (columnSlowdownStartTimes.has(col)) {
+            actualElapsed = now - columnSlowdownStartTimes.get(col)
+          }
+
+          const t = Math.min(actualElapsed / effectiveDuration, 1)
+
+          // Log spin state every 500ms for debugging
+          if (Math.floor(actualElapsed / 500) !== Math.floor((actualElapsed - 16) / 500)) {
+            const isActiveSlowdown = currentSlowdownColumn === col
+            console.log(`[Col ${col}] elapsed=${actualElapsed.toFixed(0)}ms, effectiveDuration=${effectiveDuration}ms, t=${t.toFixed(2)}, isActiveSlowdown=${isActiveSlowdown}, firstBonus=${firstBonusColumn}`)
+          }
 
           // Get target position for this column (always start from 0)
           const startIndex = 0
@@ -249,7 +365,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const totalDistance = targetIndex // Distance from 0 to target
 
           // Apply easing function for more realistic slowdown
-          const easedT = 1 - Math.pow(1 - t, 3.5)
+          // Using power 2.0 for smooth, natural deceleration (lower = smoother)
+          const easedT = 1 - Math.pow(1 - t, 2.0)
 
           // Calculate how far we should have traveled by now
           const distanceTraveled = totalDistance * easedT
@@ -263,6 +380,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const isAtTarget = t >= 1 || distanceToTarget < 0.01
 
           if (isAtTarget) {
+            console.log(`✅ Column ${col} STOPPED at t=${t.toFixed(2)}, elapsed=${actualElapsed.toFixed(0)}ms, effectiveDuration=${effectiveDuration}ms`)
             // CRITICAL FIX: Don't change reelTop when stopping!
             // Keep reelTop at its current position to avoid visual jump
             // The renderer was showing strip[currentReelTop + row], so grid must match exactly
@@ -282,6 +400,14 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
             // Now safe to set velocity to 0 (renderer will switch to grid)
             gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
+
+            // Clear current slowdown column if this was the active one
+            // Highlight should only show on SLOWING DOWN column, not stopped columns
+            if (currentSlowdownColumn === col) {
+              currentSlowdownColumn = -1
+              gridState.activeSlowdownColumn = -1
+            }
+
             continue
           }
 
@@ -307,7 +433,16 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // All reels stopped - trigger reactivity
+          // All reels stopped - deactivate anticipation mode to remove dark mask
+          if (gameStore.anticipationMode) {
+            gameStore.deactivateAnticipationMode()
+            console.log('🎯 Anticipation mode deactivated - removing dark mask')
+          }
+
+          // Reset active slowdown column
+          gridState.activeSlowdownColumn = -1
+
+          // Trigger reactivity
           // Note: Bonus limits are now enforced per-column as each reel stops
           gridState.grid = [...gridState.grid.map(col => [...col])]
           resolve()

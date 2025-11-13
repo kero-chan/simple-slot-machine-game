@@ -39,3 +39,4 @@ logs/
 # assets/*.gif
 .claude
 logs.txt
+spec.txt
