@@ -1,7 +1,7 @@
 .PHONY: docker-build docker-push release
 
 DOCKER_REGISTRY ?= us-west1-docker.pkg.dev/ornate-time-270711/docker
-DOCKER_IMAGE_NAME ?= slot-machine-game
+DOCKER_IMAGE_NAME ?= mahjong
 COMMIT_SHA := $(shell git rev-parse HEAD)
 NAMESPACE ?= ebisu-games-stg
 CONTEXT ?= gke_ornate-time-270711_asia-east1_w2e-dev
@@ -17,4 +17,4 @@ docker-push: docker-build
 
 release: docker-push
 	kubectl config use-context $(CONTEXT)
-	kubectl set image deployment/slot-machine-game slot-machine-game=$(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(COMMIT_SHA) -n $(NAMESPACE)
+	kubectl set image deployment/mahjong mahjong=$(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(COMMIT_SHA) -n $(NAMESPACE)
