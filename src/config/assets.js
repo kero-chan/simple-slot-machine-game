@@ -27,7 +27,9 @@ export const ASSETS = {
     win_small: new URL('../assets/slotMachine/winAnnouncements/small.png', import.meta.url).href,
     win_grand: new URL('../assets/slotMachine/winAnnouncements/grand.png', import.meta.url).href,
     win_mega: new URL('../assets/slotMachine/winAnnouncements/mega.png', import.meta.url).href,
+    win_megagrand: new URL('../assets/slotMachine/winAnnouncements/mega_grand.png', import.meta.url).href,
     win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href,
+    jackpot_begin_bg: new URL('../assets/slotMachine/winAnnouncements/jackpot_begin_bg.png', import.meta.url).href,
     win_gold: new URL('../assets/slotMachine/winAnnouncements/gold.png', import.meta.url).href,
 
     // New icons
@@ -101,7 +103,7 @@ export const ASSETS = {
     win_bawan: new URL('../assets/audio/wins/bawan.mp3', import.meta.url).href,
     win_all_boy: new URL('../assets/audio/wins/all_boy_sound.mp3', import.meta.url).href,
     win_all_girl: new URL('../assets/audio/wins/all_girl_sound.mp3', import.meta.url).href,
-    win_jackpot: new URL('../assets/audio/wins/jackpot.mp3', import.meta.url).href,
+    win_megagrand: new URL('../assets/audio/wins/jackpot.mp3', import.meta.url).href,
     winning_announcement: new URL('../assets/audio/wins/winning_announcement.mp3', import.meta.url).href,
     background_noises: [
       new URL('../assets/audio/background_noise/noise_1.mp3', import.meta.url).href,

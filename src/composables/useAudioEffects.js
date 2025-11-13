@@ -59,7 +59,7 @@ export function useAudioEffects() {
     });
 
     if (hasJackpot) {
-      audioKey = "win_jackpot";
+      audioKey = "win_megagrand";
     } else {
       // Check for all boy (fa, zhong, bai, bawan)
       const boySymbols = ["fa", "zhong", "bai", "bawan"];

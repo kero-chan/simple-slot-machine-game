@@ -16,7 +16,7 @@ export function createBonusOverlay(gameState) {
   container.zIndex = 1100 // Above win overlay
 
   let background = null
-  let bgRedOverlay = null
+  let bgImage = null  // Fullscreen jackpot_begin_bg image
   let titleText = null
   let freeSpinsNumberText = null
   let messageText = null
@@ -25,6 +25,8 @@ export function createBonusOverlay(gameState) {
   let animationStartTime = 0
   let isAnimating = false
   let onStartCallback = null
+  let canvasWidth = 600
+  let canvasHeight = 800
 
   // Particle system for coins
   const particlesContainer = new Container()
@@ -113,7 +115,9 @@ export function createBonusOverlay(gameState) {
   /**
    * Show the bonus trigger overlay
    */
-  function show(freeSpinsCount, canvasWidth, canvasHeight, onStart) {
+  function show(freeSpinsCount, cWidth, cHeight, onStart) {
+    canvasWidth = cWidth
+    canvasHeight = cHeight
     container.visible = true
     isAnimating = true
     animationStartTime = Date.now()
@@ -125,33 +129,65 @@ export function createBonusOverlay(gameState) {
     // Clear previous content
     container.removeChildren()
 
-    // Create semi-transparent black background
+    // Create dark background first
     background = new Graphics()
     background.rect(0, 0, canvasWidth, canvasHeight)
-    background.fill({ color: 0x000000, alpha: 0.85 })
+    background.fill({ color: 0x000000, alpha: 0.7 })
     container.addChild(background)
 
-    // Create red overlay background
-    bgRedOverlay = new Graphics()
-    bgRedOverlay.rect(0, 0, canvasWidth, canvasHeight)
-    bgRedOverlay.fill({ color: 0xcc0000, alpha: 0.3 })
-    container.addChild(bgRedOverlay)
+    // Use jackpot_begin_bg image as FULLSCREEN background
+    let bgImageLoaded = false
+    try {
+      const imageSrc = ASSETS.loadedImages?.jackpot_begin_bg || ASSETS.imagePaths?.jackpot_begin_bg
+
+      if (imageSrc) {
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        bgImage = new Sprite(texture)
+        bgImage.anchor.set(0.5)
+        bgImage.x = canvasWidth / 2
+        bgImage.y = canvasHeight / 2
+
+        // Scale to cover entire canvas (fullscreen)
+        const scaleX = canvasWidth / bgImage.width
+        const scaleY = canvasHeight / bgImage.height
+        const scale = Math.max(scaleX, scaleY) // Cover entire screen
+        bgImage.scale.set(scale)
+
+        container.addChild(bgImage)
+        bgImageLoaded = true
+        console.log('✅ Jackpot begin fullscreen image loaded')
+      } else {
+        console.warn('❌ No imageSrc found for jackpot_begin_bg')
+      }
+    } catch (error) {
+      console.warn('Failed to load jackpot_begin_bg image:', error)
+    }
+
+    // If image failed to load, use colored background fallback
+    if (!bgImageLoaded) {
+      const fallbackBg = new Graphics()
+      fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
+      fallbackBg.fill({ color: 0x8B0000, alpha: 0.95 })  // Dark red fallback
+      container.addChild(fallbackBg)
+    }
 
     // Create title text (congratulations message in Chinese)
     const titleStyle = {
       fontFamily: 'Arial Black, sans-serif',
-      fontSize: 60,
+      fontSize: 70,
       fontWeight: 'bold',
-      fill: ['#4eff4e', '#2ecc71'],
-      fillGradientStops: [0, 1],
-      stroke: { color: 0x000000, width: 6 },
+      fill: ['#ffff66', '#ffeb3b', '#ffd700'],  // Bright gold gradient
+      fillGradientStops: [0, 0.5, 1],
+      stroke: { color: '#8B4513', width: 8 },  // Brown stroke for contrast
       dropShadow: {
-        color: 0x00ff00,
-        blur: 10,
+        color: 0xff6600,  // Orange glow
+        blur: 20,
         angle: Math.PI / 6,
-        distance: 0
+        distance: 0,
+        alpha: 0.8
       },
-      align: 'center'
+      align: 'center',
+      letterSpacing: 3
     }
 
     titleText = new Text({
@@ -160,26 +196,28 @@ export function createBonusOverlay(gameState) {
     })
     titleText.anchor.set(0.5)
     titleText.x = canvasWidth / 2
-    titleText.y = canvasHeight / 2 - 180
+    titleText.y = canvasHeight / 2 - 200
     container.addChild(titleText)
 
-    // Create large number showing free spins count
+    // Create large number showing free spins count - HUGE and dramatic
     const numberStyle = {
       fontFamily: 'Impact, sans-serif',
-      fontSize: 200,
+      fontSize: 280,  // Much bigger!
       fontWeight: '900',
-      fill: ['#fff066', '#ffd700', '#ffed4e'],
-      fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#5c3a00', width: 10 },
+      fill: ['#ffff99', '#ffd700', '#ffed4e', '#ffa500'],  // Rich gold gradient
+      fillGradientStops: [0, 0.3, 0.6, 1],
+      stroke: { color: '#8B4513', width: 12 },  // Thick brown outline
       dropShadow: {
-        color: 0x000000,
-        blur: 8,
+        color: 0xff4500,  // Orange-red glow
+        blur: 25,
         angle: Math.PI / 4,
-        distance: 5,
-        alpha: 0.6
+        distance: 0,
+        alpha: 0.9
       },
       align: 'center',
-      letterSpacing: 8
+      letterSpacing: 10,
+      trim: false,
+      padding: 20
     }
 
     freeSpinsNumberText = new Text({
@@ -188,16 +226,26 @@ export function createBonusOverlay(gameState) {
     })
     freeSpinsNumberText.anchor.set(0.5)
     freeSpinsNumberText.x = canvasWidth / 2
-    freeSpinsNumberText.y = canvasHeight / 2
+    freeSpinsNumberText.y = canvasHeight / 2 + 20  // Slightly lower
     container.addChild(freeSpinsNumberText)
 
-    // Create message text (in Chinese)
+    // Create message text (in Chinese) - enhanced
     const messageStyle = {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: 32,
-      fill: 0xffeb3b,
-      stroke: { color: 0x000000, width: 3 },
-      align: 'center'
+      fontFamily: 'Arial Black, sans-serif',
+      fontSize: 38,
+      fontWeight: 'bold',
+      fill: ['#ffeb3b', '#ffd700'],  // Gold gradient
+      fillGradientStops: [0, 1],
+      stroke: { color: '#5c3a1a', width: 4 },  // Brown stroke
+      dropShadow: {
+        color: 0x000000,
+        blur: 8,
+        angle: Math.PI / 4,
+        distance: 3,
+        alpha: 0.7
+      },
+      align: 'center',
+      letterSpacing: 1
     }
 
     messageText = new Text({
@@ -206,28 +254,45 @@ export function createBonusOverlay(gameState) {
     })
     messageText.anchor.set(0.5)
     messageText.x = canvasWidth / 2
-    messageText.y = canvasHeight / 2 + 120
+    messageText.y = canvasHeight / 2 + 180
     container.addChild(messageText)
 
-    // Create start button
-    const buttonWidth = 200
-    const buttonHeight = 70
+    // Create start button - more prominent and beautiful
+    const buttonWidth = 250
+    const buttonHeight = 80
     startButton = new Graphics()
-    startButton.roundRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, 15)
-    startButton.fill({ color: 0xcc0000 })
-    startButton.stroke({ color: 0xffd700, width: 4 })
+    startButton.roundRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, 20)
+    startButton.fill({ color: 0xdc143c })  // Crimson red
+    startButton.stroke({ color: 0xffd700, width: 5 })  // Thick gold border
     startButton.x = canvasWidth / 2
-    startButton.y = canvasHeight / 2 + 200
+    startButton.y = canvasHeight / 2 + 280
     startButton.eventMode = 'static'
     startButton.cursor = 'pointer'
-    container.addChild(startButton)
 
-    // Start button text
+    // Add inner glow effect to button
+    const buttonGlow = new Graphics()
+    buttonGlow.roundRect(-buttonWidth / 2 + 5, -buttonHeight / 2 + 5, buttonWidth - 10, buttonHeight - 10, 15)
+    buttonGlow.stroke({ color: 0xff6347, width: 2, alpha: 0.6 })
+    buttonGlow.x = startButton.x
+    buttonGlow.y = startButton.y
+    container.addChild(startButton)
+    container.addChild(buttonGlow)
+
+    // Start button text - larger and more dramatic
     const buttonTextStyle = {
       fontFamily: 'Arial Black, sans-serif',
-      fontSize: 36,
+      fontSize: 48,
       fontWeight: 'bold',
-      fill: 0xffffff,
+      fill: ['#ffffff', '#ffff99'],  // White to light yellow
+      fillGradientStops: [0, 1],
+      stroke: { color: 0x8B0000, width: 3 },
+      dropShadow: {
+        color: 0x000000,
+        blur: 6,
+        angle: Math.PI / 4,
+        distance: 2,
+        alpha: 0.8
+      },
       align: 'center'
     }
 
@@ -257,9 +322,9 @@ export function createBonusOverlay(gameState) {
       hide()
     })
 
-    // Add particles container and spawn coins
+    // Add particles container and spawn MORE coins for celebration!
     container.addChild(particlesContainer)
-    spawnParticles(canvasWidth, canvasHeight, 100)
+    spawnParticles(canvasWidth, canvasHeight, 200)  // Double the particles for more excitement!
   }
 
   /**
@@ -283,15 +348,39 @@ export function createBonusOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Pulse animation for the free spins number
-    if (freeSpinsNumberText) {
-      const pulse = 1 + Math.sin(elapsed * 3) * 0.1
-      freeSpinsNumberText.scale.set(pulse)
+    // Subtle pulse animation for background image
+    if (bgImage && bgImage.texture) {
+      const scaleX = canvasWidth / bgImage.texture.width
+      const scaleY = canvasHeight / bgImage.texture.height
+      const baseScale = Math.max(scaleX, scaleY)
+      const pulse = baseScale * (1 + Math.sin(elapsed * 1.2) * 0.02)  // Very subtle pulse
+      bgImage.scale.set(pulse)
     }
 
-    // Gently pulse the start button
+    // Pulse animation for the title - gentle float effect
+    if (titleText) {
+      const titlePulse = 1 + Math.sin(elapsed * 2) * 0.05
+      titleText.scale.set(titlePulse)
+      titleText.y = (canvasHeight / 2 - 200) + Math.sin(elapsed * 1.5) * 8  // Gentle float
+    }
+
+    // BIGGER pulse animation for the free spins number - more dramatic!
+    if (freeSpinsNumberText) {
+      const pulse = 1 + Math.sin(elapsed * 3) * 0.15  // Bigger pulse
+      freeSpinsNumberText.scale.set(pulse)
+      // Add rotation for extra drama
+      freeSpinsNumberText.rotation = Math.sin(elapsed * 2) * 0.05
+    }
+
+    // Message text gentle pulse
+    if (messageText) {
+      const msgPulse = 1 + Math.sin(elapsed * 2.5) * 0.03
+      messageText.scale.set(msgPulse)
+    }
+
+    // Gently pulse the start button with more emphasis
     if (startButton && startButtonText) {
-      const buttonPulse = 1 + Math.sin(elapsed * 2) * 0.05
+      const buttonPulse = 1 + Math.sin(elapsed * 2.5) * 0.08  // More visible pulse
       startButton.scale.set(buttonPulse)
       startButtonText.scale.set(buttonPulse)
     }
@@ -300,39 +389,46 @@ export function createBonusOverlay(gameState) {
   /**
    * Build/rebuild for canvas resize
    */
-  function build(canvasWidth, canvasHeight) {
+  function build(cWidth, cHeight) {
+    canvasWidth = cWidth
+    canvasHeight = cHeight
+
     if (container.visible && background) {
       // Rebuild background for new size
       background.clear()
       background.rect(0, 0, canvasWidth, canvasHeight)
-      background.fill({ color: 0x000000, alpha: 0.85 })
+      background.fill({ color: 0x000000, alpha: 0.7 })
 
-      if (bgRedOverlay) {
-        bgRedOverlay.clear()
-        bgRedOverlay.rect(0, 0, canvasWidth, canvasHeight)
-        bgRedOverlay.fill({ color: 0xcc0000, alpha: 0.3 })
+      // Reposition and rescale fullscreen jackpot_begin_bg image
+      if (bgImage && bgImage.texture) {
+        bgImage.x = canvasWidth / 2
+        bgImage.y = canvasHeight / 2
+        const scaleX = canvasWidth / bgImage.texture.width
+        const scaleY = canvasHeight / bgImage.texture.height
+        const scale = Math.max(scaleX, scaleY)
+        bgImage.scale.set(scale)
       }
 
       // Reposition elements
       if (titleText) {
         titleText.x = canvasWidth / 2
-        titleText.y = canvasHeight / 2 - 180
+        titleText.y = canvasHeight / 2 - 200
       }
       if (freeSpinsNumberText) {
         freeSpinsNumberText.x = canvasWidth / 2
-        freeSpinsNumberText.y = canvasHeight / 2
+        freeSpinsNumberText.y = canvasHeight / 2 + 20
       }
       if (messageText) {
         messageText.x = canvasWidth / 2
-        messageText.y = canvasHeight / 2 + 120
+        messageText.y = canvasHeight / 2 + 180
       }
       if (startButton) {
         startButton.x = canvasWidth / 2
-        startButton.y = canvasHeight / 2 + 200
+        startButton.y = canvasHeight / 2 + 280
       }
       if (startButtonText) {
         startButtonText.x = canvasWidth / 2
-        startButtonText.y = canvasHeight / 2 + 200
+        startButtonText.y = canvasHeight / 2 + 280
       }
     }
   }

@@ -25,6 +25,7 @@ export function createWinOverlay(gameState) {
   let currentIntensity = 'small'
   let targetAmount = 0  // Final amount to display
   let currentDisplayAmount = 0  // Current animated amount
+  let isFadingOut = false
 
   // Particle system for chaotic gold particles
   const particlesContainer = new Container()
@@ -151,7 +152,7 @@ export function createWinOverlay(gameState) {
         scale: 1.2,
         glowColor: 0xffd700,
         useImage: true,
-        imageKey: 'win_jackpot'
+        imageKey: 'win_megagrand'
       }
     }
 
@@ -166,7 +167,9 @@ export function createWinOverlay(gameState) {
     const config = getOverlayConfig(intensity)
 
     container.visible = true
+    container.alpha = 1 // Reset alpha
     isAnimating = true
+    isFadingOut = false
     animationStartTime = Date.now()
     targetAmount = amount
     currentDisplayAmount = 0  // Start from 0 for counter animation
@@ -193,8 +196,10 @@ export function createWinOverlay(gameState) {
         bgImage.x = canvasWidth / 2
         bgImage.y = canvasHeight / 2
 
-        // Scale bg image to full canvas width
-        const bgScale = canvasWidth / bgImage.width
+        // Scale bg image to fullscreen - fit height and cover
+        const scaleX = canvasWidth / bgImage.width
+        const scaleY = canvasHeight / bgImage.height
+        const bgScale = Math.max(scaleX, scaleY) // Cover entire screen
         bgImage.scale.set(bgScale)
 
         container.addChild(bgImage)
@@ -259,25 +264,26 @@ export function createWinOverlay(gameState) {
       container.addChild(titleText)
     }
 
-    // Amount text styling - decorative bold font with gradient
+    // Amount text styling - decorative bold font with gold gradient and golden borders
     const amountStyle = {
       fontFamily: 'Impact, Haettenschweiler, "Franklin Gothic Bold", Charcoal, "Helvetica Inserat", "Bitstream Vera Sans Bold", "Arial Black", sans-serif',
-      fontSize: 100,  // Even bigger
+      fontSize: 130,  // Slightly smaller to prevent cutoff
       fontWeight: '900',  // Extra bold
-      fill: ['#ffe066', '#ffd700', '#ffed4e'],  // Gold gradient
+      fill: ['#ffd700', '#ffed4e', '#ffc700'],  // Pure gold gradient
       fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#5c3a00', width: 8 },  // Dark brown/gold stroke
+      stroke: { color: '#d4af37', width: 5 },  // Thinner golden border to prevent cutoff
       dropShadow: {
-        color: '#000000',
-        blur: 4,  // Much smaller blur to avoid background box effect
+        color: '#8B7500',  // Dark gold shadow
+        blur: 3,
         angle: Math.PI / 4,
-        distance: 3,  // Closer distance
-        alpha: 0.4  // More transparent
+        distance: 2,
+        alpha: 0.6  // More visible gold shadow
       },
       align: 'center',
-      letterSpacing: 4,  // More spacing
+      letterSpacing: 4,  // Reduced spacing to prevent cutoff
       fontStyle: 'italic',  // Slight italic for dynamic look
-      trim: true  // Remove extra space around text
+      trim: false,  // Don't trim - helps prevent cutoff
+      padding: 10  // Add padding to prevent cutoff
     }
 
     amountText = new Text({
@@ -295,11 +301,21 @@ export function createWinOverlay(gameState) {
   }
 
   /**
-   * Hide the overlay
+   * Start fade out animation
+   */
+  function startFadeOut() {
+    isFadingOut = true
+    animationStartTime = Date.now() // Reset for fade animation
+  }
+
+  /**
+   * Hide the overlay (called after fade completes)
    */
   function hide() {
     container.visible = false
+    container.alpha = 1 // Reset for next show
     isAnimating = false
+    isFadingOut = false
     clearParticles()
     container.removeChildren()
 
@@ -317,6 +333,19 @@ export function createWinOverlay(gameState) {
     if (!isAnimating || !container.visible) return
 
     const elapsed = (Date.now() - animationStartTime) / 1000
+
+    // Handle fade out animation
+    if (isFadingOut) {
+      const fadeDuration = 0.5 // 500ms fade out
+      const fadeProgress = Math.min(elapsed / fadeDuration, 1)
+      container.alpha = 1 - fadeProgress
+
+      if (fadeProgress >= 1) {
+        hide()
+      }
+      return
+    }
+
     const config = getOverlayConfig(currentIntensity)
 
     // Counter animation (0 to target over 3 seconds) - slower for better readability
@@ -341,10 +370,10 @@ export function createWinOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Auto-hide 3 seconds AFTER counting is done (counterDuration + 3 = 6 seconds total to match winning sound)
-    const hideTime = counterDuration + 3
-    if (elapsed > hideTime) {
-      hide()
+    // Start fade out 3 seconds AFTER counting is done (counterDuration + 3 = 6 seconds total)
+    const displayTime = counterDuration + 3
+    if (elapsed > displayTime && !isFadingOut) {
+      startFadeOut()
     }
   }
 
@@ -359,11 +388,13 @@ export function createWinOverlay(gameState) {
       const config = getOverlayConfig(currentIntensity)
       background.fill({ color: config.bgColor, alpha: config.bgAlpha })
 
-      // Reposition bg image - full canvas width
+      // Reposition bg image - fullscreen
       if (bgImage) {
         bgImage.x = canvasWidth / 2
         bgImage.y = canvasHeight / 2
-        const bgScale = canvasWidth / bgImage.texture.width
+        const scaleX = canvasWidth / bgImage.texture.width
+        const scaleY = canvasHeight / bgImage.texture.height
+        const bgScale = Math.max(scaleX, scaleY) // Cover entire screen
         bgImage.scale.set(bgScale)
       }
 

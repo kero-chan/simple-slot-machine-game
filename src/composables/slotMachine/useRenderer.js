@@ -8,7 +8,7 @@ import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
 import { createBonusOverlay } from './overlay/bonusOverlay'
 import { createFreeSpinsCountdown } from './overlay/freeSpinsCountdown'
-import { createFreeSpinResultOverlay } from './overlay/freeSpinResultOverlay'
+import { createJackpotResultOverlay } from './overlay/jackpotResultOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
 import { useGameStore, GAME_STATES } from '../../stores/gameStore'
 import { watch } from 'vue'
@@ -29,7 +29,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let winOverlay = null
     let bonusOverlay = null
     let freeSpinsCountdown = null
-    let freeSpinResultOverlay = null
+    let jackpotResultOverlay = null
 
     // Track last layout for rebuilds
     let lastW = 0
@@ -93,7 +93,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             winOverlay = createWinOverlay(gameState)
             bonusOverlay = createBonusOverlay(gameState)
             freeSpinsCountdown = createFreeSpinsCountdown()
-            freeSpinResultOverlay = createFreeSpinResultOverlay(gameState)
+            jackpotResultOverlay = createJackpotResultOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
             }
@@ -105,7 +105,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(footer.container)
             root.addChild(freeSpinsCountdown.container)
             root.addChild(winOverlay.container)
-            root.addChild(freeSpinResultOverlay.container)
+            root.addChild(jackpotResultOverlay.container)
             root.addChild(bonusOverlay.container)
 
             // Watch for bonus overlay state
@@ -225,11 +225,11 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 }
             }
 
-            // Update free spin result overlay
-            if (freeSpinResultOverlay) {
-                freeSpinResultOverlay.update(timestamp)
-                if (resized && freeSpinResultOverlay.container.visible) {
-                    freeSpinResultOverlay.build(w, h)
+            // Update jackpot result overlay
+            if (jackpotResultOverlay) {
+                jackpotResultOverlay.update(timestamp)
+                if (resized && jackpotResultOverlay.container.visible) {
+                    jackpotResultOverlay.build(w, h)
                 }
             }
         }
@@ -293,10 +293,10 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const w = canvasState.canvasWidth.value
         const h = canvasState.canvasHeight.value
 
-        // Show different overlay based on whether we're in free spin mode
-        if (gameStore.inFreeSpinMode && freeSpinResultOverlay) {
-            // Free spin mode - show free spin result overlay
-            freeSpinResultOverlay.show(amount, w, h)
+        // Show different overlay based on whether we're in free spin mode (jackpot mode)
+        if (gameStore.inFreeSpinMode && jackpotResultOverlay) {
+            // Jackpot mode - show jackpot result overlay
+            jackpotResultOverlay.show(amount, w, h)
             gameStore.showWinOverlay()
         } else if (winOverlay) {
             // Normal mode - show regular win overlay

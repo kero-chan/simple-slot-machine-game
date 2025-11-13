@@ -5,10 +5,10 @@ import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
 
 /**
- * Creates a free spin result overlay that displays total wins after all free spins complete
- * Shows congratulatory message and total accumulated amount
+ * Creates a jackpot result overlay that displays total wins after all free spins (jackpot mode) complete
+ * Shows congratulatory message and total accumulated amount with jackpot image background
  */
-export function createFreeSpinResultOverlay(gameState) {
+export function createJackpotResultOverlay(gameState) {
   const gameStore = useGameStore()
   const { playEffect } = useAudioEffects()
   const container = new Container()
@@ -24,6 +24,9 @@ export function createFreeSpinResultOverlay(gameState) {
   let isAnimating = false
   let targetAmount = 0
   let currentDisplayAmount = 0
+  let canvasWidth = 600
+  let canvasHeight = 800
+  let isFadingOut = false
 
   // Particle system for celebration
   const particlesContainer = new Container()
@@ -110,11 +113,15 @@ export function createFreeSpinResultOverlay(gameState) {
   }
 
   /**
-   * Show the free spin result overlay
+   * Show the jackpot result overlay
    */
-  function show(totalAmount, canvasWidth, canvasHeight) {
+  function show(totalAmount, cWidth, cHeight) {
+    canvasWidth = cWidth
+    canvasHeight = cHeight
     container.visible = true
+    container.alpha = 1 // Reset alpha
     isAnimating = true
+    isFadingOut = false
     animationStartTime = Date.now()
     targetAmount = totalAmount
     currentDisplayAmount = 0
@@ -130,92 +137,67 @@ export function createFreeSpinResultOverlay(gameState) {
     // Clear previous content
     container.removeChildren()
 
-    // Create semi-transparent background with golden tint
+    // Create dark background first
     background = new Graphics()
     background.rect(0, 0, canvasWidth, canvasHeight)
-    background.fill({ color: 0x1a0a00, alpha: 0.9 })
+    background.fill({ color: 0x000000, alpha: 0.8 })
     container.addChild(background)
 
-    // Add background image
+    // Use jackpot image as FULLSCREEN background
+    let bgImageLoaded = false
     try {
-      const bgSrc = ASSETS.loadedImages?.win_bg || ASSETS.imagePaths?.win_bg
-      if (bgSrc) {
-        const bgTexture = bgSrc instanceof Texture ? bgSrc : Texture.from(bgSrc)
-        bgImage = new Sprite(bgTexture)
+      const imageSrc = ASSETS.loadedImages?.win_jackpot || ASSETS.imagePaths?.win_jackpot
+
+      if (imageSrc) {
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        bgImage = new Sprite(texture)
         bgImage.anchor.set(0.5)
         bgImage.x = canvasWidth / 2
         bgImage.y = canvasHeight / 2
 
-        const bgScale = canvasWidth / bgImage.width
-        bgImage.scale.set(bgScale)
+        // Scale to cover entire canvas (fullscreen)
+        const scaleX = canvasWidth / bgImage.width
+        const scaleY = canvasHeight / bgImage.height
+        const scale = Math.max(scaleX, scaleY) // Cover entire screen
+        bgImage.scale.set(scale)
 
         container.addChild(bgImage)
+        bgImageLoaded = true
+        console.log('✅ Jackpot fullscreen image loaded')
+      } else {
+        console.warn('❌ No imageSrc found for win_jackpot')
       }
     } catch (error) {
-      console.warn('Failed to load bg image:', error)
+      console.warn('Failed to load jackpot image:', error)
     }
 
-    // Create title text
-    const titleStyle = {
-      fontFamily: 'Arial Black, sans-serif',
-      fontSize: 70,
-      fontWeight: 'bold',
-      fill: ['#ffd700', '#ffed4e'],
-      fillGradientStops: [0, 1],
-      stroke: { color: 0x000000, width: 8 },
-      dropShadow: {
-        color: 0xffd700,
-        blur: 20,
-        angle: Math.PI / 6,
-        distance: 0
-      },
-      align: 'center'
+    // If image failed to load, use colored background
+    if (!bgImageLoaded) {
+      const fallbackBg = new Graphics()
+      fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
+      fallbackBg.fill({ color: 0x1a0a2a, alpha: 0.95 })
+      container.addChild(fallbackBg)
     }
 
-    titleText = new Text({
-      text: '免费旋转总计',  // Free Spins Total
-      style: titleStyle
-    })
-    titleText.anchor.set(0.5)
-    titleText.x = canvasWidth / 2
-    titleText.y = canvasHeight / 2 - 200
-    container.addChild(titleText)
-
-    // Message text
-    const messageStyle = {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: 36,
-      fill: 0xffeb3b,
-      stroke: { color: 0x000000, width: 3 },
-      align: 'center'
-    }
-
-    messageText = new Text({
-      text: '恭喜！您在免费旋转中赢得',  // Congratulations! You won in free spins
-      style: messageStyle
-    })
-    messageText.anchor.set(0.5)
-    messageText.x = canvasWidth / 2
-    messageText.y = canvasHeight / 2 - 120
-    container.addChild(messageText)
-
-    // Amount text - large and prominent
+    // Amount text - large and prominent for jackpot with pure gold colors
     const amountStyle = {
       fontFamily: 'Impact, sans-serif',
-      fontSize: 120,
+      fontSize: 150,  // Slightly smaller to prevent cutoff but still very large
       fontWeight: '900',
-      fill: ['#ffe066', '#ffd700', '#ffed4e'],
+      fill: ['#ffd700', '#ffed4e', '#ffc700'],  // Pure gold gradient
       fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#5c3a00', width: 10 },
+      stroke: { color: '#d4af37', width: 6 },  // Thinner golden border to prevent cutoff
       dropShadow: {
-        color: '#000000',
-        blur: 6,
+        color: '#8B7500',  // Dark gold shadow
+        blur: 3,
         angle: Math.PI / 4,
-        distance: 4,
-        alpha: 0.5
+        distance: 2,
+        alpha: 0.6  // More visible gold shadow
       },
       align: 'center',
-      letterSpacing: 6
+      letterSpacing: 6,  // Reduced spacing to prevent cutoff
+      trim: false,  // Don't trim - helps prevent cutoff
+      padding: 15  // Add padding to prevent cutoff
     }
 
     amountText = new Text({
@@ -233,11 +215,21 @@ export function createFreeSpinResultOverlay(gameState) {
   }
 
   /**
-   * Hide the overlay
+   * Start fade out animation
+   */
+  function startFadeOut() {
+    isFadingOut = true
+    animationStartTime = Date.now() // Reset for fade animation
+  }
+
+  /**
+   * Hide the overlay (called after fade completes)
    */
   function hide() {
     container.visible = false
+    container.alpha = 1 // Reset for next show
     isAnimating = false
+    isFadingOut = false
     clearParticles()
     container.removeChildren()
 
@@ -252,6 +244,18 @@ export function createFreeSpinResultOverlay(gameState) {
     if (!isAnimating || !container.visible) return
 
     const elapsed = (Date.now() - animationStartTime) / 1000
+
+    // Handle fade out animation
+    if (isFadingOut) {
+      const fadeDuration = 0.5 // 500ms fade out
+      const fadeProgress = Math.min(elapsed / fadeDuration, 1)
+      container.alpha = 1 - fadeProgress
+
+      if (fadeProgress >= 1) {
+        hide()
+      }
+      return
+    }
 
     // Counter animation (0 to target over 3 seconds)
     const counterDuration = 3
@@ -275,10 +279,13 @@ export function createFreeSpinResultOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Pulse animation for title and amount
-    if (titleText) {
-      const pulse = 1 + Math.sin(elapsed * 2) * 0.05
-      titleText.scale.set(pulse)
+    // Subtle pulse animation for fullscreen jackpot background
+    if (bgImage && bgImage.texture) {
+      const scaleX = canvasWidth / bgImage.texture.width
+      const scaleY = canvasHeight / bgImage.texture.height
+      const baseScale = Math.max(scaleX, scaleY)
+      const pulse = baseScale * (1 + Math.sin(elapsed * 1.5) * 0.03) // Subtle pulse
+      bgImage.scale.set(pulse)
     }
 
     if (amountText && elapsed >= counterDuration) {
@@ -286,10 +293,10 @@ export function createFreeSpinResultOverlay(gameState) {
       amountText.scale.set(pulse)
     }
 
-    // Auto-hide after 6 seconds total
-    const hideTime = counterDuration + 3
-    if (elapsed > hideTime) {
-      hide()
+    // Start fade out after 6 seconds total
+    const displayTime = counterDuration + 3
+    if (elapsed > displayTime && !isFadingOut) {
+      startFadeOut()
     }
   }
 
@@ -301,24 +308,16 @@ export function createFreeSpinResultOverlay(gameState) {
       // Rebuild background for new size
       background.clear()
       background.rect(0, 0, canvasWidth, canvasHeight)
-      background.fill({ color: 0x1a0a00, alpha: 0.9 })
+      background.fill({ color: 0x000000, alpha: 0.8 })
 
-      // Reposition bg image
+      // Reposition and rescale fullscreen jackpot image
       if (bgImage) {
         bgImage.x = canvasWidth / 2
         bgImage.y = canvasHeight / 2
-        const bgScale = canvasWidth / bgImage.texture.width
-        bgImage.scale.set(bgScale)
-      }
-
-      // Reposition text elements
-      if (titleText) {
-        titleText.x = canvasWidth / 2
-        titleText.y = canvasHeight / 2 - 200
-      }
-      if (messageText) {
-        messageText.x = canvasWidth / 2
-        messageText.y = canvasHeight / 2 - 120
+        const scaleX = canvasWidth / bgImage.texture.width
+        const scaleY = canvasHeight / bgImage.texture.height
+        const scale = Math.max(scaleX, scaleY)
+        bgImage.scale.set(scale)
       }
       if (amountText) {
         amountText.x = canvasWidth / 2
