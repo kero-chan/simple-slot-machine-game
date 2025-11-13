@@ -23,24 +23,48 @@ async function preloadVideo(src) {
     // Create video element with blob URL
     const video = document.createElement('video')
     video.src = blobUrl
-    video.preload = 'auto'
+    video.preload = 'metadata' // Changed from 'auto' for better mobile compatibility
     video.style.display = 'none'
     video.playsInline = true
+    video.muted = true // Muted videos are more likely to load on mobile
 
     // Add to DOM
     document.body.appendChild(video)
 
-    // Wait for video to be ready
+    // Wait for video to be ready with timeout
     return new Promise((resolve) => {
-      video.addEventListener('loadeddata', () => {
+      let resolved = false
+
+      const finish = (result) => {
+        if (!resolved) {
+          resolved = true
+          resolve(result)
+        }
+      }
+
+      // Mobile-friendly: Use multiple events to detect readiness
+      const onReady = () => {
         console.log('✅ Video ready for playback')
-        resolve(video)
-      })
+        finish(video)
+      }
+
+      video.addEventListener('loadeddata', onReady)
+      video.addEventListener('loadedmetadata', onReady)
+      video.addEventListener('canplay', onReady)
 
       video.addEventListener('error', (e) => {
         console.error('❌ Video element error:', e)
-        resolve(null)
+        finish(null)
       })
+
+      // Timeout after 10 seconds for mobile devices
+      setTimeout(() => {
+        console.warn('⚠️ Video loading timeout, continuing anyway...')
+        finish(video) // Return video element even if not fully loaded
+      }, 10000)
+
+      // Try to trigger load explicitly
+      video.load()
     })
   } catch (error) {
     console.error('❌ Video preload failed:', error)
@@ -66,18 +90,38 @@ async function preloadAudio(src) {
     // Create audio element with blob URL
     const audio = new Audio()
     audio.src = blobUrl
-    audio.preload = 'auto'
+    audio.preload = 'metadata' // Changed from 'auto' for better mobile compatibility
 
-    // Wait for audio to be ready
+    // Wait for audio to be ready with timeout
     return new Promise((resolve) => {
-      audio.addEventListener('canplaythrough', () => {
-        resolve(audio)
-      })
+      let resolved = false
+
+      const finish = (result) => {
+        if (!resolved) {
+          resolved = true
+          resolve(result)
+        }
+      }
+
+      // Mobile-friendly: Use multiple events to detect readiness
+      const onReady = () => {
+        finish(audio)
+      }
+
+      audio.addEventListener('canplaythrough', onReady)
+      audio.addEventListener('loadedmetadata', onReady)
+      audio.addEventListener('canplay', onReady)
 
       audio.addEventListener('error', (e) => {
         console.error('❌ Audio element error:', e)
-        resolve(null)
+        finish(null)
       })
+
+      // Timeout after 5 seconds for mobile devices
+      setTimeout(() => {
+        console.warn('⚠️ Audio loading timeout, continuing anyway...')
+        finish(audio) // Return audio element even if not fully loaded
+      }, 5000)
 
       // Start loading from blob
       audio.load()
