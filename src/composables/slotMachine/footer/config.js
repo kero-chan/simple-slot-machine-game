@@ -48,6 +48,16 @@ export const SETTINGS = {
     position: { x: -1, y: -1, w: -1, h: -1 },
     assetName: 'i25_03',
   },
+  footer_notification_bg1: {
+    rotation: 0,
+    position: { x: -1, y: -1, w: -1, h: -1 },
+    assetName: 'i25_01',
+  },
+  footer_notification_bg2: {
+    rotation: 0,
+    position: { x: -1, y: -1, w: -1, h: -1 },
+    assetName: 'i25_02',
+  },
   footer_notification_texts: {
     text1: {
       rotation: 0,
@@ -68,6 +78,76 @@ export const SETTINGS = {
       rotation: 0,
       position: { x: -1, y: -1, w: -1, h: -1 },
       assetName: 'i58_08',
+    },
+    win: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i58_09',
+    },
+    total_win: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i58_10',
+    },
+    number0: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_00',
+    },
+    number1: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_01',
+    },
+    number2: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_02',
+    },
+    number3: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_03',
+    },
+    number4: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_04',
+    },
+    number5: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_05',
+    },
+    number6: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_06',
+    },
+    number7: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_07',
+    },
+    number8: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_08',
+    },
+    number9: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_09',
+    },
+    period: {
+      rotation:  -(Math.PI / 2),
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_10',
+    },
+    comma: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i23_11',
     },
   },
   wallet_icon: {

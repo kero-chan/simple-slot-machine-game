@@ -15,10 +15,12 @@ export function useFooter(gameState) {
 
   const amountLabels = {};
 
-  let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiTextSprite, mutedIconSprite, notiMask, spinHoverCircle
+  let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiBgSprite1, notiBgSprite2, notiTextSprite, mutedIconSprite, notiMask, spinHoverCircle, winAmounContainer
   let hoverAnimating = false;
   let hoverAlphaDir = 1; // 1 = tăng alpha, -1 = giảm alpha
   const hoverSpeed = 1.2;  // tốc độ thay đổi alpha
+  let lastSpinWinAmount = 0
+  let showTotalWinAmount = false
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -57,7 +59,12 @@ export function useFooter(gameState) {
   }
 
   const setNotification = (notiSubTex = null) => {
+    winAmounContainer.removeChildren()
     if (!notiTextSprite) return
+    notiBgSprite.visible = true
+    notiBgSprite1.visible = false
+    notiBgSprite2.visible = false
+    notiTextSprite.visible = true
 
     if (!notiSubTex) {
       const randomKey = `text${Math.ceil(Math.random() * 4)}`
@@ -99,6 +106,77 @@ export function useFooter(gameState) {
     }).format(num)
   }
 
+  function showWinAmount(value, isTotal = false) {
+    winAmounContainer.removeChildren();
+    notiTextSprite.visible = false;
+
+    const digits = String(value).split('');
+    let offsetX = 0;
+    let textSprite
+    if (isTotal) {
+      textSprite = new Sprite(subTex(`footer_notification_texts.total_win`));
+    } else {
+      textSprite = new Sprite(subTex(`footer_notification_texts.win`));
+    }
+    winAmounContainer.addChild(textSprite)
+    textSprite.scale.set(0.7)
+    textSprite.y = 0.07 * textSprite.height
+    offsetX += textSprite.width * 1.1
+
+    for (const d of digits) {
+      if (d === '.') {
+        const setting = getDeepSetting('footer_notification_texts.period')
+        const sprite = new Sprite(subTex(`footer_notification_texts.period`))
+        sprite.scale.set(1.1)
+        sprite.x = offsetX - sprite.width * 0.2;
+        sprite.y = 2.5 *sprite.height
+        sprite.rotation = setting.rotation
+        winAmounContainer.addChild(sprite)
+        offsetX += sprite.width * 0.7;
+      } else if (d === ',') {
+        const sprite = new Sprite(subTex(`footer_notification_texts.comma`));
+        sprite.x = offsetX - sprite.width * 0.1;
+        sprite.y = 1.2*sprite.height;
+        winAmounContainer.addChild(sprite);
+
+        offsetX += sprite.width * 0.6;
+      } else {
+        const sprite = new Sprite(subTex(`footer_notification_texts.number${d}`));
+        sprite.x = offsetX;
+        sprite.y = 0;
+        winAmounContainer.addChild(sprite);
+
+        offsetX += sprite.width;
+      }
+    }
+
+    const accumulatedWinAmount = gameState.accumulatedWinAmount.value
+    const betValue = gameState.bet.value
+    if (accumulatedWinAmount < 5 * betValue) {
+      notiBgSprite.visible = true
+      notiBgSprite1.visible = false
+      notiBgSprite2.visible = false
+    } else if (accumulatedWinAmount < 10 * betValue) {
+      notiBgSprite.visible = false
+      notiBgSprite1.visible = true
+      notiBgSprite2.visible = false
+    } else {
+      if (isTotal) {
+        notiBgSprite.visible = false
+        notiBgSprite1.visible = false
+        notiBgSprite2.visible = true
+      } else {
+        notiBgSprite.visible = false
+        notiBgSprite1.visible = true
+        notiBgSprite2.visible = false
+      }
+    }
+
+    winAmounContainer.scale.set(0.7 * notiBgSprite.height / winAmounContainer.height)
+    winAmounContainer.x = notiBgSprite.x - winAmounContainer.width * 0.5
+    winAmounContainer.y = notiBgSprite.y - winAmounContainer.height * 0.5
+  }
+
 
   function build(rect) {
     container.removeChildren()
@@ -127,8 +205,25 @@ export function useFooter(gameState) {
     notiBgSprite.scale.set(0.95 * w / notiBgSprite.width)
     notiBgSprite.anchor.set(0.5)
     notiBgSprite.position.set(centerX, y + h *0.12)
+    notiBgSprite.visible = true
     container.addChild(notiBgSprite)
 
+    notiBgSprite1 = new Sprite(subTex('footer_notification_bg1'))
+    notiBgSprite1.scale.set(0.95 * w / notiBgSprite1.width)
+    notiBgSprite1.anchor.set(0.5)
+    notiBgSprite1.position.set(notiBgSprite.x, notiBgSprite.y)
+    notiBgSprite1.visible = false
+    container.addChild(notiBgSprite1)
+
+    notiBgSprite2 = new Sprite(subTex('footer_notification_bg2'))
+    notiBgSprite2.scale.set(0.95 * w / notiBgSprite2.width)
+    notiBgSprite2.anchor.set(0.5)
+    notiBgSprite2.position.set(notiBgSprite.x, notiBgSprite.y)
+    notiBgSprite2.visible = false
+    container.addChild(notiBgSprite2)
+
+    winAmounContainer = new Container();
+    container.addChild(winAmounContainer);
 
     const randomKey = `text${Math.ceil(Math.random() * 4)}`
     notiTextSprite = new Sprite(subTex('footer_notification_texts.'+randomKey))
@@ -507,6 +602,16 @@ export function useFooter(gameState) {
         if (!gameState.canSpin?.value) return
 
         hoverCircle.visible = false
+        notiBgSprite.visible = true
+        notiBgSprite1.visible = false
+        notiBgSprite2.visible = false
+        amountLabels.win_amount_icon.text = '0.00'
+
+
+        if (!!notiTextSprite && !notiTextSprite.visible) {
+          setNotification()
+        }
+        showTotalWinAmount = false
         handlers.spin && handlers.spin()
       })
 
@@ -638,9 +743,29 @@ export function useFooter(gameState) {
 
   // Refresh pill values each frame so they reflect game state
   function updateValues() {
-    amountLabels.wallet_icon.text = formatNumber(gameState.credits.value);
-    amountLabels.bet_amount_icon.text = formatNumber(gameState.bet.value);
-    amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value);
+    const spinWinAmount = gameState.accumulatedWinAmount.value
+    amountLabels.wallet_icon.text = formatNumber(gameState.credits.value)
+    amountLabels.bet_amount_icon.text = formatNumber(gameState.bet.value)
+    if (spinWinAmount === 0) {
+      return
+    }
+
+    if (!!gameState.canSpin?.value) {
+      amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value)
+      if (!showTotalWinAmount) {
+        showWinAmount(formatNumber(formatNumber(gameState.currentWin.value)), true)
+        showTotalWinAmount = true
+      }
+    } else {
+      amountLabels.win_amount_icon.text = formatNumber(spinWinAmount)
+      if (!!winAmounContainer) {
+        if (lastSpinWinAmount !== gameState.lastWinAmount.value) {
+          showWinAmount(formatNumber(gameState.lastWinAmount.value))
+        }
+      }
+    }
+
+    lastSpinWinAmount = gameState.lastWinAmount.value
   }
 
   let notiState = 'idle'; // 'idle' = đứng yên trước scroll, 'scroll' = chạy text, 'waitAfterScroll' = chờ sau scroll
@@ -670,6 +795,16 @@ export function useFooter(gameState) {
       }
     }
 
+    if (gameState.canSpin.value) {
+      amountLabels.bet_amount_icon.style.fill = 0x85efff
+      amountLabels.win_amount_icon.style.fill = 0x85efff
+      amountLabels.wallet_icon.style.fill = 0x85efff
+    } else {
+      amountLabels.bet_amount_icon.style.fill = 0xffffff
+      amountLabels.win_amount_icon.style.fill = 0xffffff
+      amountLabels.wallet_icon.style.fill = 0xffffff
+    }
+
     // Spin button
     if (spinBtnArrowSprite) {
       const spinning = !!gameState.isSpinning?.value;
@@ -678,7 +813,7 @@ export function useFooter(gameState) {
       spinBtnArrowSprite.rotation += speed * dt;
     }
 
-    if (!notiTextSprite) return;
+    if (!notiTextSprite || !notiTextSprite.visible) return;
 
     if (!notiTextSprite.mask || notiTextSprite.width <= notiBgSprite.width*0.8) {
       // short notification, don't animate
