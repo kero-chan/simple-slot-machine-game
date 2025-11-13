@@ -286,33 +286,23 @@ export function useReels(gameState, gridState) {
                 // Check if this sprite just completed its animation
                 const completedSymbol = dropAnimations.getCompletedSymbol(cellKey)
 
-                // Check if THIS specific column is spinning
-                // During spin animation, always read from strip
-                // Only read from grid when velocity is truly 0 (stopped)
+                // Single source logic: strip during spin, grid when stopped
                 const colVelocity = gridState.spinVelocities?.[col] ?? 0
-
-                // IMPORTANT: Use per-column velocity check to prevent flickering when columns stop at different times
-                // Read from strip if spinning OR if velocity > 0
-                // Only read from grid when column has completely stopped (velocity === 0)
-                const thisColumnSpinning = Math.abs(colVelocity) > 0.015
+                const thisColumnSpinning = Math.abs(colVelocity) > 0.001
 
                 if (animatingSymbol) {
                     // During drop animation, use the symbol stored with the animation
-                    // This prevents texture changes while the sprite is moving
                     symbol = animatingSymbol
                 } else if (completedSymbol) {
                     // Just completed animation - preserve the symbol that was animating
-                    // Don't read from grid yet because next cascade may have updated it
                     symbol = completedSymbol
                 } else if (thisColumnSpinning) {
+                    // Spinning: read from strip
                     if (reelStrip.length === 0) continue
-                    // During spin, read directly from strip
-                    // reelTop points to strip index for visual row -BUFFER_OFFSET
-                    // Visual row r needs strip index (reelTop + r + BUFFER_OFFSET)
                     const idx = ((reelTop + gridRow) % reelStrip.length + reelStrip.length) % reelStrip.length
                     symbol = reelStrip[idx]
                 } else {
-                    // Normal state: read from grid (column has stopped, velocity = 0)
+                    // Stopped: read from grid
                     symbol = gridState.grid?.[col]?.[gridRow]
                 }
 
@@ -322,10 +312,6 @@ export function useReels(gameState, gridState) {
 
                 let sp = spriteCache.get(cellKey)
                 let symbolChanged = false
-
-                // Log only during cascades (after winning is detected)
-                const isDropAnimating = animatingSymbol !== null
-                const inCascadeWindow = lastCascadeTime > 0 && (timestamp - lastCascadeTime < 2000)
 
                 // Check if symbol changed (after cascade) - reset sprite state
                 if (sp && sp.texture !== tex) {

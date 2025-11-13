@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config/constants'
-import { getRandomSymbol, getBufferOffset, enforceBonusLimit, createEmptyGrid } from '../../utils/gameHelpers'
+import { getRandomSymbol, getBufferOffset } from '../../utils/gameHelpers'
 import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '../../utils/tileHelpers'
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
@@ -16,9 +16,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
-  const VISIBLE_START_ROW = BUFFER_OFFSET  // First visible row starts right after buffer rows
-  const VISIBLE_ROWS = 4
-  const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1  // Last visible row
+
+  // Calculate total rows dynamically
+  const totalRows = CONFIG.reels.rows + CONFIG.reels.bufferRows // e.g., 6 + 4 = 10
+  const bufferRows = CONFIG.reels.bufferRows // e.g., 4
+  const fullyVisibleRows = CONFIG.reels.fullyVisibleRows // e.g., 4
+
+  // Win check: Only check the fully visible rows
+  // Start at bufferRows, end at bufferRows + fullyVisibleRows - 1
+  // With bufferRows=4, fullyVisibleRows=4: rows 4-7
+  const WIN_CHECK_START_ROW = bufferRows // e.g., 4
+  const WIN_CHECK_END_ROW = bufferRows + fullyVisibleRows - 1 // e.g., 4 + 4 - 1 = 7
+
+  // Bonus checking: Same as win checking
+  const BONUS_CHECK_START_ROW = WIN_CHECK_START_ROW
+  const BONUS_CHECK_END_ROW = WIN_CHECK_END_ROW
 
   const { playConsecutiveWinSound, playWinSound, playEffect } = useAudioEffects()
 
@@ -50,7 +62,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   const findWinningCombinations = () => {
-
     const allWinCombos = []
     const symbolsToCheck = Object.keys(CONFIG.paytable).filter(s => s !== 'liangtong' && s !== 'wild')
 
@@ -60,7 +71,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
       for (let col = 0; col < CONFIG.reels.count; col++) {
         const matches = []
 
-        for (let row = VISIBLE_START_ROW; row <= VISIBLE_END_ROW; row++) {
+        // Check only the fully visible rows (excluding partially visible top and bottom)
+        for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
           const cell = gridState.grid[col][row]
           const baseSymbol = getTileBaseSymbol(cell)
           const isWild = isTileWildcard(cell)
@@ -116,7 +128,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     if (allWinCombos.length > 0) {
       const firstSymbol = allWinCombos[0].symbol
       const singleSymbolWins = allWinCombos.filter(win => win.symbol === firstSymbol)
-
       return singleSymbolWins
     }
 
@@ -142,54 +153,72 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
-    // STEP 1: Pre-determine the final grid BEFORE animation starts
-    // This ensures visual stability - what you see is what you get
-    const finalGrid = createEmptyGrid()
-    for (let col = 0; col < cols; col++) {
-      for (let row = 0; row < totalRows; row++) {
-        const allowBonus = row >= BUFFER_OFFSET // Only allow bonus in visible rows
-        finalGrid[col][row] = getRandomSymbol({ col, allowGold: true, allowBonus })
-      }
-    }
-
-    // Enforce bonus limit across visible rows
-    enforceBonusLimit(finalGrid, BUFFER_OFFSET)
-
-    // STEP 2: Build reel strips that will land on the pre-determined symbols
-    // Each strip has random symbols for visual variety, with target symbols at the end
+    // Build reel strips - START with current grid to prevent visual snap
+    // Then add random symbols where the reel will land
     for (let col = 0; col < cols; col++) {
       const strip = []
 
-      // IMPORTANT: Start with current grid symbols to prevent visual flicker
-      // When spin starts, we switch from reading grid→strip, so first symbols must match
+      // CRITICAL: Start with current grid symbols for smooth transition
+      // This ensures no visual change when spin button is clicked
       for (let row = 0; row < totalRows; row++) {
         strip.push(gridState.grid[col][row])
       }
 
-      // Add random spinning symbols (for visual effect during spin)
-      const spinSymbolCount = stripLength - (totalRows * 2) // Account for both current and final
-      for (let i = 0; i < spinSymbolCount; i++) {
-        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: false }))
-      }
-
-      // Add the final target symbols at the end of the strip
-      for (let row = 0; row < totalRows; row++) {
-        strip.push(finalGrid[col][row])
+      // Fill rest of strip with random symbols (this is where we'll land)
+      const randomCount = stripLength - totalRows
+      for (let i = 0; i < randomCount; i++) {
+        // Allow bonus tiles in strip - we'll enforce limits at landing positions
+        strip.push(getRandomSymbol({ col, allowGold: true, allowBonus: true }))
       }
 
       gridState.reelStrips[col] = strip
     }
 
+    // CRITICAL: Enforce bonus limits in the landing area of each strip
+    // This ensures reels land with valid bonus counts (max 1 per column)
+    // so we don't need to modify tiles after the reel stops
+    for (let col = 0; col < cols; col++) {
+      const strip = gridState.reelStrips[col]
+
+      // Check all potential landing positions in the strip
+      // When reel lands at reelTop, grid row 'r' gets strip[reelTop + r]
+      for (let reelTop = totalRows; reelTop < stripLength - totalRows; reelTop++) {
+        const bonusPositions = []
+
+        // Check the fully visible rows (calculated dynamically)
+        for (let gridRow = WIN_CHECK_START_ROW; gridRow <= WIN_CHECK_END_ROW; gridRow++) {
+          const stripIdx = reelTop + gridRow
+          if (stripIdx < strip.length && isBonusTile(strip[stripIdx])) {
+            bonusPositions.push({ idx: stripIdx, gridRow })
+          }
+        }
+
+        // If more than 1 bonus in this window, replace extras
+        if (bonusPositions.length > 1) {
+          for (let i = 1; i < bonusPositions.length; i++) {
+            const { idx, gridRow } = bonusPositions[i]
+            const visualRow = gridRow - BUFFER_OFFSET
+            strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
+          }
+        }
+      }
+    }
+
     // Trigger reactivity for arrays
     gridState.reelStrips = [...gridState.reelStrips]
+
+    // Always start from index 0 (showing current grid symbols)
+    // Calculate random landing positions in the random symbol section
+    const minLanding = totalRows + 10 // Skip past current symbols
+    const maxLanding = stripLength - totalRows // Leave room at end
+    const targetIndexes = Array(cols).fill(0).map(() =>
+      Math.floor(minLanding + Math.random() * (maxLanding - minLanding))
+    )
+
+    // Initialize positions - start from 0 (current grid symbols)
     gridState.reelTopIndex = Array(cols).fill(0)
     gridState.spinOffsets = Array(cols).fill(0)
-    gridState.spinVelocities = Array(cols).fill(0)
-
-    // Update grid to finalGrid NOW so it matches strip when columns stop
-    // This prevents strip/grid mismatches when render switches from strip to grid
-    gridState.grid = [...finalGrid.map(col => [...col])]
-    // Grid will be updated when animation completes
+    gridState.spinVelocities = Array(cols).fill(10) // High initial velocity
 
     // Track which columns have been explicitly stopped
     const stoppedColumns = new Set()
@@ -214,56 +243,61 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
           const elapsed = now - colStart
           const t = Math.min(elapsed / baseDuration, 1)
 
-          // Calculate target position (where we want to end up)
-          // Strip structure: [current(10), random(80), final(10)]
-          // We want to land on the final symbols at the end
-          const targetIndex = stripLength - totalRows // Last 10 symbols
+          // Get target position for this column (always start from 0)
+          const startIndex = 0
+          const targetIndex = targetIndexes[col]
+          const totalDistance = targetIndex // Distance from 0 to target
 
           // Apply easing function for more realistic slowdown
-          // Ease-out: starts fast, slows down smoothly at the end
-          // Adjust the exponent to control slowdown: higher = slower stop
-          // 2 = ease-out quadratic (gentle), 3 = cubic (medium), 4 = quartic (strong), 5 = quintic (very strong)
           const easedT = 1 - Math.pow(1 - t, 3.5)
 
-          // Get current position before calculating new position
-          const currentPosition = gridState.reelTopIndex[col] + gridState.spinOffsets[col]
+          // Calculate how far we should have traveled by now
+          const distanceTraveled = totalDistance * easedT
 
-          // Calculate the exact position we should be at based on eased progress
-          const targetPosition = targetIndex * easedT
+          // Calculate current position
+          const targetPosition = distanceTraveled
 
-          // Calculate how close we are to the target
-          const distanceRemaining = targetIndex - currentPosition
+          // Stop condition: animation complete OR very close to target
+          // Use a small threshold to smoothly transition to final position
+          const distanceToTarget = targetIndex - targetPosition
+          const isAtTarget = t >= 1 || distanceToTarget < 0.01
 
-          // Stop condition: when very close, snap to exact target and stop
-          if (distanceRemaining <= 0 || distanceRemaining < 0.01) {
-            // Snap to EXACT target position to ensure strip/grid alignment
-            // This is critical: strip[targetIndex + gridRow] must equal finalGrid[col][gridRow]
-            gridState.reelTopIndex[col] = targetIndex - 1
-            gridState.spinOffsets[col] = 1
+          if (isAtTarget) {
+            // CRITICAL FIX: Don't change reelTop when stopping!
+            // Keep reelTop at its current position to avoid visual jump
+            // The renderer was showing strip[currentReelTop + row], so grid must match exactly
+            // DON'T set reelTop to targetIndex - that causes a 1-tile shift!
+
+            // Keep current reelTop and offset (don't change them)
+            // gridState.reelTopIndex[col] stays the same
+            // gridState.spinOffsets[col] stays the same
+
+            // CRITICAL: Sync this column's grid BEFORE setting velocity to 0
+            // This prevents jump when renderer switches from strip to grid
+            syncColumnToGrid(col)
+
+            // Note: Bonus limits are now enforced in the strip during spin setup
+            // No need to modify grid after landing - tiles are already correct!
+
+            // Now safe to set velocity to 0 (renderer will switch to grid)
             gridState.spinVelocities[col] = 0
             stoppedColumns.add(col)
             continue
           }
 
-          // Simple easing-based position (no complex convergence)
-          let nextPosition = targetPosition
+          // Convert target position to reelTopIndex and offset
+          const newTopIndex = Math.floor(targetPosition)
+          const newOffset = targetPosition - newTopIndex
 
-          // CRITICAL: Clamp nextPosition to valid range
-          // 1. NEVER go backward (upward): nextPosition >= currentPosition
-          // 2. NEVER overshoot (too far down): nextPosition <= targetIndex
-          // This ensures tiles ONLY move in the correct direction and NEVER past target
-          nextPosition = Math.max(currentPosition, Math.min(nextPosition, targetIndex))
+          // Calculate velocity for this frame (for renderer to detect spinning)
+          // Reduce velocity as we approach target for smoother deceleration
+          const distanceRemaining = targetIndex - targetPosition
+          const normalizedDistance = Math.min(distanceRemaining / 2, 1) // Normalize to 0-1
+          const calculatedVelocity = normalizedDistance * 10 // Scale velocity based on distance
+          const minVelocity = distanceRemaining > 0.5 ? 0.1 : 0.01 // Lower threshold near stop
+          gridState.spinVelocities[col] = Math.max(minVelocity, calculatedVelocity)
 
-          // Convert next position to reelTopIndex and offset
-          const newTopIndex = Math.floor(nextPosition)
-          const newOffset = nextPosition - newTopIndex
-
-          // Calculate velocity for this frame (used by render loop to determine if spinning)
-          const positionDelta = nextPosition - currentPosition
-          const nearStop = (targetIndex - currentPosition) < 0.5
-          gridState.spinVelocities[col] = nearStop ? 0 : positionDelta
-
-          // Update position
+          // Update position (with wrapping)
           gridState.reelTopIndex[col] = newTopIndex % gridState.reelStrips[col].length
           gridState.spinOffsets[col] = newOffset
 
@@ -273,12 +307,26 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (!allStopped) {
           requestAnimationFrame(animate)
         } else {
-          // All reels stopped - animation complete
+          // All reels stopped - trigger reactivity
+          // Note: Bonus limits are now enforced per-column as each reel stops
+          gridState.grid = [...gridState.grid.map(col => [...col])]
           resolve()
         }
       }
       animate()
     })
+  }
+
+  const syncColumnToGrid = (col) => {
+    const totalRows = CONFIG.reels.rows + BUFFER_OFFSET
+    const reelTop = gridState.reelTopIndex[col]
+    const strip = gridState.reelStrips[col]
+
+    // Copy this column's strip positions to grid
+    for (let row = 0; row < totalRows; row++) {
+      const stripIdx = (reelTop + row) % strip.length
+      gridState.grid[col][row] = strip[stripIdx]
+    }
   }
 
   let highlightAnimationActive = false
@@ -451,9 +499,6 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
         if (shouldWait && elapsed < MAX_WAIT) {
           requestAnimationFrame(animate)
         } else {
-          if (elapsed >= MAX_WAIT) {
-            console.warn('⚠️ animateCascade: Hit max wait time')
-          }
           resolve()
         }
       }
@@ -480,18 +525,15 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
   }
 
   /**
-   * Check if 3 or more bonus tiles appear in the visible 4 rows
+   * Check if 3 or more bonus tiles appear in the fully visible rows
    * Returns the count of bonus tiles found
    */
   const checkBonusTiles = () => {
     let bonusCount = 0
 
-    // Only check the visible 4 rows (not all 6 rows)
-    const VISIBLE_ROWS = 4
-    const VISIBLE_END_ROW = BUFFER_OFFSET + VISIBLE_ROWS - 1
-
+    // Only check the fully visible rows (excluding partially visible top and bottom)
     for (let col = 0; col < CONFIG.reels.count; col++) {
-      for (let row = BUFFER_OFFSET; row <= VISIBLE_END_ROW; row++) {
+      for (let row = BONUS_CHECK_START_ROW; row <= BONUS_CHECK_END_ROW; row++) {
         const cell = gridState.grid[col][row]
         if (isBonusTile(cell)) {
           bonusCount++

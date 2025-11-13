@@ -49,17 +49,15 @@ export function getRandomSymbol(options = {}) {
   let symbol = pool[Math.floor(Math.random() * pool.length)]
 
   // Check if we should make this a gold variant
-  // Gold variants only appear in columns 1, 2, 3 (middle 3 columns)
+  // Gold variants only appear in columns 1, 2, 3 (middle 3 columns of 0-4)
+  // Not restricted by row - can appear in any row
   // Note: symbol from pool is already guaranteed to not be wild or bonus
   if (allowGold && Math.random() < goldChance) {
     const GOLD_ALLOWED_COLS = [1, 2, 3]
-    const GOLD_ALLOWED_VISUAL_ROWS = [1, 2, 3, 4]
 
-    const isAllowedPosition =
-      (col === undefined || GOLD_ALLOWED_COLS.includes(col)) &&
-      (visualRow === undefined || GOLD_ALLOWED_VISUAL_ROWS.includes(visualRow))
+    const isAllowedColumn = col === undefined || GOLD_ALLOWED_COLS.includes(col)
 
-    if (isAllowedPosition) {
+    if (isAllowedColumn) {
       symbol = symbol + '_gold'
     }
   }
@@ -72,6 +70,11 @@ export function createEmptyGrid() {
   const bufferRows = CONFIG.reels.bufferRows || 0
   const totalRows = CONFIG.reels.rows + bufferRows
   const BUFFER_OFFSET = bufferRows
+  const fullyVisibleRows = CONFIG.reels.fullyVisibleRows || 4
+
+  // Fully visible rows start at bufferRows
+  const fullyVisibleStart = bufferRows
+  const fullyVisibleEnd = bufferRows + fullyVisibleRows - 1
 
   for (let col = 0; col < CONFIG.reels.count; col++) {
     grid[col] = []
@@ -82,8 +85,8 @@ export function createEmptyGrid() {
       // Convert grid row to visual row for gold rules
       const visualRow = row - BUFFER_OFFSET
 
-      // Check if we're in visible rows (1-4 in visual coordinates)
-      const isVisibleRow = visualRow >= 1 && visualRow <= 4
+      // Check if we're in fully visible rows
+      const isVisibleRow = row >= fullyVisibleStart && row <= fullyVisibleEnd
 
       // If we already have a bonus in this column's visible rows, don't allow more
       const allowBonus = !(isVisibleRow && bonusCountInVisibleRows >= 1)
@@ -133,20 +136,25 @@ export function fillBufferRows(grid) {
 }
 
 /**
- * Enforce max 1 bonus tile per column in visible rows (1-4)
+ * Enforce max 1 bonus tile per column in fully visible rows
  * @param {Array} grid - The grid to validate and fix
  */
 export function enforceBonusLimit(grid) {
   const bufferRows = CONFIG.reels.bufferRows || 0
   const BUFFER_OFFSET = bufferRows
+  const totalRows = CONFIG.reels.rows + bufferRows
+  const fullyVisibleRows = CONFIG.reels.fullyVisibleRows || 4
+
+  // Fully visible rows start at bufferRows
+  const fullyVisibleStart = bufferRows
+  const fullyVisibleEnd = bufferRows + fullyVisibleRows - 1
 
   for (let col = 0; col < CONFIG.reels.count; col++) {
     const bonusPositions = []
 
-    // Find all bonus tiles in visible rows (1-4 in visual coordinates)
+    // Find all bonus tiles in fully visible rows
     for (let row = 0; row < grid[col].length; row++) {
-      const visualRow = row - BUFFER_OFFSET
-      const isVisibleRow = visualRow >= 1 && visualRow <= 4
+      const isVisibleRow = row >= fullyVisibleStart && row <= fullyVisibleEnd
 
       if (isVisibleRow && isBonusTile(grid[col][row])) {
         bonusPositions.push(row)

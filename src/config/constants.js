@@ -7,6 +7,7 @@ export const CONFIG = {
     count: 5,
     rows: 6,
     bufferRows: 4, // Extra rows above for realistic drop animation
+    fullyVisibleRows: 4, // Number of fully visible rows to check for wins (rows 4-7)
     stripLength: 100, // Longer strip = smoother spin animation, prevents gaps
     symbolSize: 70,
     spacing: 8
@@ -27,7 +28,6 @@ export const CONFIG = {
   freeSpinMultipliers: [2, 4, 6, 10, 10, 10],
   animation: {
     spinDuration: 1600,
-    cascadeDuration: 1000, // DEPRECATED: No longer used - now waits for actual drop animations to complete
     reelStagger: 150
   },
   game: {
