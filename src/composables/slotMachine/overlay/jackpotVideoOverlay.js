@@ -13,9 +13,37 @@ export function createJackpotVideoOverlay() {
   container.visible = false
   container.zIndex = 1200 // Above everything else
 
-  let videoElement = null
   let isPlaying = false
   let onCompleteCallback = null
+  let videoElement = null
+
+  /**
+   * Get and configure the preloaded video element
+   */
+  function getVideoElement() {
+    if (!videoElement) {
+      // Get preloaded video from assets (loaded during initial loading screen)
+      videoElement = ASSETS.loadedVideos?.jackpot
+
+      if (videoElement) {
+        // Configure video element styles (already in DOM from asset loader)
+        videoElement.style.position = 'fixed'
+        videoElement.style.top = '0'
+        videoElement.style.left = '0'
+        videoElement.style.width = '100%'
+        videoElement.style.height = '100%'
+        videoElement.style.objectFit = 'cover'
+        videoElement.style.zIndex = '9999'
+        videoElement.style.backgroundColor = '#000'
+        videoElement.style.display = 'none' // Hidden until needed
+        videoElement.playsInline = true
+        console.log('✅ Jackpot video ready from preloaded assets')
+      } else {
+        console.warn('❌ Jackpot video not found in preloaded assets')
+      }
+    }
+    return videoElement
+  }
 
   /**
    * Show the video overlay
@@ -30,45 +58,29 @@ export function createJackpotVideoOverlay() {
     // Pause all background audio
     audioManager.pause()
 
-    // Create video element
-    const videoSrc = ASSETS.videoPaths?.jackpot
-    if (!videoSrc) {
-      console.warn('❌ No video source found for jackpot')
+    // Get the preloaded video element
+    const video = getVideoElement()
+    if (!video) {
+      console.warn('❌ Video element not preloaded')
       hide()
       return
     }
 
-    // Create HTML video element
-    videoElement = document.createElement('video')
-    videoElement.src = videoSrc
-    videoElement.style.position = 'fixed'
-    videoElement.style.top = '0'
-    videoElement.style.left = '0'
-    videoElement.style.width = '100%'
-    videoElement.style.height = '100%'
-    videoElement.style.objectFit = 'cover'  // Cover entire screen
-    videoElement.style.zIndex = '9999'  // On top of everything
-    videoElement.style.backgroundColor = '#000'
-    videoElement.autoplay = true
-    videoElement.playsInline = true  // Important for mobile
+    // Show the preloaded video
+    video.style.display = 'block'
+    video.currentTime = 0 // Reset to beginning
 
-    // When video ends, hide and trigger callback
-    videoElement.addEventListener('ended', () => {
+    // Set up event listeners (only once per show)
+    const onEnded = () => {
       console.log('✅ Jackpot video completed')
+      video.removeEventListener('ended', onEnded)
       hide()
-    })
+    }
 
-    // Handle video errors
-    videoElement.addEventListener('error', (e) => {
-      console.error('❌ Video playback error:', e)
-      hide()
-    })
+    video.addEventListener('ended', onEnded)
 
-    // Add video to DOM
-    document.body.appendChild(videoElement)
-
-    // Start playback
-    videoElement.play().catch(err => {
+    // Start playback (should be instant since video is preloaded)
+    video.play().catch(err => {
       console.error('❌ Failed to play video:', err)
       hide()
     })
@@ -81,14 +93,11 @@ export function createJackpotVideoOverlay() {
     container.visible = false
     isPlaying = false
 
-    // Remove video element from DOM
+    // Hide video but keep it preloaded for next time
     if (videoElement) {
       videoElement.pause()
-      videoElement.src = ''
-      if (videoElement.parentNode) {
-        videoElement.parentNode.removeChild(videoElement)
-      }
-      videoElement = null
+      videoElement.style.display = 'none'
+      videoElement.currentTime = 0 // Reset for next playback
     }
 
     // Resume background audio

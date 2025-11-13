@@ -1,18 +1,86 @@
 import { Assets, Texture } from 'pixi.js'
 import { ASSETS } from '../config/assets'
 
+/**
+ * Preload video element
+ */
+function preloadVideo(src) {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.src = src
+    video.preload = 'auto'
+    video.style.display = 'none'
+
+    video.addEventListener('loadeddata', () => {
+      console.log('✅ Video preloaded:', src)
+      resolve(video)
+    })
+
+    video.addEventListener('error', (e) => {
+      console.error('❌ Video preload error:', e)
+      resolve(null)
+    })
+
+    // Add to DOM to trigger loading
+    document.body.appendChild(video)
+  })
+}
+
+/**
+ * Preload audio element
+ */
+function preloadAudio(src) {
+  return new Promise((resolve) => {
+    const audio = new Audio()
+    audio.src = src
+    audio.preload = 'auto'
+
+    audio.addEventListener('canplaythrough', () => {
+      resolve(audio)
+    })
+
+    audio.addEventListener('error', (e) => {
+      console.error('❌ Audio preload error:', e)
+      resolve(null)
+    })
+
+    // Start loading
+    audio.load()
+  })
+}
+
 export async function loadAllAssets(onProgress = null) {
   const paths = ASSETS.imagePaths || {}
+  const videoPaths = ASSETS.videoPaths || {}
+  const audioPaths = ASSETS.audioPaths || {}
   ASSETS.loadedImages = {}
+  ASSETS.loadedVideos = {}
+  ASSETS.loadedAudios = {}
 
   const entries = Object.entries(paths)
-  if (entries.length === 0) {
-    console.warn('No imagePaths found in ASSETS; nothing to load.')
+  const videoEntries = Object.entries(videoPaths)
+
+  // Flatten audio paths (handle both simple paths and arrays like background_noises)
+  const audioEntries = []
+  for (const [key, value] of Object.entries(audioPaths)) {
+    if (Array.isArray(value)) {
+      // Handle arrays (e.g., background_noises)
+      value.forEach((path, index) => {
+        audioEntries.push([`${key}_${index}`, path])
+      })
+    } else {
+      audioEntries.push([key, value])
+    }
+  }
+
+  const totalAssets = entries.length + videoEntries.length + audioEntries.length
+
+  if (totalAssets === 0) {
+    console.warn('No assets found in ASSETS; nothing to load.')
     if (onProgress) onProgress(1, 1) // Report 100% complete
     return
   }
 
-  const totalAssets = entries.length
   let loadedCount = 0
 
   // Report initial progress
@@ -62,9 +130,48 @@ export async function loadAllAssets(onProgress = null) {
     if (onProgress) onProgress(loadedCount, totalAssets)
   }
 
+  // Load videos
+  console.log(`📹 Loading ${videoEntries.length} video(s)...`)
+  for (const [alias, src] of videoEntries) {
+    try {
+      const videoElement = await preloadVideo(src)
+      ASSETS.loadedVideos[alias] = videoElement
+      loadedCount++
+
+      // Report progress after each video is loaded
+      if (onProgress) onProgress(loadedCount, totalAssets)
+    } catch (error) {
+      console.error(`Failed to load video "${alias}":`, error)
+      ASSETS.loadedVideos[alias] = null
+      loadedCount++
+      if (onProgress) onProgress(loadedCount, totalAssets)
+    }
+  }
+
+  // Load audio files
+  console.log(`🔊 Loading ${audioEntries.length} audio file(s)...`)
+  for (const [alias, src] of audioEntries) {
+    try {
+      const audioElement = await preloadAudio(src)
+      ASSETS.loadedAudios[alias] = audioElement
+      loadedCount++
+
+      // Report progress after each audio is loaded
+      if (onProgress) onProgress(loadedCount, totalAssets)
+    } catch (error) {
+      console.error(`Failed to load audio "${alias}":`, error)
+      ASSETS.loadedAudios[alias] = null
+      loadedCount++
+      if (onProgress) onProgress(loadedCount, totalAssets)
+    }
+  }
+
   // Log loaded assets for debugging
   const successCount = Object.values(ASSETS.loadedImages).filter(t => t).length
-  
+  const videoSuccessCount = Object.values(ASSETS.loadedVideos).filter(v => v).length
+  const audioSuccessCount = Object.values(ASSETS.loadedAudios).filter(a => a).length
+  console.log(`✅ Loaded ${successCount}/${entries.length} images, ${videoSuccessCount}/${videoEntries.length} videos, and ${audioSuccessCount}/${audioEntries.length} audio files`)
+
   // Final progress report
   if (onProgress) {
     onProgress(totalAssets, totalAssets)
