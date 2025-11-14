@@ -58,11 +58,16 @@ class HowlerAudioManager {
           return
         }
 
+        // Determine if this should use HTML5 Audio (for background music/long sounds)
+        // or Web Audio API (for sound effects)
+        const isLongAudio = key.includes('background_music') || key.includes('winning_announcement')
+
         // Create Howl instance
         this.howls[key] = new Howl({
           src: [src],
           preload: true,
-          html5: true, // Use HTML5 Audio for better mobile compatibility
+          html5: isLongAudio, // Use HTML5 for long sounds, Web Audio for effects
+          pool: isLongAudio ? 2 : 5, // Smaller pool for long sounds, larger for effects
           onloaderror: (id, err) => {
             console.warn(`Howler load error for ${key}:`, err)
           },
@@ -72,6 +77,9 @@ class HowlerAudioManager {
             this.howls[key].once('unlock', () => {
               this.howls[key].play()
             })
+          },
+          onload: () => {
+            console.log(`✓ Loaded: ${key}`)
           }
         })
         console.log(`✓ Created Howl: ${key}`)
@@ -86,6 +94,28 @@ class HowlerAudioManager {
 
     // Enable audio on first user interaction (Howler handles this automatically)
     Howler.autoUnlock = true
+
+    // Add aggressive unlock listeners for mobile
+    this.setupUnlockListeners()
+  }
+
+  /**
+   * Setup listeners to unlock audio on any user interaction
+   */
+  setupUnlockListeners() {
+    const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown']
+    const unlockHandler = () => {
+      this.unlockAudioContext()
+      // Remove listeners after first unlock
+      unlockEvents.forEach(event => {
+        document.removeEventListener(event, unlockHandler)
+      })
+    }
+
+    unlockEvents.forEach(event => {
+      document.addEventListener(event, unlockHandler, { once: true, passive: true })
+    })
+    console.log('🔓 Unlock listeners registered for:', unlockEvents.join(', '))
   }
 
   /**
@@ -156,18 +186,37 @@ class HowlerAudioManager {
    */
   async unlockAudioContext() {
     try {
+      // Unlock Web Audio API context
       const ctx = Howler.ctx
       if (ctx && ctx.state === 'suspended') {
-        console.log('🔓 Unlocking AudioContext...')
+        console.log('🔓 Unlocking Web Audio API AudioContext...')
         await ctx.resume()
-        console.log('✅ AudioContext unlocked, state:', ctx.state)
+        console.log('✅ Web Audio API unlocked, state:', ctx.state)
       } else if (ctx) {
-        console.log('✓ AudioContext already running, state:', ctx.state)
-      } else {
-        console.warn('⚠️ No AudioContext found')
+        console.log('✓ Web Audio API already running, state:', ctx.state)
+      }
+
+      // Also try to play and immediately pause all HTML5 audio elements to unlock them
+      console.log('🔓 Unlocking HTML5 Audio elements...')
+      let unlockedCount = 0
+      for (const [key, howl] of Object.entries(this.howls)) {
+        try {
+          // Only unlock HTML5 audio elements
+          if (howl._html5) {
+            const id = howl.play()
+            howl.pause(id)
+            howl.seek(0, id)
+            unlockedCount++
+          }
+        } catch (err) {
+          // Ignore errors during unlock
+        }
+      }
+      if (unlockedCount > 0) {
+        console.log(`✅ Unlocked ${unlockedCount} HTML5 audio elements`)
       }
     } catch (err) {
-      console.error('❌ Failed to unlock AudioContext:', err)
+      console.error('❌ Failed to unlock audio:', err)
     }
   }
 
