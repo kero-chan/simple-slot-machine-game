@@ -121,8 +121,8 @@ export const ASSETS = {
   },
   loadedImages: {},
   videoPaths: {
-    jackpot: new URL('../assets/videos/jackpot.mp4', import.meta.url).href,
-    jackpot_result: new URL('../assets/videos/jackpot_result.mp4', import.meta.url).href
+    jackpot: new URL('../assets/videos/jackpot_zip.mp4', import.meta.url).href,
+    jackpot_result: new URL('../assets/videos/jackpot_result_zip.mp4', import.meta.url).href
   },
   audioPaths: {
     background_music: new URL('../assets/audio/background_music.mp3', import.meta.url).href,
