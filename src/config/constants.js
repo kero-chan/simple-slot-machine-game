@@ -53,10 +53,10 @@ export const CONFIG = {
     freeSpinsPerScatter: 12,       // Number of free spins awarded when bonus is triggered
     bonusScattersPerSpin: 2,       // Max bonus tiles per spin (for spawn control)
     minBonusToTrigger: 3,          // Minimum bonus tiles required to trigger free spins
-    maxBonusPerColumn: 2           // Maximum bonus tiles allowed per column in visible rows
+    maxBonusPerColumn: 2           // Maximum bonus tiles allowed per column in visible rows (increased for testing high spawn rates)
   },
   spawnRates: {
-    bonusChance: 0.9,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
+    bonusChance: 0.25,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
     wildChance: 0.02,                // 2% chance for wild tiles
     goldChance: 0.15                 // 15% chance for gold variants
   }

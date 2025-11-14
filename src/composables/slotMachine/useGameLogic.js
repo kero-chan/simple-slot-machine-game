@@ -1056,22 +1056,43 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
         }
       }
 
+      // Count bonuses ONLY in fully visible rows (where wins are checked)
+      const fullyVisibleRows = CONFIG.reels.fullyVisibleRows || 4
+      const fullyVisibleStart = BUFFER_OFFSET
+      const fullyVisibleEnd = BUFFER_OFFSET + fullyVisibleRows - 1
+
       let bonusCountInVisibleRows = 0
-      for (const tile of keptGameTiles) {
-        if (isBonusTile(tile)) bonusCountInVisibleRows++
-      }
-      for (const tile of takeFromBuffer) {
-        if (isBonusTile(tile)) bonusCountInVisibleRows++
+
+      // After cascade, the column layout will be:
+      // [0 to needFromBuffer-1]: NEW generated tiles (in buffer, not visible)
+      // [needFromBuffer to BUFFER_OFFSET-1]: old buffer tiles (in buffer, not visible)
+      // [BUFFER_OFFSET to BUFFER_OFFSET+takeFromBuffer.length-1]: takeFromBuffer (dropping into visible)
+      // [BUFFER_OFFSET+takeFromBuffer.length to end]: keptGameTiles (rest of column)
+
+      // Count bonuses in takeFromBuffer that will land in visible rows
+      for (let i = 0; i < takeFromBuffer.length; i++) {
+        const finalRow = BUFFER_OFFSET + i
+        if (finalRow >= fullyVisibleStart && finalRow <= fullyVisibleEnd && isBonusTile(takeFromBuffer[i])) {
+          bonusCountInVisibleRows++
+        }
       }
 
+      // Count bonuses in keptGameTiles that will land in visible rows
+      for (let i = 0; i < keptGameTiles.length; i++) {
+        const finalRow = BUFFER_OFFSET + takeFromBuffer.length + i
+        if (finalRow >= fullyVisibleStart && finalRow <= fullyVisibleEnd && isBonusTile(keptGameTiles[i])) {
+          bonusCountInVisibleRows++
+        }
+      }
+
+      // Generate new tiles (these go in buffer rows, not visible)
       const maxBonusPerColumn = CONFIG.game.maxBonusPerColumn || 2
       for (let i = 0; i < needFromBuffer; i++) {
+        // New tiles go in buffer (rows 0 to needFromBuffer-1), so they never affect visible row count
         const allowBonus = bonusCountInVisibleRows < maxBonusPerColumn
         const newSymbol = getRandomSymbol({ col, allowGold: true, allowBonus })
         newColumn.push(newSymbol)
-        if (isBonusTile(newSymbol)) {
-          bonusCountInVisibleRows++
-        }
+        // Don't increment bonusCountInVisibleRows because new tiles are in buffer, not visible rows
       }
 
       for (let i = 0; i < BUFFER_OFFSET - needFromBuffer; i++) {

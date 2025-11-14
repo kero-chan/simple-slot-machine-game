@@ -45,9 +45,9 @@ export function createJackpotResultOverlay(gameState) {
     if (skipEnableTimeout) {
       clearTimeout(skipEnableTimeout)
     }
-    
+
     canSkip = false
-    
+
     // Enable skip after 2 seconds
     skipEnableTimeout = setTimeout(() => {
       if (isAnimating) {
@@ -62,7 +62,7 @@ export function createJackpotResultOverlay(gameState) {
    */
   function disableSkip() {
     canSkip = false
-    
+
     if (skipEnableTimeout) {
       clearTimeout(skipEnableTimeout)
       skipEnableTimeout = null
@@ -93,12 +93,12 @@ export function createJackpotResultOverlay(gameState) {
       clickOverlay.cursor = 'pointer'
       clickOverlay.on('pointerdown', handleOverlayClick)
     }
-    
+
     // Create transparent overlay that covers the entire screen
     clickOverlay.rect(0, 0, width, height)
     clickOverlay.fill({ color: 0x000000, alpha: 0.001 }) // Nearly transparent
     clickOverlay.zIndex = 999 // Below particles but above video
-    
+
     return clickOverlay
   }
 
@@ -203,21 +203,46 @@ export function createJackpotResultOverlay(gameState) {
     const formattedAmount = amount.toLocaleString()  // e.g., "12,345"
     const digits = formattedAmount.split('')
 
+    // Configuration for punctuation (same as footer)
+    const PUNCTUATION_SCALE_FACTOR = 0.5  // Comma/period half size of digits
+    const PERIOD_Y_POSITION = 1.0   // Period aligned with bottom of numbers
+    const COMMA_Y_POSITION = 0.65   // Comma slightly above mid-height
+
+    // First pass: get reference height from a digit
+    let referenceHeight = 0
+    for (const d of digits) {
+      if (d >= '0' && d <= '9') {
+        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        if (imageSrc) {
+          const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+          const tempSprite = new Sprite(texture)
+          referenceHeight = tempSprite.height
+          break
+        }
+      }
+    }
+
     let offsetX = 0
 
     for (const d of digits) {
       let sprite
 
-      if (d === ',') {
-        // Use i40_10 for comma
+      if (d === ',' || d === '.') {
+        // Use i40_10 for comma, handle period if present
         const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
         if (!imageSrc) continue
         const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
         sprite = new Sprite(texture)
-        sprite.x = offsetX
-        sprite.y = 0
+
+        // Apply punctuation scaling and positioning
+        const spriteScale = (referenceHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
+        sprite.scale.set(spriteScale)
+        sprite.x = offsetX - sprite.width * 0.1
+        // Use different Y positions for period vs comma
+        sprite.y = referenceHeight * (d === '.' ? PERIOD_Y_POSITION : COMMA_Y_POSITION)
+
         numberContainer.addChild(sprite)
-        offsetX += sprite.width * 0.7  // Tighter spacing for comma
+        offsetX += sprite.width * 0.7  // Tighter spacing for punctuation
       } else if (d >= '0' && d <= '9') {
         // Use i40_0X for digits
         const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
@@ -258,7 +283,7 @@ export function createJackpotResultOverlay(gameState) {
 
     // Clear previous content
     container.removeChildren()
-    
+
     // Stop and clean up previous video if exists
     if (bgVideo) {
       bgVideo.pause()
@@ -286,27 +311,27 @@ export function createJackpotResultOverlay(gameState) {
         bgVideo.playsInline = true
         bgVideo.preload = 'auto'
         bgVideo.crossOrigin = 'anonymous'
-        
+
         // Wait for video to be ready before creating texture
         bgVideo.addEventListener('loadeddata', () => {
           console.log('✅ Video data loaded, creating texture...')
-          
+
           // Create PIXI texture from video AFTER it's loaded
           const videoTexture = Texture.from(bgVideo)
           videoSprite = new Sprite(videoTexture)
           videoSprite.anchor.set(0.5)
           videoSprite.x = canvasWidth / 2
           videoSprite.y = canvasHeight / 2
-          
+
           // Set proper scale
           const scaleX = canvasWidth / bgVideo.videoWidth
           const scaleY = canvasHeight / bgVideo.videoHeight
           const scale = Math.max(scaleX, scaleY)
           videoSprite.scale.set(scale)
-          
+
           // Add to container (at the beginning so it's behind other elements)
           container.addChildAt(videoSprite, 0)
-          
+
           // Start playing
           bgVideo.play().then(() => {
             console.log('✅ Jackpot result video playing')
@@ -363,12 +388,14 @@ export function createJackpotResultOverlay(gameState) {
     titleText.scale.set(0.5)  // Start small
     container.addChild(titleText)
 
-    // Create image-based amount display
+    // Create image-based amount display (reduced final size to prevent cutoff)
     amountContainer = createNumberDisplay(0)
-    amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
+    // Set pivot to center so scaling happens from center point
+    amountContainer.pivot.set(amountContainer.width / 2, amountContainer.height / 2)
+    amountContainer.x = canvasWidth / 2
     amountContainer.y = canvasHeight * 0.52
     amountContainer.alpha = 0  // Start invisible
-    amountContainer.scale.set(0.3)  // Start very small
+    amountContainer.scale.set(0.2)  // Start very small
     container.addChild(amountContainer)
 
     // Add clickable overlay for skip functionality
@@ -378,7 +405,7 @@ export function createJackpotResultOverlay(gameState) {
     // Add particles container (on top of clickable overlay)
     container.addChild(particlesContainer)
     spawnParticles(canvasWidth, canvasHeight, 250)  // More particles for celebration!
-    
+
     // Enable skip after 2 seconds
     enableSkipAfterDelay()
   }
@@ -401,17 +428,17 @@ export function createJackpotResultOverlay(gameState) {
     isFadingOut = false
     clearParticles()
     container.removeChildren()
-    
+
     // Disable skip functionality
     disableSkip()
-    
+
     // Clean up click overlay
     if (clickOverlay) {
       clickOverlay.off('pointerdown', handleOverlayClick)
       clickOverlay.destroy()
       clickOverlay = null
     }
-    
+
     // Clean up video
     if (bgVideo) {
       bgVideo.pause()
@@ -501,12 +528,14 @@ export function createJackpotResultOverlay(gameState) {
         amountContainer.destroy({ children: true })
 
         amountContainer = createNumberDisplay(currentDisplayAmount)
-        amountContainer.x = centerX - amountContainer.width / 2
+        // Set pivot to center for proper scaling
+        amountContainer.pivot.set(amountContainer.width / 2, amountContainer.height / 2)
+        amountContainer.x = centerX
         amountContainer.y = oldY
         amountContainer.alpha = oldAlpha
 
-        // Dramatic scaling during counting
-        const countPulse = 1 + Math.sin(counterElapsed * 15) * 0.05
+        // Dramatic scaling during counting (reduced base scale to prevent cutoff)
+        const countPulse = 0.65 + Math.sin(counterElapsed * 15) * 0.03
         amountContainer.scale.set(countPulse)
 
         container.addChild(amountContainer)
@@ -523,16 +552,18 @@ export function createJackpotResultOverlay(gameState) {
           amountContainer.destroy({ children: true })
 
           amountContainer = createNumberDisplay(targetAmount)
-          amountContainer.x = centerX - amountContainer.width / 2
+          // Set pivot to center for proper scaling
+          amountContainer.pivot.set(amountContainer.width / 2, amountContainer.height / 2)
+          amountContainer.x = centerX
           amountContainer.y = oldY
           amountContainer.alpha = oldAlpha
           container.addChild(amountContainer)
         }
       }
 
-      // Bigger pulse animation after counter finishes
+      // Bigger pulse animation after counter finishes (reduced to prevent cutoff)
       if (amountContainer) {
-        const pulse = 1 + Math.sin((elapsed - counterEnd) * 2.5) * 0.12
+        const pulse = 0.65 + Math.sin((elapsed - counterEnd) * 2.5) * 0.08
         amountContainer.scale.set(pulse)
       }
     }

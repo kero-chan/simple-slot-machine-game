@@ -119,21 +119,46 @@ export function createBonusOverlay(gameState) {
     const numberContainer = new Container()
     const digits = String(number).split('')
 
+    // Configuration for punctuation (same as footer)
+    const PUNCTUATION_SCALE_FACTOR = 0.5  // Comma/period half size of digits
+    const PERIOD_Y_POSITION = 1.0   // Period aligned with bottom of numbers
+    const COMMA_Y_POSITION = 0.65   // Comma slightly above mid-height
+
+    // First pass: get reference height from a digit
+    let referenceHeight = 0
+    for (const d of digits) {
+      if (d >= '0' && d <= '9') {
+        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        if (imageSrc) {
+          const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+          const tempSprite = new Sprite(texture)
+          referenceHeight = tempSprite.height
+          break
+        }
+      }
+    }
+
     let offsetX = 0
 
     for (const d of digits) {
       let sprite
 
-      if (d === ',') {
-        // Use i40_10 for comma
+      if (d === ',' || d === '.') {
+        // Use i40_10 for comma, handle period if present
         const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
         if (!imageSrc) continue
         const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
         sprite = new Sprite(texture)
-        sprite.x = offsetX
-        sprite.y = 0
+
+        // Apply punctuation scaling and positioning
+        const spriteScale = (referenceHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
+        sprite.scale.set(spriteScale)
+        sprite.x = offsetX - sprite.width * 0.1
+        // Use different Y positions for period vs comma
+        sprite.y = referenceHeight * (d === '.' ? PERIOD_Y_POSITION : COMMA_Y_POSITION)
+
         numberContainer.addChild(sprite)
-        offsetX += sprite.width * 0.7  // Tighter spacing for comma
+        offsetX += sprite.width * 0.7  // Tighter spacing for punctuation
       } else if (d >= '0' && d <= '9') {
         // Use i40_0X for digits
         const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
