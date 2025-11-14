@@ -3,12 +3,15 @@ import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
 import { useGameStore } from '../../../stores/gameStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
+import gsap from "gsap";
 
 export function useFooter(gameState) {
   const gameStore = useGameStore()
   const settingsStore = useSettingsStore()
 
   const container = new Container()
+  const menuContainer = new Container()
+  const jackpotContainer = new Container()
   let handlers = {
     spin: () => {},
     increaseBet: () => {},
@@ -16,13 +19,17 @@ export function useFooter(gameState) {
   }
 
   const amountLabels = {};
+  const btns = {}
 
+  let btnHover
+  let currentBg = null
   let spinBtnArrowSprite, spinBtnSprite, notiBgSprite, notiBgSprite1, notiBgSprite2, notiTextSprite, mutedIconSprite, notiMask, spinHoverCircle, winAmounContainer
-  let hoverAnimating = false;
-  let hoverAlphaDir = 1; // 1 = tăng alpha, -1 = giảm alpha
-  const hoverSpeed = 1.2;  // tốc độ thay đổi alpha
+  let mainMenuContainer, menuSettingContainer, setRect, amountContainer
   let lastSpinWinAmount = 0
   let showTotalWinAmount = false
+  let x,y,w,h
+  let inFreeSpinMode = false
+  let spins = 0
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -112,6 +119,41 @@ export function useFooter(gameState) {
     winAmounContainer.removeChildren();
     notiTextSprite.visible = false;
 
+    let bgToShow;
+    const accumulatedWinAmount = gameState.accumulatedWinAmount.value;
+    const betValue = gameState.bet.value;
+
+    if (accumulatedWinAmount < 5 * betValue) {
+      bgToShow = notiBgSprite;
+    } else if (accumulatedWinAmount < 10 * betValue) {
+      bgToShow = notiBgSprite1;
+    } else {
+      if (isTotal) {
+        bgToShow = notiBgSprite2;
+      } else {
+        bgToShow = notiBgSprite1;
+      }
+    }
+
+    [notiBgSprite, notiBgSprite1, notiBgSprite2].forEach(bg => {
+      if (bg !== bgToShow) bg.visible = false;
+    });
+
+    if (currentBg !== bgToShow) {
+      bgToShow.visible = true;
+      bgToShow.alpha = 0;
+
+      gsap.to(bgToShow, {
+        alpha: 1,
+        duration: 1,
+        ease: "power2.out"
+      });
+
+      currentBg = bgToShow;
+    } else {
+      bgToShow.visible = true;
+    }
+
     const digits = String(value).split('');
     let offsetX = 0;
     let textSprite
@@ -152,37 +194,423 @@ export function useFooter(gameState) {
       }
     }
 
-    const accumulatedWinAmount = gameState.accumulatedWinAmount.value
-    const betValue = gameState.bet.value
-    if (accumulatedWinAmount < 5 * betValue) {
-      notiBgSprite.visible = true
-      notiBgSprite1.visible = false
-      notiBgSprite2.visible = false
-    } else if (accumulatedWinAmount < 10 * betValue) {
-      notiBgSprite.visible = false
-      notiBgSprite1.visible = true
-      notiBgSprite2.visible = false
-    } else {
-      if (isTotal) {
-        notiBgSprite.visible = false
-        notiBgSprite1.visible = false
-        notiBgSprite2.visible = true
-      } else {
-        notiBgSprite.visible = false
-        notiBgSprite1.visible = true
-        notiBgSprite2.visible = false
-      }
-    }
-
     winAmounContainer.scale.set(0.7 * notiBgSprite.height / winAmounContainer.height)
     winAmounContainer.x = notiBgSprite.x - winAmounContainer.width * 0.5
     winAmounContainer.y = notiBgSprite.y - winAmounContainer.height * 0.5
+
+    winAmounContainer.alpha = 0;
+    gsap.to(winAmounContainer, { alpha: 1, duration: 1, ease: "power2.out" });
   }
 
+  function drawHoverCircle(sprite, radius = 0, x = null) {
+      let xPos = x || sprite.x
+      let yPos = sprite.getGlobalPosition().y
+      btnHover.clear()
+      btnHover.circle(xPos, yPos, radius).fill({color: 0xffffff, alpha: 0.2})
+    }
+
+  const buildSettingIcon = (key, i, text, visible,onClick) => {
+      const btnStartX = 0.12 * w
+      const btnSpace = (w - 2*btnStartX) / 5
+      const iconColor = 0xb3794f
+      const yPosition = 0.32 * menuContainer.height
+      const keySetting = getDeepSetting(key)
+      if (!keySetting) return
+
+      let scaleRate = 0.75
+      const targetButonHeightPer = 0.35
+
+      const xPosition = btnStartX + i * btnSpace
+      const btnSprite = new Sprite(subTex(key))
+      btnSprite.visible = visible
+      btnSprite.anchor.set(0.5)
+      btnSprite.position.set(xPosition, yPosition)
+      if (key === 'close_icon') {
+        btnSprite.tint = 0xb4a8a1
+      } else {
+        btnSprite.tint = iconColor
+      }
+      btnSprite.rotation = keySetting.rotation
+      btnSprite.scale.set(scaleRate * menuContainer.height * targetButonHeightPer / btnSprite.height)
+      btnSprite.eventMode = 'static'
+      menuSettingContainer.addChild(btnSprite)
+      btns[key] = btnSprite
+
+      btnSprite.on('pointerover', () => {
+        drawHoverCircle(btnSprite, yPosition * 0.8)
+        btnHover.visible = true
+      });
+
+      btnSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+
+      if (typeof onClick === 'function') {
+      btnSprite.on('pointerdown', () => {
+        onClick()
+      });
+    }
+
+    const label = new Text({text: text,
+      style: {
+        fontSize: 22,
+        fill: 0xb4a8a1,
+      }
+    })
+    label.anchor.set(0.5)
+    label.position.set(xPosition, 1.9 * yPosition)
+    label.scale.set(0.12 * menuContainer.height / label.height)
+    menuSettingContainer.addChild(label)
+  }
+
+  function switchMenuMode() {
+    if (gameState.inFreeSpinMode.value) {
+      amountContainer.position.set(0, y + 0.75 * h)
+      menuContainer.visible = false
+      jackpotContainer.visible = true
+      buildJackpotContainer()
+    } else {
+      amountContainer.position.set(0, y + Math.floor(h * 0.5)*0.61)
+      jackpotContainer.visible = false
+      menuContainer.visible = true
+    }
+  }
+
+  function buildJackpotContainer() {
+    jackpotContainer.removeChildren()
+
+    const spins = gameState.freeSpins.value
+    const menuHeight = h
+    jackpotContainer.position.set(x, y)
+    container.addChild(jackpotContainer)
+
+    let currentTextSprite
+    const spinningSprite = new Sprite(subTex('jackpot_texts.spinning'))
+    spinningSprite.visible = false
+    const finishSprite = new Sprite(subTex('jackpot_texts.finish'))
+    finishSprite.visible = false
+    if (spins <= 0) {
+      currentTextSprite = finishSprite
+      currentTextSprite.scale.set(0.25 * menuHeight / currentTextSprite.height)
+      currentTextSprite.position.set((w - currentTextSprite.width)  * 0.5, (h - currentTextSprite.height) * 0.45)
+      currentTextSprite.visible = true
+      jackpotContainer.addChild(currentTextSprite)
+    } else {
+      currentTextSprite = spinningSprite
+      currentTextSprite.scale.set(0.4 * menuHeight / currentTextSprite.height)
+      currentTextSprite.position.set((w - currentTextSprite.width)  * 0.25, (h - currentTextSprite.height) * 0.45)
+      currentTextSprite.visible = true
+      jackpotContainer.addChild(currentTextSprite)
+      let offsetX = currentTextSprite.x + currentTextSprite.width * 1.1
+
+      const digits = String(spins).split('');
+      for (const d of digits) {
+        if (d === '.') {
+        } else if (d === ',') {
+        } else {
+          const sprite = new Sprite(subTex(`jackpot_texts.number${d}`));
+          sprite.scale.set(0.8 * currentTextSprite.height / sprite.height)
+          sprite.x = offsetX;
+          sprite.y = currentTextSprite.y + (currentTextSprite.height - sprite.height) / 2
+          jackpotContainer.addChild(sprite);
+
+          offsetX += sprite.width;
+        }
+      }
+    }
+
+
+  }
+
+  function startSpin() {
+    spinHoverCircle.visible = false
+    notiBgSprite.visible = true
+    notiBgSprite1.visible = false
+    notiBgSprite2.visible = false
+
+    if (!!notiTextSprite && !notiTextSprite.visible) {
+      setNotification()
+    }
+    showTotalWinAmount = false
+  }
+
+  function buildMenuContainer() {
+    const menuHeight = 0.5*h
+    menuContainer.position.set(x, y + menuHeight)
+    container.addChild(menuContainer)
+
+    const settingBg = new Graphics()
+    const settingBgColor = 0x0c0c0c
+    const settingBgAlpha = 0.4
+    settingBg.rect(0, 0.05*menuHeight, w, menuHeight).fill({color: settingBgColor, alpha: settingBgAlpha})
+    menuContainer.addChild(settingBg)
+
+
+    // setting menu
+    menuSettingContainer = new Container()
+    menuSettingContainer.visible = false
+    menuContainer.addChild(menuSettingContainer)
+    buildSettingIcon('return_icon', 0, '退出', true, () => {
+      alert('do you want to quit game?')
+    })
+    buildSettingIcon('volumn_open_icon', 1, '声音', settingsStore.gameSound, () => {
+      gameStore.toggleGameSound()
+    })
+    buildSettingIcon('volumn_close_icon', 1, '声音', !settingsStore.gameSound, () => {
+      gameStore.toggleGameSound()
+    })
+    buildSettingIcon('win_table_icon', 2, '赔付表', true, () => {
+      // Show win table
+    })
+    buildSettingIcon('rule_icon', 3, '规则', true, () => {
+      // Show rules
+    })
+    buildSettingIcon('history_icon', 4, '历史', true, () => {
+      // Show history
+    })
+    buildSettingIcon('close_icon', 5, '关闭', true, () => {
+      showSprite(mainMenuContainer)
+      hideSprite(menuSettingContainer)
+    })
+
+    //  main menu
+    const iconColor = 0xb3794f
+    const mainMenuBtnStartX = 0.12 * w
+    const mainMenuSpace = 0.15 * w
+    const spinBtnSpace = 0.23 * w
+    const targetButonHeightPer = 0.35
+    const yPosition = 0.32 * menuContainer.height
+    mainMenuContainer = new Container()
+    menuContainer.addChild(mainMenuContainer)
+    const lightningBgSetting = getDeepSetting('lightning_bg_icon')
+    if (!!lightningBgSetting) {
+      const lightningBgSprite = new Sprite(subTex('lightning_bg_icon'))
+      lightningBgSprite.anchor.set(0.5)
+      lightningBgSprite.rotation = lightningBgSetting.rotation
+      lightningBgSprite.tint = iconColor
+      lightningBgSprite.position.set(mainMenuBtnStartX, yPosition)
+      lightningBgSprite.scale.set(0.8 * menuHeight * targetButonHeightPer / lightningBgSprite.height)
+      mainMenuContainer.addChild(lightningBgSprite)
+
+      const lightningSetting = getDeepSetting('lightning_icon')
+      if (!!lightningSetting) {
+        const lightningSprite = new Sprite(subTex('lightning_icon'))
+        lightningSprite.anchor.set(0.5)
+        lightningSprite.tint = iconColor
+        lightningSprite.rotation = lightningSetting.rotation
+        lightningSprite.position.set(lightningBgSprite.x, lightningBgSprite.y)
+        lightningSprite.scale.set(0.8 * 0.6 * menuHeight * targetButonHeightPer / lightningSprite.height)
+        mainMenuContainer.addChild(lightningSprite)
+      }
+
+      lightningBgSprite.eventMode = 'static';
+      lightningBgSprite.on('pointerover', () => {
+        drawHoverCircle(lightningBgSprite, yPosition * 0.8);
+        btnHover.visible = true;
+      });
+
+      lightningBgSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+    }
+
+    // Minus button
+    const minusSetting = getDeepSetting('minus_icon')
+    if (!!minusSetting) {
+      const minusSprite = new Sprite(subTex('minus_icon'))
+      minusSprite.anchor.set(0.5)
+      minusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace, yPosition)
+      minusSprite.tint = iconColor
+      minusSprite.scale.set(menuHeight * targetButonHeightPer / minusSprite.height)
+      minusSprite.rotation = minusSetting.rotation
+      minusSprite.eventMode = 'static';
+      minusSprite.on('pointerover', () => {
+        drawHoverCircle(minusSprite, yPosition * 0.8);
+        btnHover.visible = true;
+      });
+
+      minusSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+
+      minusSprite.on('pointerdown', () => {
+        btnHover.visible = false;
+        gameStore.decreaseBet()
+      });
+
+      mainMenuContainer.addChild(minusSprite)
+    }
+
+
+    // Spin button
+    const targetSpinBtnHeightPer = 0.8
+    const spinSetting = getDeepSetting('spin_btn_bg')
+    if (!!spinSetting) {
+      spinBtnSprite = new Sprite(subTex('spin_btn_bg'))
+      spinBtnSprite.anchor.set(0.5)
+      spinBtnSprite.position.set(mainMenuBtnStartX + mainMenuSpace + spinBtnSpace, yPosition)
+      spinBtnSprite.scale.set(targetSpinBtnHeightPer * menuHeight / spinBtnSprite.height)
+      spinBtnSprite.rotation = spinSetting.rotation
+      mainMenuContainer.addChild(spinBtnSprite)
+
+      // spint button arrow
+      spinBtnArrowSprite = new Sprite(subTex('spin_btn_arrows.normal'))
+      spinBtnArrowSprite.anchor.set(0.5)
+      spinBtnArrowSprite.position.set(spinBtnSprite.x, spinBtnSprite.y)
+      spinBtnArrowSprite.scale.set(0.65 * targetSpinBtnHeightPer * menuHeight / spinBtnArrowSprite.height)
+      mainMenuContainer.addChild(spinBtnArrowSprite)
+
+      spinBtnSprite.eventMode = 'static'
+      spinBtnSprite.on('pointerdown', () => {
+        if (gameState.showStartScreen?.value) return
+        if (gameState.isSpinning?.value) return
+        if (!gameState.canSpin?.value) return
+
+        startSpin()
+        handlers.spin && handlers.spin()
+      })
+
+      let tl
+
+      spinBtnSprite.on('pointerover', () => {
+        spinHoverCircle.visible = true;
+        if (tl) tl.kill();
+
+        spinHoverCircle.alpha = 0; // reset alpha trước khi tween
+        tl = gsap.timeline({ repeat: -1, yoyo: true });
+        tl.to(spinHoverCircle, { alpha: 0.3, duration: 0.5 });
+      });
+
+      spinBtnSprite.on('pointerout', () => {
+        if (tl) {
+          tl.kill();
+          tl = null;
+        }
+        spinHoverCircle.visible = false;
+        spinHoverCircle.alpha = 0; // reset alpha
+      });
+
+      spinHoverCircle = new Graphics().circle(spinBtnSprite.x, spinBtnSprite.y, spinBtnSprite.height * 0.46).fill({ color: 0xf7f76a, alpha: 1 });
+      spinHoverCircle.alpha = 0
+      spinHoverCircle.visible = false
+      mainMenuContainer.addChild(spinHoverCircle)
+    }
+
+    // plus button
+    const plusSetting = getDeepSetting('minus_icon')
+    if (!!plusSetting) {
+      const plusSprite = new Sprite(subTex('plus_icon'))
+      plusSprite.anchor.set(0.5)
+      plusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace + 2 * spinBtnSpace, yPosition)
+      plusSprite.tint = iconColor
+      plusSprite.scale.set(menuHeight * targetButonHeightPer / plusSprite.height)
+      plusSprite.eventMode = 'static';
+      plusSprite.on('pointerover', () => {
+        drawHoverCircle(plusSprite, yPosition * 0.8);
+        btnHover.visible = true;
+      });
+
+      plusSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+
+       plusSprite.on('pointerdown', () => {
+        btnHover.visible = false;
+        gameStore.increaseBet()
+      });
+
+      mainMenuContainer.addChild(plusSprite)
+    }
+
+    // auto spin icon
+    const autoSpinBgSetting = getDeepSetting('auto_spin_bg_icon')
+    if (!!autoSpinBgSetting) {
+      const autoSpinBgSprite = new Sprite(subTex('auto_spin_bg_icon'))
+      autoSpinBgSprite.anchor.set(0.5)
+      autoSpinBgSprite.tint = iconColor
+      autoSpinBgSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace, yPosition);
+      autoSpinBgSprite.scale.set(0.8 * menuHeight * targetButonHeightPer / autoSpinBgSprite.height)
+      mainMenuContainer.addChild(autoSpinBgSprite)
+
+      const autoSpinArrowSetting = getDeepSetting('auto_spin_arrow_icon')
+      if (!!autoSpinArrowSetting) {
+        const autoSpinArrowSprite = new Sprite(subTex('auto_spin_arrow_icon'))
+        autoSpinArrowSprite.anchor.set(0.5)
+        autoSpinArrowSprite.tint = iconColor
+        autoSpinArrowSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
+        autoSpinArrowSprite.scale.set(0.8 * 0.7 * menuHeight * targetButonHeightPer / autoSpinArrowSprite.height)
+        autoSpinArrowSprite.rotation = Math.random() * Math.PI * 2
+        mainMenuContainer.addChild(autoSpinArrowSprite)
+      }
+
+      const autoSpinSetting = getDeepSetting('auto_spin_icon')
+      if (!!autoSpinSetting) {
+        const autoSpinSprite = new Sprite(subTex('auto_spin_icon'))
+        autoSpinSprite.anchor.set(0.5)
+        autoSpinSprite.tint = iconColor
+        autoSpinSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
+        autoSpinSprite.scale.set(0.8 * 0.32 * menuHeight * targetButonHeightPer / autoSpinSprite.height)
+        autoSpinSprite.rotation = autoSpinSetting.rotation
+        mainMenuContainer.addChild(autoSpinSprite)
+      }
+
+      autoSpinBgSprite.eventMode = 'static';
+      autoSpinBgSprite.on('pointerover', () => {
+        drawHoverCircle(autoSpinBgSprite, yPosition * 0.8);
+        btnHover.visible = true;
+      });
+
+      autoSpinBgSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+    }
+
+     // Menu icon
+    const menuSetting = getDeepSetting('menu_icon')
+    if (!!menuSetting) {
+      const menuIconSprite = new Sprite(subTex('menu_icon'))
+      menuIconSprite.anchor.set(0.5)
+      menuIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, yPosition)
+      menuIconSprite.scale.set(0.5 * menuHeight * targetButonHeightPer / menuIconSprite.height)
+      menuIconSprite.rotation = menuSetting.rotation
+      menuIconSprite.eventMode = 'static';
+      menuIconSprite.on('pointerdown', () => {
+        hideSprite(mainMenuContainer)
+        showSprite(menuSettingContainer)
+        btnHover.visible = false
+      })
+
+      menuIconSprite.on('pointerover', () => {
+        drawHoverCircle(menuIconSprite, 0.8 * yPosition, menuIconSprite.x + menuIconSprite.width/2);
+        btnHover.visible = true;
+      });
+
+      menuIconSprite.on('pointerout', () => {
+        btnHover.visible = false;
+      });
+      mainMenuContainer.addChild(menuIconSprite)
+
+      // mute icon
+      const mutedIconSetting = getDeepSetting('muted_icon')
+      if (!!mutedIconSetting) {
+        mutedIconSprite = new Sprite(subTex('muted_icon'))
+        mutedIconSprite.anchor.set(0.5)
+        mutedIconSprite.visible = !settingsStore.gameSound
+        mutedIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, yPosition-0.8*menuIconSprite.height)
+        mutedIconSprite.scale.set(0.3 * menuHeight * targetButonHeightPer / mutedIconSprite.height)
+        mutedIconSprite.rotation = mutedIconSetting.rotation
+
+        mainMenuContainer.addChild(mutedIconSprite)
+      }
+    }
+  }
 
   function build(rect) {
     container.removeChildren()
-    const { x, y, w, h } = rect
+    x = rect.x
+    y = rect.y
+    w = rect.w
+    h = rect.h
     const setRectHeight = Math.floor(h * 0.5)
     const centerX = x + Math.floor(w / 2)
 
@@ -209,6 +637,7 @@ export function useFooter(gameState) {
     notiBgSprite.position.set(centerX, y + h *0.12)
     notiBgSprite.visible = true
     container.addChild(notiBgSprite)
+    currentBg = notiBgSprite
 
     notiBgSprite1 = new Sprite(subTex('footer_notification_bg1'))
     notiBgSprite1.scale.set(0.95 * w / notiBgSprite1.width)
@@ -244,26 +673,29 @@ export function useFooter(gameState) {
     const amountColor = 0x85efff
     const recAlpha = 0.4
 
+    amountContainer = new Container()
+
+    container.addChild(amountContainer)
+
     const buildAmountRect = (key, i, text) => {
       const keySetting = getDeepSetting(key)
       if (!keySetting) return
 
       const rectX = startX + i*(pillWidth+pillGap)
-      const rectY = y + setRectHeight*0.61
 
-      const baseRect = new Graphics().
-        roundRect(rectX, rectY, pillWidth, pillHeight, 0.25*pillHeight).
+      const bgRect = new Graphics().
+        roundRect(rectX, 0, pillWidth, pillHeight, 0.25*pillHeight).
         fill({color: recColor, alpha: recAlpha})
 
-      container.addChild(baseRect)
+      amountContainer.addChild(bgRect)
 
       const iconSprite = new Sprite(subTex(key))
       iconSprite.anchor.set(0.5)
-      iconSprite.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.12, rectY+baseRect.height/2)
+      iconSprite.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.12, bgRect.height/2)
       iconSprite.tint = iconColor
       iconSprite.rotation = keySetting.rotation
       fitSpriteToRect(iconSprite, pillHeight, 0.58)
-      container.addChild(iconSprite)
+      amountContainer.addChild(iconSprite)
 
       const label = new Text({text: text,
         style: {
@@ -274,9 +706,9 @@ export function useFooter(gameState) {
       })
       fitTextToBox(label, pillHeight, 0.6)
       label.anchor.set(0.5)
-      label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, rectY+baseRect.height/2)
+      label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, bgRect.height/2)
       amountLabels[key] = label
-      container.addChild(label)
+      amountContainer.addChild(label)
     }
 
     buildAmountRect('wallet_icon', 0, formatNumber(gameState.credits.value))
@@ -284,460 +716,53 @@ export function useFooter(gameState) {
     buildAmountRect('win_amount_icon', 2, formatNumber(gameState.currentWin.value))
 
 
-    // Bet Setting
-    const setRect = new Graphics()
-    const setRectYPos = y+(h-setRectHeight)
-    setRect.fill({color: recColor, alpha: recAlpha})
-    setRect.roundRect(x, setRectYPos, w, setRectHeight, 0)
-    setRect.fill()
-    container.addChild(setRect)
+    buildMenuContainer()
+    buildJackpotContainer()
 
-    const btnYPos = y+h*0.65
-    const targetButonHeightPer = 0.35
+    inFreeSpinMode = gameState.inFreeSpinMode.value
+    spins = gameState.freeSpins.value
+    switchMenuMode()
 
-    const mainMenuContainer = new Container()
-    mainMenuContainer.position.set(x, btnYPos)
-    mainMenuContainer.visible = true
-    container.addChild(mainMenuContainer)
-
-    // menu hiden buttons
-    const btnStartX = 0.12 * w
-    const btnSpace = (w - 2*btnStartX) / 5
-    const menuSettingContainer = new Container()
-    menuSettingContainer.position.set(x, btnYPos)
-    menuSettingContainer.visible = false
-    container.addChild(menuSettingContainer)
-
-    const buildMenuIcon = (key, i, text, onClick) => {
-      const keySetting = getDeepSetting(key)
-      if (!keySetting) return
-
-      let scaleRate = 0.72
-
-      const xPosition = btnStartX + i * btnSpace
-      const btnSprite = new Sprite(subTex(key))
-      btnSprite.anchor.set(0.5)
-      btnSprite.position.set(xPosition, 0)
-      if (key === 'close_icon') {
-        btnSprite.tint = 0xb4a8a1
-      } else {
-        btnSprite.tint = iconColor
-      }
-      btnSprite.rotation = keySetting.rotation
-      btnSprite.scale.set(scaleRate * setRectHeight * targetButonHeightPer / btnSprite.height)
-      btnSprite.eventMode = 'static'
-      btnSprite.cursor = 'pointer'
-      btnSprite.hitArea = new Rectangle(
-        -btnSprite.width / 2,
-        -btnSprite.height / 2,
-        btnSprite.width,
-        btnSprite.height
-      )
-
-      menuSettingContainer.addChild(btnSprite)
-
-      let btnSprite1 = null
-      if (key === 'volumn_open_icon') {
-        const setting1 = getDeepSetting('volumn_close_icon')
-        if (setting1) {
-          btnSprite1 = new Sprite(subTex('volumn_close_icon'))
-          btnSprite1.anchor.set(0.5)
-          btnSprite1.visible = false
-          btnSprite1.position.set(xPosition, 0)
-          btnSprite1.tint = iconColor
-          btnSprite1.rotation = setting1.rotation
-          btnSprite1.scale.set(1.05 * scaleRate * setRectHeight * targetButonHeightPer / btnSprite1.height)
-          btnSprite1.eventMode = 'static'
-          btnSprite1.cursor = 'pointer'
-          btnSprite1.hitArea = new Rectangle(
-            -btnSprite1.width / 2,
-            -btnSprite1.height / 2,
-            btnSprite1.width,
-            btnSprite1.height
-          )
-
-          btnSprite1.on('pointerover', () => {
-            drawHoverCircle(btnSprite1)
-            hoverCircle.visible = true
-          });
-
-          btnSprite1.on('pointerout', () => {
-            hoverCircle.visible = false;
-          });
-
-          if (typeof onClick === 'function') {
-            btnSprite1.on('pointerdown', () => {
-              onClick()
-              hoverCircle.visible = false
-              btnSprite1.visible = false
-              btnSprite.visible = true
-            });
-          }
-          menuSettingContainer.addChild(btnSprite1)
-          
-          // Set initial visibility based on gameSound state
-          if (settingsStore.gameSound) {
-            // gameSound is ON -> show volume open icon
-            btnSprite.visible = true
-            btnSprite1.visible = false
-          } else {
-            // gameSound is OFF -> show volume close icon (muted)
-            btnSprite.visible = false
-            btnSprite1.visible = true
-          }
-        }
-      }
-
-      btnSprite.on('pointerover', () => {
-        drawHoverCircle(btnSprite)
-        hoverCircle.visible = true
-      });
-
-      btnSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-
-      if (typeof onClick === 'function') {
-        btnSprite.on('pointerdown', () => {
-          onClick()
-          hoverCircle.visible = false
-          if (!!btnSprite1) {
-            btnSprite1.visible = true
-            btnSprite.visible = false
-          }
-        });
-      }
-
-      const label = new Text({text: text,
-        style: {
-          fontFamily: 'Arial',
-          fontSize: 24,
-          fill: 0xb4a8a1,
-        }
-      })
-      label.anchor.set(0.5)
-      label.position.set(xPosition, 1.1 * btnSprite.height)
-      menuSettingContainer.addChild(label)
-    }
+    btnHover = new Graphics();
+    btnHover.visible = false;
+    container.addChild(btnHover);
 
 
-    buildMenuIcon('return_icon', 0, '退出', () => {
-      alert('do you want to quit game?')
-    })
-    buildMenuIcon('volumn_open_icon', 1, '声音', () => {
-      gameStore.toggleGameSound()
-    })
-    buildMenuIcon('win_table_icon', 2, '赔付表', () => {
-      // Show win table
-    })
-    buildMenuIcon('rule_icon', 3, '规则', () => {
-      // Show rules
-    })
-    buildMenuIcon('history_icon', 4, '历史', () => {
-      // Show history
-    })
-    buildMenuIcon('close_icon', 5, '关闭', () => {
-      showButton(mainMenuContainer)
-      hideButton(menuSettingContainer)
-    })
-
-     // btn hover
-    const hoverCircle = new Graphics();
-    hoverCircle.visible = false; // mặc định ẩn
-    container.addChild(hoverCircle);
-
-    function drawHoverCircle(sprite, x = null) {
-      let xPos = x || sprite.x
-      let yPos = sprite.getGlobalPosition().y
-      hoverCircle.clear()
-      hoverCircle.fill({color: 0xffffff, alpha: 0.2})
-      hoverCircle.circle(xPos, yPos, yPos-setRectYPos-2)
-      hoverCircle.fill()
-    }
-
-    // Main Menu
-    const mainMenuBtnStartX = 0.12 * w
-    const mainMenuSpace = 0.15 * w
-    const spinBtnSpace = 0.23 * w
-
-    const lightningBgSetting = getDeepSetting('lightning_bg_icon')
-    if (!!lightningBgSetting) {
-      const lightningBgSprite = new Sprite(subTex('lightning_bg_icon'))
-      lightningBgSprite.anchor.set(0.5)
-      lightningBgSprite.rotation = lightningBgSetting.rotation
-      lightningBgSprite.tint = iconColor
-      lightningBgSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX, 0)
-      lightningBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / lightningBgSprite.height)
-      mainMenuContainer.addChild(lightningBgSprite)
-
-      const lightningSetting = getDeepSetting('lightning_icon')
-      if (!!lightningSetting) {
-        const lightningSprite = new Sprite(subTex('lightning_icon'))
-        lightningSprite.anchor.set(0.5)
-        lightningSprite.tint = iconColor
-        lightningSprite.rotation = lightningSetting.rotation
-        lightningSprite.position.set(lightningBgSprite.x, lightningBgSprite.y)
-        lightningSprite.scale.set(0.8 * 0.6 * setRectHeight * targetButonHeightPer / lightningSprite.height)
-        mainMenuContainer.addChild(lightningSprite)
-      }
-
-      lightningBgSprite.eventMode = 'static';
-      lightningBgSprite.on('pointerover', () => {
-        drawHoverCircle(lightningBgSprite);
-        hoverCircle.visible = true;
-      });
-
-      lightningBgSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-    }
-
-
-    // Minus / Plus buttons
-    const minusSetting = getDeepSetting('minus_icon')
-    if (!!minusSetting) {
-      const minusSprite = new Sprite(subTex('minus_icon'))
-      minusSprite.anchor.set(0.5)
-      minusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace, 0)
-      minusSprite.tint = iconColor
-      minusSprite.scale.set(setRectHeight * targetButonHeightPer / minusSprite.height)
-      minusSprite.rotation = minusSetting.rotation
-      minusSprite.eventMode = 'static';
-      minusSprite.on('pointerover', () => {
-        drawHoverCircle(minusSprite);
-        hoverCircle.visible = true;
-      });
-
-      minusSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-
-      minusSprite.on('pointerdown', () => {
-        hoverCircle.visible = false;
-        gameStore.decreaseBet()
-      });
-
-      mainMenuContainer.addChild(minusSprite)
-    }
-
-    const plusSetting = getDeepSetting('minus_icon')
-    if (!!plusSetting) {
-      const plusSprite = new Sprite(subTex('plus_icon'))
-      plusSprite.anchor.set(0.5)
-      plusSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + mainMenuSpace + 2 * spinBtnSpace, 0)
-      plusSprite.tint = iconColor
-      plusSprite.scale.set(setRectHeight * targetButonHeightPer / plusSprite.height)
-      plusSprite.eventMode = 'static';
-      plusSprite.on('pointerover', () => {
-        drawHoverCircle(plusSprite);
-        hoverCircle.visible = true;
-      });
-
-      plusSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-
-       plusSprite.on('pointerdown', () => {
-        hoverCircle.visible = false;
-        gameStore.increaseBet()
-      });
-
-      mainMenuContainer.addChild(plusSprite)
-    }
-
-
-    // auto spin icon
-    const autoSpinBgSetting = getDeepSetting('auto_spin_bg_icon')
-    if (!!autoSpinBgSetting) {
-      const autoSpinBgSprite = new Sprite(subTex('auto_spin_bg_icon'))
-      autoSpinBgSprite.anchor.set(0.5)
-      autoSpinBgSprite.tint = iconColor
-      autoSpinBgSprite.position.set(mainMenuContainer.x + mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace, 0);
-      autoSpinBgSprite.scale.set(0.8 * setRectHeight * targetButonHeightPer / autoSpinBgSprite.height)
-      mainMenuContainer.addChild(autoSpinBgSprite)
-
-      const autoSpinArrowSetting = getDeepSetting('auto_spin_arrow_icon')
-      if (!!autoSpinArrowSetting) {
-        const autoSpinArrowSprite = new Sprite(subTex('auto_spin_arrow_icon'))
-        autoSpinArrowSprite.anchor.set(0.5)
-        autoSpinArrowSprite.tint = iconColor
-        autoSpinArrowSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
-        autoSpinArrowSprite.scale.set(0.8 * 0.7 * setRectHeight * targetButonHeightPer / autoSpinArrowSprite.height)
-        autoSpinArrowSprite.rotation = Math.random() * Math.PI * 2
-        mainMenuContainer.addChild(autoSpinArrowSprite)
-      }
-
-      const autoSpinSetting = getDeepSetting('auto_spin_icon')
-      if (!!autoSpinSetting) {
-        const autoSpinSprite = new Sprite(subTex('auto_spin_icon'))
-        autoSpinSprite.anchor.set(0.5)
-        autoSpinSprite.tint = iconColor
-        autoSpinSprite.position.set(autoSpinBgSprite.x, autoSpinBgSprite.y)
-        autoSpinSprite.scale.set(0.8 * 0.32 * setRectHeight * targetButonHeightPer / autoSpinSprite.height)
-        autoSpinSprite.rotation = autoSpinSetting.rotation
-        mainMenuContainer.addChild(autoSpinSprite)
-      }
-
-      autoSpinBgSprite.eventMode = 'static';
-      autoSpinBgSprite.on('pointerover', () => {
-        drawHoverCircle(autoSpinBgSprite);
-        hoverCircle.visible = true;
-      });
-
-      autoSpinBgSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-    }
-
-
-     // Spin button
-    const targetSpinBtnHeightPer = 0.8
-    const spinSetting = getDeepSetting('spin_btn_bg')
-    if (!!spinSetting) {
-      spinBtnSprite = new Sprite(subTex('spin_btn_bg'))
-      spinBtnSprite.anchor.set(0.5)
-      spinBtnSprite.position.set(mainMenuBtnStartX + mainMenuSpace + spinBtnSpace, 0)
-      spinBtnSprite.scale.set(targetSpinBtnHeightPer * setRectHeight / spinBtnSprite.height)
-      spinBtnSprite.rotation = spinSetting.rotation
-      mainMenuContainer.addChild(spinBtnSprite)
-
-      // spint button arrow
-      spinBtnArrowSprite = new Sprite(subTex('spin_btn_arrows.normal'))
-      spinBtnArrowSprite.anchor.set(0.5)
-      spinBtnArrowSprite.position.set(spinBtnSprite.x, spinBtnSprite.y)
-      spinBtnArrowSprite.scale.set(0.65 * targetSpinBtnHeightPer * setRectHeight / spinBtnArrowSprite.height)
-      mainMenuContainer.addChild(spinBtnArrowSprite)
-
-      spinBtnSprite.eventMode = 'static'
-      spinBtnSprite.on('pointerdown', () => {
-        if (gameState.showStartScreen?.value) return
-        if (gameState.isSpinning?.value) return
-        if (!gameState.canSpin?.value) return
-
-        hoverCircle.visible = false
-        notiBgSprite.visible = true
-        notiBgSprite1.visible = false
-        notiBgSprite2.visible = false
-        amountLabels.win_amount_icon.text = '0.00'
-
-
-        if (!!notiTextSprite && !notiTextSprite.visible) {
-          setNotification()
-        }
-        showTotalWinAmount = false
-        handlers.spin && handlers.spin()
-      })
-
-      spinBtnSprite.on('pointerover', () => {
-        drawSpinHoverCircle(spinBtnSprite);
-        spinHoverCircle.visible = true;
-        hoverAnimating = true;
-        hoverAlphaDir = 1;
-      });
-
-      spinBtnSprite.on('pointerout', () => {
-        hoverAnimating = false;
-        spinHoverCircle.visible = false;
-        spinHoverCircle.alpha = 0;
-      });
-    }
-
-
-    // spin btn hover
-    spinHoverCircle = new Graphics();
-    spinHoverCircle.visible = false; // mặc định ẩn
-    spinHoverCircle.alpha = 0;
-    mainMenuContainer.addChild(spinHoverCircle);
-
-    function drawSpinHoverCircle(sprite, x = null) {
-      let xPos = x || sprite.x
-      spinHoverCircle.clear()
-      spinHoverCircle.fill({ color: 0xf7f76a, alpha: 0.3 }) // vàng sáng
-      spinHoverCircle.circle(xPos, sprite.y, 0.65 * sprite.width/2)
-      spinHoverCircle.fill()
-    }
-
-    // Menu icon
-    const menuSetting = getDeepSetting('menu_icon')
-    if (!!menuSetting) {
-      const menuIconSprite = new Sprite(subTex('menu_icon'))
-      menuIconSprite.anchor.set(0.5)
-      menuIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, 0)
-      menuIconSprite.scale.set(0.6 * setRectHeight * targetButonHeightPer / menuIconSprite.height)
-      menuIconSprite.rotation = menuSetting.rotation
-      menuIconSprite.eventMode = 'static';
-      menuIconSprite.on('pointerdown', () => {
-        hideButton(mainMenuContainer)
-        showButton(menuSettingContainer)
-        hoverCircle.visible = false
-      })
-
-      menuIconSprite.on('pointerover', () => {
-        drawHoverCircle(menuIconSprite, menuIconSprite.x + menuIconSprite.width/2);
-        hoverCircle.visible = true;
-      });
-
-      menuIconSprite.on('pointerout', () => {
-        hoverCircle.visible = false;
-      });
-      mainMenuContainer.addChild(menuIconSprite)
-
-      // mute icon
-      const mutedIconSetting = getDeepSetting('muted_icon')
-      if (!!mutedIconSetting) {
-        mutedIconSprite = new Sprite(subTex('muted_icon'))
-        mutedIconSprite.anchor.set(0.5)
-        mutedIconSprite.visible = !gameState.gameSound.value
-        mutedIconSprite.position.set(mainMenuBtnStartX + 2 * mainMenuSpace + 2 * spinBtnSpace + 0.9 * mainMenuBtnStartX, -0.8*menuIconSprite.height)
-        mutedIconSprite.scale.set(0.3 * setRectHeight * targetButonHeightPer / mutedIconSprite.height)
-        mutedIconSprite.rotation = mutedIconSetting.rotation
-
-        mainMenuContainer.addChild(mutedIconSprite)
-      }
-    }
+    // switchToFreeSpinMode()
 
   }
 
-  // Hàm animate button ẩn xuống
-  function hideButton(btn, duration = 0.03) {
-    const startY = btn.y;
-    const targetY = btn.y + 50; // chạy xuống 50px
-    let elapsed = 0;
-
-    const animate = (delta) => {
-      elapsed += delta;
-      const t = Math.min(elapsed / duration, 1);
-      btn.y = startY + (targetY - startY) * t;
-      btn.alpha = 1 - t; // mờ dần
-      if (t < 1) {
-        requestAnimationFrame(() => animate(delta));
-      } else {
-        btn.visible = false;
-        btn.y = startY; // reset vị trí nếu cần
+  // Hide button animation
+  function hideSprite(sprite, duration = 0.3) {
+    const startY = sprite.y;
+    gsap.to(sprite, {
+      y: startY + 70,
+      alpha: 0,
+      duration: duration,
+      ease: "power2.out",
+      onComplete: () => {
+        sprite.visible = false;
+        sprite.y = startY;
+        sprite.alpha = 1;
       }
-    };
-    animate(1/60); // bắt đầu animation
+    });
   }
 
-  // Hàm animate button hiện lên
-  function showButton(btn, duration = 0.03) {
-    const startY = btn.y + 50; // bắt đầu từ dưới
-    const targetY = btn.y;
-    btn.y = startY;
-    btn.visible = true;
-    btn.alpha = 0;
-    let elapsed = 0;
+  // Show button animation
+  function showSprite(sprite, duration = 0.03) {
+    const targetY = sprite.y;
+    const startY = targetY + 70;
 
-    const animate = (delta) => {
-      elapsed += delta;
-      const t = Math.min(elapsed / duration, 1);
-      btn.y = startY + (targetY - startY) * t;
-      btn.alpha = t; // sáng dần
-      if (t < 1) {
-        requestAnimationFrame(() => animate(delta));
-      }
-    };
-    animate(1/60);
+    sprite.visible = true;
+    sprite.y = startY;
+    sprite.alpha = 0;
+
+    gsap.to(sprite, {
+      y: targetY,
+      alpha: 1,
+      duration: duration,
+      ease: "power2.out",
+    });
   }
 
   function fitTextToBox(textObj, boxHeight, heightPercent = 0.8) {
@@ -760,6 +785,7 @@ export function useFooter(gameState) {
     amountLabels.wallet_icon.text = formatNumber(gameState.credits.value)
     amountLabels.bet_amount_icon.text = formatNumber(gameState.bet.value)
     if (spinWinAmount === 0) {
+      amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value)
       return
     }
 
@@ -791,31 +817,27 @@ export function useFooter(gameState) {
     const dt = lastTs ? Math.max(0, (timestamp - lastTs) / 1000) : 0;
     lastTs = timestamp;
 
-    if (mutedIconSprite && !gameState.gameSound.value) {
-      mutedIconSprite.visible = true
-    } else {
-      mutedIconSprite.visible = false
+    if (inFreeSpinMode !== gameState.inFreeSpinMode.value || spins !== gameState.freeSpins.value) {
+      inFreeSpinMode = gameState.inFreeSpinMode.value
+      spins = gameState.freeSpins.value
+      switchMenuMode()
+      startSpin()
     }
 
-    if (hoverAnimating && spinHoverCircle) {
-      spinHoverCircle.alpha += hoverAlphaDir * hoverSpeed * dt;
-      if (spinHoverCircle.alpha >= 1) {
-        spinHoverCircle.alpha = 1;
-        hoverAlphaDir = -1; // đảo chiều alpha
-      } else if (spinHoverCircle.alpha <= 0) {
-        spinHoverCircle.alpha = 0;
-        hoverAlphaDir = 1; // đảo chiều alpha
+    if (btns['volumn_open_icon'] && btns['volumn_close_icon']) {
+      if (settingsStore.gameSound) {
+        btns['volumn_open_icon'].visible = true
+        btns['volumn_close_icon'].visible = false
+      } else {
+        btns['volumn_open_icon'].visible = false
+        btns['volumn_close_icon'].visible = true
       }
     }
 
-    if (gameState.canSpin.value) {
-      amountLabels.bet_amount_icon.style.fill = 0x85efff
-      amountLabels.win_amount_icon.style.fill = 0x85efff
-      amountLabels.wallet_icon.style.fill = 0x85efff
+    if (mutedIconSprite && !settingsStore.gameSound) {
+      mutedIconSprite.visible = true
     } else {
-      amountLabels.bet_amount_icon.style.fill = 0xffffff
-      amountLabels.win_amount_icon.style.fill = 0xffffff
-      amountLabels.wallet_icon.style.fill = 0xffffff
+      mutedIconSprite.visible = false
     }
 
     // Spin button

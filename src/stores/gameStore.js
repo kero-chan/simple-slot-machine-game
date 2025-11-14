@@ -42,7 +42,7 @@ export const useGameStore = defineStore('game', {
     lastWinAmount: 0,
     allWinsThisSpin: [],
 
-    freeSpins: 0,
+    freeSpins: 19,
     inFreeSpinMode: false,
 
     // Anticipation mode (near-miss feature for bonus tiles)

@@ -150,6 +150,79 @@ export const SETTINGS = {
       assetName: 'i23_11',
     },
   },
+  jackpot_texts: {
+    spinning: {
+      rotation: 0,
+      position: { x: 1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_12',
+    },
+    finish: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_13',
+    },
+
+    number0: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_00',
+    },
+    number1: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_01',
+    },
+    number2: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_02',
+    },
+    number3: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_03',
+    },
+    number4: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_04',
+    },
+    number5: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_05',
+    },
+    number6: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_06',
+    },
+    number7: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_07',
+    },
+    number8: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_08',
+    },
+    number9: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_09',
+    },
+    period: {
+      rotation:  -(Math.PI / 2),
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_10',
+    },
+    comma: {
+      rotation: 0,
+      position: { x: -1, y: -1, w: -1, h: -1 },
+      assetName: 'i40_11',
+    },
+  },
   wallet_icon: {
     rotation: 0,
     position: { x: -1, y: -1, w: -1, h: -1 },
