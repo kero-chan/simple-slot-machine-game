@@ -29,6 +29,8 @@ export function createWinOverlay(gameState) {
   let targetAmount = 0  // Final amount to display
   let currentDisplayAmount = 0  // Current animated amount
   let isFadingOut = false
+  let currentCanvasWidth = 600  // Store canvas width for number scaling
+  let currentCanvasHeight = 800
 
   // Particle system for chaotic gold particles
   const particlesContainer = new Container()
@@ -114,8 +116,9 @@ export function createWinOverlay(gameState) {
 
   /**
    * Create image-based number display using i40_XX sprites
+   * Scales numbers to fit within 70% of canvas width
    */
-  function createNumberDisplay(amount) {
+  function createNumberDisplay(amount, canvasWidth) {
     const numberContainer = new Container()
     const formattedAmount = amount.toLocaleString()  // e.g., "12,345"
     const digits = formattedAmount.split('')
@@ -171,6 +174,13 @@ export function createWinOverlay(gameState) {
         numberContainer.addChild(sprite)
         offsetX += sprite.width * 0.95  // Slight spacing between digits
       }
+    }
+
+    // Scale the entire container to fit within 70% of canvas width
+    const maxWidth = canvasWidth * 0.7  // Use 70% of canvas width
+    if (numberContainer.width > maxWidth) {
+      const scale = maxWidth / numberContainer.width
+      numberContainer.scale.set(scale)
     }
 
     return numberContainer
@@ -232,6 +242,10 @@ export function createWinOverlay(gameState) {
   async function show(intensity, amount, canvasWidth, canvasHeight) {
     currentIntensity = intensity
     const config = getOverlayConfig(intensity)
+
+    // Store canvas dimensions for number scaling
+    currentCanvasWidth = canvasWidth
+    currentCanvasHeight = canvasHeight
 
     container.visible = true
     container.alpha = 1 // Reset alpha
@@ -339,7 +353,7 @@ export function createWinOverlay(gameState) {
     }
 
     // Create image-based amount display
-    amountContainer = createNumberDisplay(0)  // Start at 0, will be animated
+    amountContainer = createNumberDisplay(0, canvasWidth)  // Start at 0, will be animated
     amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
     amountContainer.y = canvasHeight / 2 + 50
     container.addChild(amountContainer)
@@ -409,11 +423,11 @@ export function createWinOverlay(gameState) {
       if (amountContainer) {
         // Recreate number display with updated amount
         const oldY = amountContainer.y
-        const centerX = background ? background.width / 2 : 300
+        const centerX = currentCanvasWidth / 2
         container.removeChild(amountContainer)
         amountContainer.destroy({ children: true })
 
-        amountContainer = createNumberDisplay(currentDisplayAmount)
+        amountContainer = createNumberDisplay(currentDisplayAmount, currentCanvasWidth)
         amountContainer.x = centerX - amountContainer.width / 2
         amountContainer.y = oldY
         container.addChild(amountContainer)
@@ -423,11 +437,11 @@ export function createWinOverlay(gameState) {
       currentDisplayAmount = targetAmount
       if (amountContainer) {
         const oldY = amountContainer.y
-        const centerX = background ? background.width / 2 : 300
+        const centerX = currentCanvasWidth / 2
         container.removeChild(amountContainer)
         amountContainer.destroy({ children: true })
 
-        amountContainer = createNumberDisplay(targetAmount)
+        amountContainer = createNumberDisplay(targetAmount, currentCanvasWidth)
         amountContainer.x = centerX - amountContainer.width / 2
         amountContainer.y = oldY
         container.addChild(amountContainer)
