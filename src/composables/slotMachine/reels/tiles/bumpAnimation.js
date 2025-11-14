@@ -1,60 +1,75 @@
+import { gsap } from 'gsap'
+
 /**
  * Manages bump animations for bonus tiles when they appear
+ * NOW USING GSAP for smoother animations
  */
 export function createBumpAnimationManager() {
-  const animations = new Map() // key -> { startTime, sprite, duration, baseScale }
+  const animations = new Map() // key -> { tween, sprite, baseScaleX, baseScaleY }
   const bumpedTiles = new Set() // Track tiles that have already been bumped
 
   /**
-   * Start a bump animation for a tile
+   * Start a bump animation for a tile using GSAP
    * @param {string} key - Tile key (e.g., "0:1")
    * @param {Sprite} sprite - The sprite to animate
    */
   function startBump(key, sprite) {
     if (!sprite || animations.has(key) || bumpedTiles.has(key)) return
 
+    const baseScaleX = sprite.scale.x
+    const baseScaleY = sprite.scale.y
+
+    // Create a timeline for the bump animation
+    const timeline = gsap.timeline({
+      onComplete: () => {
+        // Animation complete - restore original scale
+        if (sprite && !sprite.destroyed) {
+          sprite.scale.x = baseScaleX
+          sprite.scale.y = baseScaleY
+        }
+        bumpedTiles.add(key)
+        animations.delete(key)
+      }
+    })
+
+    // Bump animation: squeeze down and bounce back
+    // Using custom ease with sine wave for smooth squeeze effect
+    timeline.to(sprite.scale, {
+      x: baseScaleX * 0.8,
+      y: baseScaleY * 0.8,
+      duration: 0.3,
+      ease: 'sine.inOut'
+    }).to(sprite.scale, {
+      x: baseScaleX,
+      y: baseScaleY,
+      duration: 0.3,
+      ease: 'sine.inOut'
+    })
+
     animations.set(key, {
-      startTime: Date.now(),
+      tween: timeline,
       sprite: sprite,
-      duration: 600, // 600ms for bump animation (up and down)
-      baseScaleX: sprite.scale.x, // Store original X scale
-      baseScaleY: sprite.scale.y  // Store original Y scale
+      baseScaleX,
+      baseScaleY
     })
   }
 
   /**
-   * Update all active bump animations
+   * Update - GSAP handles updates automatically, this is a no-op now
    */
   function update() {
-    const now = Date.now()
-
-    for (const [key, anim] of animations.entries()) {
-      const elapsed = now - anim.startTime
-      const progress = Math.min(elapsed / anim.duration, 1)
-
-      if (progress >= 1) {
-        // Animation complete - restore original scale
-        anim.sprite.scale.x = anim.baseScaleX
-        anim.sprite.scale.y = anim.baseScaleY
-        bumpedTiles.add(key) // Mark as bumped
-        animations.delete(key)
-      } else {
-        // Bump animation: scale down then back to normal
-        // Using sine wave for smooth squeeze effect
-        const bumpProgress = Math.sin(progress * Math.PI) // 0 -> 1 -> 0
-        const scaleModifier = 1 - (bumpProgress * 0.2) // Scale down to 0.8x
-        anim.sprite.scale.x = anim.baseScaleX * scaleModifier
-        anim.sprite.scale.y = anim.baseScaleY * scaleModifier
-      }
-    }
+    // GSAP handles all updates automatically
   }
 
   /**
-   * Clear all animations and tracking
+   * Clear all animations and tracking - kill GSAP tweens
    */
   function clear() {
     for (const [key, anim] of animations.entries()) {
-      if (anim.sprite) {
+      if (anim.tween) {
+        anim.tween.kill()
+      }
+      if (anim.sprite && !anim.sprite.destroyed) {
         anim.sprite.scale.x = anim.baseScaleX
         anim.sprite.scale.y = anim.baseScaleY
       }
@@ -64,13 +79,18 @@ export function createBumpAnimationManager() {
   }
 
   /**
-   * Reset a specific tile (when it's reused or removed)
+   * Reset a specific tile (when it's reused or removed) - kill GSAP tween
    */
   function reset(key) {
     const anim = animations.get(key)
-    if (anim && anim.sprite) {
-      anim.sprite.scale.x = anim.baseScaleX
-      anim.sprite.scale.y = anim.baseScaleY
+    if (anim) {
+      if (anim.tween) {
+        anim.tween.kill()
+      }
+      if (anim.sprite && !anim.sprite.destroyed) {
+        anim.sprite.scale.x = anim.baseScaleX
+        anim.sprite.scale.y = anim.baseScaleY
+      }
     }
     animations.delete(key)
     bumpedTiles.delete(key)

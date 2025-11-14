@@ -1,4 +1,5 @@
 import { Container, Sprite } from 'pixi.js'
+import { gsap } from 'gsap'
 import { createBackdrop } from './backdrop'
 import { getTextureForSymbol } from './textures'
 import { applyTileVisuals } from './visuals'
@@ -38,6 +39,117 @@ export function useReels(gameState, gridState) {
     let lastCascadeTime = 0 // Track when cascade last happened
     let columnHighlightsInitialized = false // Track if column highlights are initialized
 
+    // GSAP-DRIVEN REEL SYSTEM: Individual containers for each reel column
+    // Each container's Y position is animated directly by GSAP during spins
+    const COLS = 5
+    const reelContainers = [] // One container per column
+    const reelSpinData = new Map() // col -> { gsapTimeline, isSpinning, targetIndex }
+
+    // Create individual containers for each reel
+    for (let col = 0; col < COLS; col++) {
+        const reelContainer = new Container()
+        reelContainer.sortableChildren = true
+        tilesContainer.addChild(reelContainer)
+        reelContainers.push(reelContainer)
+    }
+
+    /**
+     * GSAP-Driven Reel Spin System
+     * This function creates a visual scroll effect by:
+     * 1. Populating reel containers with strip tiles
+     * 2. Having GSAP directly animate container Y positions
+     * 3. Creating smooth, GPU-accelerated scrolling
+     *
+     * @param {number} col - Column index
+     * @param {Array} strip - Symbol strip array
+     * @param {number} xPos - X position for sprites in this column
+     * @param {number} startY - Starting Y position
+     * @param {number} stepY - Vertical spacing between tiles
+     * @param {number} spriteWidth - Width of each sprite
+     * @param {number} spriteHeight - Height of each sprite
+     * @param {number} targetDistance - How many tiles to scroll
+     * @param {number} duration - Animation duration in seconds
+     * @param {number} delay - Delay before starting in seconds
+     * @param {Function} onComplete - Callback when complete
+     */
+    function startGSAPReelScroll(col, strip, xPos, startY, stepY, spriteWidth, spriteHeight, targetDistance, duration, delay, onComplete) {
+        const reelContainer = reelContainers[col]
+
+        // Clear previous sprites
+        while (reelContainer.children.length > 0) {
+            const child = reelContainer.children[0]
+            reelContainer.removeChild(child)
+            if (child.destroy) child.destroy({ children: true, texture: false, baseTexture: false })
+        }
+
+        // Create sprites for the entire strip
+        const stripSprites = []
+        const stripLength = strip.length
+
+        for (let i = 0; i < stripLength; i++) {
+            const symbol = strip[i]
+            const tex = getTextureForSymbol(symbol)
+            if (!tex) continue
+
+            const sprite = new Sprite(tex)
+            sprite.anchor.set(0.5, 0.5)
+
+            // Position sprite within the reel container
+            sprite.x = xPos
+            sprite.y = i * stepY
+
+            // Set size
+            const scaleX = spriteWidth / tex.width
+            const scaleY = spriteHeight / tex.height
+            sprite.scale.set(scaleX, scaleY)
+
+            sprite._symbolData = symbol // Store symbol for later
+
+            reelContainer.addChild(sprite)
+            stripSprites.push(sprite)
+        }
+
+        // Set initial container position (container Y offset moves all sprites)
+        reelContainer.y = startY
+
+        // GSAP animates the container's Y position directly
+        // This creates smooth, GPU-accelerated scrolling
+        const scrollDistance = targetDistance * stepY
+
+        const timeline = gsap.timeline({
+            onComplete: () => {
+                reelSpinData.delete(col)
+                if (onComplete) onComplete(col)
+            }
+        })
+
+        timeline.to(reelContainer, {
+            y: `+=${scrollDistance}`, // Scroll downward (TOP_TO_BOTTOM) - positive moves down
+            duration: duration,
+            delay: delay,
+            ease: 'power2.out', // Smooth deceleration
+            onUpdate: () => {
+                // GSAP handles all the animation - we just update velocity for game logic
+                const progress = timeline.progress()
+                const remaining = (1 - progress) * scrollDistance
+                const velocity = remaining > 10 ? 10 : Math.max(0.01, remaining / 2)
+
+                // Update gridState for game logic compatibility
+                if (gridState.spinVelocities) {
+                    gridState.spinVelocities[col] = velocity
+                }
+            }
+        })
+
+        reelSpinData.set(col, {
+            gsapTimeline: timeline,
+            isSpinning: true,
+            stripSprites
+        })
+
+        return timeline
+    }
+
     // Add containers in order: background, light bursts, tiles, frames, column highlights
     container.addChild(tilesContainer)
     tilesContainer.addChild(lightBursts.container)  // Add light bursts behind tiles
@@ -45,7 +157,6 @@ export function useReels(gameState, gridState) {
     container.addChild(framesContainer)
     container.addChild(columnHighlights.container)  // Add column highlights on top
 
-    const COLS = 5
     const ROWS_FULL = 4
     const TOP_PARTIAL = 0.30
     const BLEED = 2
@@ -55,6 +166,121 @@ export function useReels(gameState, gridState) {
     const BUFFER_OFFSET = getBufferOffset()
 
     const spriteCache = new Map() // `${col}:${row}`
+
+    // GSAP-DRIVEN SPIN MANAGER
+    // This creates a fully GSAP-controlled spin system where GSAP directly manages
+    // the reel scroll positions and velocities using its own ticker and easing
+    function createGSAPSpinManager() {
+        const activeSpins = new Map() // col -> gsap timeline
+
+        /**
+         * Start GSAP-driven spin for a specific column
+         * GSAP will directly animate scrollPosition which drives visual rendering
+         */
+        function startColumnSpin(col, startIndex, targetIndex, duration, delay, onUpdate, onComplete) {
+            // Kill any existing animation
+            const existing = activeSpins.get(col)
+            if (existing) {
+                existing.kill()
+            }
+
+            // Create animation object that GSAP will tween
+            const scrollData = {
+                position: startIndex,
+                velocity: 10 // Initial high velocity
+            }
+
+            // Create GSAP tween with smooth easing
+            const tween = gsap.to(scrollData, {
+                position: targetIndex,
+                velocity: 0, // Decelerate to stop
+                duration: duration,
+                delay: delay,
+                ease: 'power2.out', // Smooth deceleration
+                onUpdate: () => {
+                    // Calculate actual velocity based on progress
+                    const remaining = targetIndex - scrollData.position
+                    const actualVelocity = Math.max(0.01, Math.min(remaining / 2, 10))
+                    scrollData.velocity = actualVelocity
+
+                    if (onUpdate) {
+                        onUpdate(scrollData.position, actualVelocity)
+                    }
+                },
+                onComplete: () => {
+                    scrollData.position = targetIndex
+                    scrollData.velocity = 0
+                    activeSpins.delete(col)
+
+                    if (onComplete) {
+                        onComplete()
+                    }
+                }
+            })
+
+            activeSpins.set(col, tween)
+            return tween
+        }
+
+        /**
+         * Stop a column's spin immediately
+         */
+        function stopColumnSpin(col) {
+            const tween = activeSpins.get(col)
+            if (tween) {
+                tween.kill()
+                activeSpins.delete(col)
+            }
+        }
+
+        /**
+         * Slow down a column (for anticipation mode)
+         */
+        function slowDownColumn(col, newDuration) {
+            const tween = activeSpins.get(col)
+            if (tween && tween.isActive()) {
+                const remainingProgress = 1 - tween.progress()
+                const adjustedDuration = remainingProgress * newDuration
+                tween.duration(adjustedDuration)
+                return true
+            }
+            return false
+        }
+
+        /**
+         * Check if column is spinning
+         */
+        function isColumnSpinning(col) {
+            const tween = activeSpins.get(col)
+            return tween && tween.isActive()
+        }
+
+        /**
+         * Kill all spins
+         */
+        function killAll() {
+            for (const [col, tween] of activeSpins.entries()) {
+                tween.kill()
+            }
+            activeSpins.clear()
+        }
+
+        return {
+            startColumnSpin,
+            stopColumnSpin,
+            slowDownColumn,
+            isColumnSpinning,
+            killAll
+        }
+    }
+
+    const gsapSpinManager = createGSAPSpinManager()
+
+    // GSAP-driven blur effects for motion blur during spinning
+    const reelBlurs = [] // Motion blur filters for each reel
+    for (let col = 0; col < COLS; col++) {
+        reelBlurs.push({ strength: 0 }) // GSAP will tween this value
+    }
 
     function draw(mainRect, tileSize, timestamp, canvasW) {
         ensureBackdrop(mainRect, canvasW)
@@ -451,8 +677,8 @@ export function useReels(gameState, gridState) {
                 // Only check this column's velocity, not the global spinning flag
                 const columnIsSpinning = gridState.spinVelocities && gridState.spinVelocities[col] > 0.001
 
-                // Get anticipation visual state, passing the spinning state
-                const anticipationState = anticipationEffects.getTileVisualState(col, gridRow, symbol, columnIsSpinning)
+                // Get anticipation visual state, passing the spinning state and grid
+                const anticipationState = anticipationEffects.getTileVisualState(col, gridRow, symbol, columnIsSpinning, gridState.grid)
 
                 // Apply tile visuals with anticipation mode overrides
                 // If anticipation mode is active:
@@ -484,9 +710,13 @@ export function useReels(gameState, gridState) {
                 // Position with center anchor
                 sp.x = Math.round(xCell) - BLEED + w / 2
 
-                // Use drop animation Y if tile is dropping, otherwise use normal Y
+                // GSAP OPTIMIZATION: Only set Y if NOT dropping (let GSAP handle dropping sprites)
                 const baseY = yCell - BLEED + h / 2
-                sp.y = dropAnimations.getDropY(cellKey, baseY)
+                if (!isCurrentlyDropping) {
+                    // Not dropping - set position normally
+                    sp.y = baseY
+                }
+                // If dropping, GSAP is animating sprite.y directly - don't touch it!
 
                 // Set z-index for pop-out effect on bonus tiles
                 // Also elevate bonus tiles during anticipation mode
@@ -536,12 +766,51 @@ export function useReels(gameState, gridState) {
         }
     }
 
+    /**
+     * Stop GSAP reel scroll and transition to grid-based rendering
+     * Called when spin completes
+     */
+    function stopGSAPReelScroll(col) {
+        const spinData = reelSpinData.get(col)
+        if (spinData) {
+            // Kill GSAP timeline
+            if (spinData.gsapTimeline) {
+                spinData.gsapTimeline.kill()
+            }
+            // Clear reel container
+            const reelContainer = reelContainers[col]
+            while (reelContainer.children.length > 0) {
+                const child = reelContainer.children[0]
+                reelContainer.removeChild(child)
+                if (child.destroy) child.destroy({ children: true, texture: false, baseTexture: false })
+            }
+            reelContainer.y = 0 // Reset position
+            reelSpinData.delete(col)
+        }
+    }
+
+    /**
+     * Stop all GSAP reel scrolls
+     */
+    function stopAllGSAPReelScrolls() {
+        for (let col = 0; col < COLS; col++) {
+            stopGSAPReelScroll(col)
+        }
+    }
+
     // Expose API
     return {
         container,
         draw,
         winningEffects,
         triggerPop,
-        getSpriteCache: () => spriteCache // Expose sprite cache for pop animation
+        getSpriteCache: () => spriteCache, // Expose sprite cache for pop animation
+        // GSAP-driven reel scroll API
+        startGSAPReelScroll,
+        stopGSAPReelScroll,
+        stopAllGSAPReelScrolls,
+        gsapSpinManager,
+        reelContainers, // Expose for positioning
+        isColumnSpinning: (col) => reelSpinData.has(col)
     }
 }

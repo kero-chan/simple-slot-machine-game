@@ -31,7 +31,7 @@ export const useTimingStore = defineStore('timing', {
     HIGHLIGHT_ANIMATION_DURATION: 2500,  // ms - How long highlight animation runs (can be stopped early)
 
     // Drop/cascade animations
-    DROP_DURATION: 300,           // ms - Tiles falling down during cascade (longer + linear for maximum smoothness)
+    DROP_DURATION: 450,           // ms - Tiles falling down during cascade (GSAP-optimized with power1.out easing)
     DROP_GRACE_PERIOD: 6000,      // ms - Keep dropped symbols stable to prevent flickering
     CASCADE_RESET_WINDOW: 300,    // ms - Window to force sprite resets after cascade
     CASCADE_MAX_WAIT: 5000,       // ms - Max time to wait for cascade animations (safety timeout)
@@ -40,11 +40,14 @@ export const useTimingStore = defineStore('timing', {
     BUMP_DURATION: 600,           // ms - Bonus tile "bump" animation (up and down)
 
     // ========== SPIN TIMING ==========
-    SPIN_BASE_DURATION: 2500,     // ms - Base duration for reel spin
-    SPIN_REEL_STAGGER: 150,       // ms - Delay between each reel starting to spin
+    SPIN_BASE_DURATION: 2000,     // ms - Base duration for first reel (GSAP-optimized sequential stops)
+    SPIN_REEL_STAGGER: 200,       // ms - Delay between each reel (creates clear sequential stop effect)
 
     // ========== ANTICIPATION MODE TIMING ==========
-    ANTICIPATION_SLOWDOWN_DURATION: 5000,  // ms - Extra slow spin time per column during anticipation (dramatic waiting!)
+    ANTICIPATION_SLOWDOWN_PER_COLUMN: 5000,  // ms - Exact time each column takes to slow down and stop during anticipation (very dramatic!)
+
+    // ========== JACKPOT TIMING ==========
+    JACKPOT_PAUSE_BEFORE_POP: 1000,  // ms - Pause after last column stops to let player observe result before bonus tiles start popping
 
     // ========== COMPUTED TIMING ==========
     // These are derived from the above constants for convenience

@@ -1,75 +1,63 @@
+import { gsap } from 'gsap'
+
 /**
  * Pop Animation Manager
  * Handles tile pop animations (scale bounce effect) for bonus tiles during jackpot
+ * NOW USING GSAP for smoother animations with built-in back easing
  */
 export function createPopAnimationManager() {
-  const activeAnimations = new Map() // cellKey -> animation state
+  const activeAnimations = new Map() // cellKey -> { tween, sprite, baseScaleX, baseScaleY }
 
   /**
-   * Start a pop animation for a tile
+   * Start a pop animation for a tile using GSAP
    * @param {string} cellKey - The cell key (e.g., "0:1")
    * @param {Sprite} sprite - The tile sprite to animate
    */
   function startPop(cellKey, sprite) {
     if (!sprite) return
 
+    const baseScaleX = sprite.scale.x
+    const baseScaleY = sprite.scale.y
+    const maxScale = 1.7 // Pop to 170% size - bigger burst!
+
+    // Kill any existing animation for this tile
+    const existing = activeAnimations.get(cellKey)
+    if (existing && existing.tween) {
+      existing.tween.kill()
+    }
+
+    // Create GSAP tween with back easing for overshoot effect
+    const tween = gsap.to(sprite.scale, {
+      x: baseScaleX * maxScale,
+      y: baseScaleY * maxScale,
+      duration: 0.5, // 500ms
+      ease: 'back.out(1.7)', // Built-in back easing with overshoot
+      onComplete: () => {
+        // Animation complete - reset to base scale
+        if (sprite && sprite.parent && !sprite.destroyed) {
+          sprite.scale.x = baseScaleX
+          sprite.scale.y = baseScaleY
+        }
+        activeAnimations.delete(cellKey)
+      }
+    })
+
     activeAnimations.set(cellKey, {
+      tween,
       sprite,
-      startTime: performance.now(),
-      duration: 500, // 500ms total animation for dramatic effect
-      baseScaleX: sprite.scale.x,
-      baseScaleY: sprite.scale.y,
-      maxScale: 1.7, // Pop to 170% size - bigger burst!
+      baseScaleX,
+      baseScaleY
     })
   }
 
   /**
-   * Update all active pop animations
+   * Update - GSAP handles updates automatically, this just checks for active animations
    * @returns {boolean} True if any animations are still active
    */
   function update() {
-    const now = performance.now()
-    let hasActive = false
-
-    for (const [cellKey, anim] of activeAnimations.entries()) {
-      const elapsed = now - anim.startTime
-      const progress = Math.min(elapsed / anim.duration, 1)
-
-      if (progress >= 1) {
-        // Animation complete - reset to base scale
-        if (anim.sprite && anim.sprite.parent) {
-          anim.sprite.scale.x = anim.baseScaleX
-          anim.sprite.scale.y = anim.baseScaleY
-        }
-        activeAnimations.delete(cellKey)
-      } else {
-        hasActive = true
-
-        // Dramatic burst animation: explosive scale up
-        // Use back easing for overshoot effect
-        const scale = anim.baseScaleX * (1 + (anim.maxScale - 1) * easeOutBack(progress))
-
-        if (anim.sprite && anim.sprite.parent) {
-          anim.sprite.scale.x = scale
-          anim.sprite.scale.y = scale
-        }
-      }
-    }
-
-    return hasActive
-  }
-
-  /**
-   * Back easing out - creates overshoot effect
-   * Goes past the target and bounces back - perfect for "pop out of screen" feeling
-   */
-  function easeOutBack(t) {
-    const c1 = 1.70158
-    const c3 = c1 + 1
-
-    return t === 1
-      ? 0 // End at 0 (back to original scale)
-      : 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+    // GSAP handles all updates automatically
+    // Just return whether we have active animations
+    return activeAnimations.size > 0
   }
 
   /**
@@ -87,12 +75,15 @@ export function createPopAnimationManager() {
   }
 
   /**
-   * Clear all animations
+   * Clear all animations - kill GSAP tweens
    */
   function clear() {
-    // Reset all sprites to base scale
+    // Kill all tweens and reset sprites to base scale
     for (const [cellKey, anim] of activeAnimations.entries()) {
-      if (anim.sprite && anim.sprite.parent) {
+      if (anim.tween) {
+        anim.tween.kill()
+      }
+      if (anim.sprite && anim.sprite.parent && !anim.sprite.destroyed) {
         anim.sprite.scale.x = anim.baseScaleX
         anim.sprite.scale.y = anim.baseScaleY
       }
