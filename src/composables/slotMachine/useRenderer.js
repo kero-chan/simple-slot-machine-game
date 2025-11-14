@@ -9,7 +9,6 @@ import { createWinOverlay } from './overlay/winOverlay'
 import { createBonusOverlay } from './overlay/bonusOverlay'
 import { createJackpotVideoOverlay } from './overlay/jackpotVideoOverlay'
 import { createBonusTilePopAnimation } from './overlay/bonusTilePopAnimation'
-import { createFreeSpinsCountdown } from './overlay/freeSpinsCountdown'
 import { createJackpotResultOverlay } from './overlay/jackpotResultOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
 import { useGameStore, GAME_STATES } from '../../stores/gameStore'
@@ -32,7 +31,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let bonusOverlay = null
     let bonusTilePopAnimation = null
     let jackpotVideoOverlay = null
-    let freeSpinsCountdown = null
     let jackpotResultOverlay = null
 
     // Track last layout for rebuilds
@@ -98,7 +96,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             bonusOverlay = createBonusOverlay(gameState)
             bonusTilePopAnimation = createBonusTilePopAnimation(gridState, reels)
             jackpotVideoOverlay = createJackpotVideoOverlay()
-            freeSpinsCountdown = createFreeSpinsCountdown()
             jackpotResultOverlay = createJackpotResultOverlay(gameState)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
@@ -109,7 +106,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(glowOverlay.container)
             root.addChild(winningSparkles.container)
             root.addChild(footer.container)
-            root.addChild(freeSpinsCountdown.container)
             root.addChild(winOverlay.container)
             root.addChild(jackpotResultOverlay.container)
             root.addChild(bonusTilePopAnimation.container)
@@ -142,21 +138,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                     bonusOverlay.show(freeSpinsCount, w, h, () => {
                         gameStore.completeBonusOverlay()
                     })
-                }
-
-                if (newState === GAME_STATES.FREE_SPINS_ACTIVE && freeSpinsCountdown) {
-                    freeSpinsCountdown.show(gameStore.freeSpins, w, h)
-                }
-
-                if (newState === GAME_STATES.IDLE && gameStore.inFreeSpinMode === false && freeSpinsCountdown) {
-                    freeSpinsCountdown.hide()
-                }
-            })
-
-            // Watch for free spins count changes
-            watch(() => gameStore.freeSpins, (newCount) => {
-                if (freeSpinsCountdown && freeSpinsCountdown.isShowing()) {
-                    freeSpinsCountdown.updateCount(newCount)
                 }
             })
         }
@@ -254,14 +235,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 jackpotVideoOverlay.update(timestamp)
                 if (resized && jackpotVideoOverlay.container.visible) {
                     jackpotVideoOverlay.build(w, h)
-                }
-            }
-
-            // Update free spins countdown
-            if (freeSpinsCountdown) {
-                freeSpinsCountdown.update(timestamp)
-                if (resized && freeSpinsCountdown.container.visible) {
-                    freeSpinsCountdown.build(w, h)
                 }
             }
 
