@@ -20,13 +20,31 @@ async function preloadVideo(src) {
 
     console.log(`✅ Video downloaded (${(blob.size / 1024 / 1024).toFixed(2)} MB)`)
 
+    // Determine preload strategy based on video type
+    // jackpot.mp4 needs full preloading for smooth playback with audio
+    // jackpot_result.mp4 can use metadata-only (it's just background)
+    const isJackpotVideo = src.includes('jackpot.mp4') && !src.includes('jackpot_result')
+    const preloadStrategy = isJackpotVideo ? 'auto' : 'metadata'
+
+    console.log(`📹 Using preload strategy: ${preloadStrategy} for ${src}`)
+
     // Create video element with blob URL
     const video = document.createElement('video')
     video.src = blobUrl
-    video.preload = 'metadata' // Changed from 'auto' for better mobile compatibility
+    video.preload = preloadStrategy
     video.style.display = 'none'
     video.playsInline = true
     video.muted = true // Muted videos are more likely to load on mobile
+
+    // Enable hardware acceleration on mobile
+    video.setAttribute('playsinline', 'true') // iOS compatibility
+    video.setAttribute('webkit-playsinline', 'true') // Older iOS
+
+    // For jackpot video, optimize for smooth playback
+    if (isJackpotVideo) {
+      video.style.willChange = 'transform' // Hint for hardware acceleration
+      video.style.transform = 'translateZ(0)' // Force GPU layer
+    }
 
     // Add to DOM
     document.body.appendChild(video)
@@ -42,26 +60,40 @@ async function preloadVideo(src) {
         }
       }
 
-      // Mobile-friendly: Use multiple events to detect readiness
+      // Different readiness events based on preload strategy
       const onReady = () => {
-        console.log('✅ Video ready for playback')
+        console.log(`✅ Video ready for playback (readyState: ${video.readyState})`)
         finish(video)
       }
 
-      video.addEventListener('loadeddata', onReady)
-      video.addEventListener('loadedmetadata', onReady)
-      video.addEventListener('canplay', onReady)
+      if (preloadStrategy === 'auto') {
+        // For full preload, wait for enough data to play through
+        console.log('⏳ Waiting for video to buffer fully...')
+        video.addEventListener('canplaythrough', onReady, { once: true })
+        // Fallback to canplay if canplaythrough takes too long
+        setTimeout(() => {
+          if (!resolved) {
+            console.log('⏰ canplaythrough timeout, using canplay instead')
+            video.addEventListener('canplay', onReady, { once: true })
+          }
+        }, 5000)
+      } else {
+        // For metadata-only, just wait for basic readiness
+        video.addEventListener('loadeddata', onReady, { once: true })
+        video.addEventListener('loadedmetadata', onReady, { once: true })
+        video.addEventListener('canplay', onReady, { once: true })
+      }
 
       video.addEventListener('error', (e) => {
         console.error('❌ Video element error:', e)
         finish(null)
       })
 
-      // Timeout after 10 seconds for mobile devices
+      // Timeout after 15 seconds for mobile devices
       setTimeout(() => {
         console.warn('⚠️ Video loading timeout, continuing anyway...')
         finish(video) // Return video element even if not fully loaded
-      }, 10000)
+      }, 15000)
 
       // Try to trigger load explicitly
       video.load()

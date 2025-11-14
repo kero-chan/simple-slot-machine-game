@@ -100,14 +100,21 @@ export function createJackpotVideoOverlay() {
         videoElement.style.backgroundColor = 'transparent'
         videoElement.style.display = 'none' // Hidden until needed
         videoElement.style.cursor = 'pointer' // Show pointer to indicate clickable
+
+        // Ensure hardware acceleration is enabled for smooth playback
+        videoElement.style.willChange = 'transform'
+        videoElement.style.transform = 'translateZ(0)'
+
         videoElement.playsInline = true
-        
+        videoElement.setAttribute('playsinline', 'true')
+        videoElement.setAttribute('webkit-playsinline', 'true')
+
         // Add click event listener
         videoElement.addEventListener('click', handleVideoClick)
-        
+
         // Set initial volume based on gameSound state
         updateVideoVolume()
-        
+
         console.log('✅ Jackpot video ready from preloaded assets')
       } else {
         console.warn('❌ Jackpot video not found in preloaded assets')
@@ -143,13 +150,12 @@ export function createJackpotVideoOverlay() {
       return
     }
 
-    // Show the preloaded video
-    video.style.display = 'block'
-    video.currentTime = 0 // Reset to beginning
-
     // IMPORTANT: Keep muted during play() for mobile compatibility
     // We'll unmute after playback starts successfully
     video.muted = true
+
+    // Reset to beginning
+    video.currentTime = 0
 
     // Watch for gameSound changes while video is playing
     if (!gameSoundWatcher) {
@@ -172,17 +178,60 @@ export function createJackpotVideoOverlay() {
 
     video.addEventListener('ended', onEnded)
 
-    // Start playback while muted (better mobile compatibility)
-    video.play()
-      .then(() => {
-        console.log('✅ Video playback started successfully')
-        // Now that it's playing, unmute and set volume
-        updateVideoVolume()
-      })
-      .catch(err => {
-        console.error('❌ Failed to play video:', err)
-        hide()
-      })
+    // Function to start playback
+    const startPlayback = () => {
+      console.log(`📹 Starting video playback (readyState: ${video.readyState})`)
+
+      // Show video
+      video.style.display = 'block'
+
+      // Start playback while muted (better mobile compatibility)
+      video.play()
+        .then(() => {
+          console.log('✅ Video playback started successfully')
+          // Now that it's playing, unmute and set volume
+          updateVideoVolume()
+        })
+        .catch(err => {
+          console.error('❌ Failed to play video:', err)
+          hide()
+        })
+    }
+
+    // Check if video has enough data buffered
+    if (video.readyState >= 3) {
+      // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA - ready to play
+      startPlayback()
+    } else {
+      console.log('⏳ Waiting for video to buffer...')
+
+      // Wait for video to have enough data
+      const onCanPlay = () => {
+        console.log('✅ Video buffered and ready')
+        video.removeEventListener('canplay', onCanPlay)
+        video.removeEventListener('canplaythrough', onCanPlay)
+        startPlayback()
+      }
+
+      video.addEventListener('canplay', onCanPlay, { once: true })
+      video.addEventListener('canplaythrough', onCanPlay, { once: true })
+
+      // Force load if needed
+      if (video.readyState === 0) {
+        console.log('📹 Triggering video load...')
+        video.load()
+      }
+
+      // Timeout: force start after 2 seconds even if not fully buffered
+      setTimeout(() => {
+        if (video.style.display !== 'block') {
+          console.warn('⚠️ Video buffering timeout - forcing playback')
+          video.removeEventListener('canplay', onCanPlay)
+          video.removeEventListener('canplaythrough', onCanPlay)
+          startPlayback()
+        }
+      }, 2000)
+    }
 
     // Enable skip after 2 seconds
     enableSkipAfterDelay()
