@@ -162,6 +162,9 @@ export function useBackgroundMusic() {
       return true
     }
 
+    // Set playing immediately to prevent double-start
+    isPlaying.value = true
+
     // Add visibility listener only once
     if (!visibilityListenerAdded) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -173,6 +176,7 @@ export function useBackgroundMusic() {
       const audio = getAudio('background_music')
       if (!audio) {
         console.error('❌ Background music not found')
+        isPlaying.value = false
         return false
       }
 
@@ -192,7 +196,6 @@ export function useBackgroundMusic() {
         try {
           await playPromise
           console.log('✅ Background music playing successfully')
-          isPlaying.value = true
 
           // Play game start sound after 2 seconds
           gameStartTimeout = setTimeout(() => {
@@ -207,17 +210,16 @@ export function useBackgroundMusic() {
           return true
         } catch (err) {
           console.error('❌ Failed to play:', err)
-          // Still set playing to true so game can continue
-          isPlaying.value = true
+          // Keep playing state true so game continues
           return false
         }
       } else {
         console.log('ℹ️ No play promise (legacy browser)')
-        isPlaying.value = true
         return true
       }
     } catch (err) {
       console.error('❌ Error creating audio:', err)
+      isPlaying.value = false
       return false
     }
   }

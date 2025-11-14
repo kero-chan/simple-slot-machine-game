@@ -23,6 +23,7 @@ export function createJackpotVideoOverlay() {
   let canSkip = false // Flag to allow skipping after 2 seconds
   let skipEnableTimeout = null
   let gameSoundWatcher = null // Store watcher to cleanup later
+  let currentVideoSrc = null // Track current video source
 
   /**
    * Update video volume based on gameSound state
@@ -81,46 +82,48 @@ export function createJackpotVideoOverlay() {
   }
 
   /**
-   * Get and configure the preloaded video element
+   * Create a fresh video element (simplest approach for mobile)
    */
-  function getVideoElement() {
-    if (!videoElement) {
-      // Get preloaded video from assets (loaded during initial loading screen)
-      videoElement = ASSETS.loadedVideos?.jackpot
+  function createVideoElement() {
+    // Get video source URL
+    const videoSrc = ASSETS.videoPaths?.jackpot
 
-      if (videoElement) {
-        // Configure video element styles (already in DOM from asset loader)
-        videoElement.style.position = 'fixed'
-        videoElement.style.top = '0'
-        videoElement.style.left = '0'
-        videoElement.style.width = '100%'
-        videoElement.style.height = '100%'
-        videoElement.style.objectFit = 'contain'
-        videoElement.style.zIndex = '9999'
-        videoElement.style.backgroundColor = 'transparent'
-        videoElement.style.display = 'none' // Hidden until needed
-        videoElement.style.cursor = 'pointer' // Show pointer to indicate clickable
-
-        // Ensure hardware acceleration is enabled for smooth playback
-        videoElement.style.willChange = 'transform'
-        videoElement.style.transform = 'translateZ(0)'
-
-        videoElement.playsInline = true
-        videoElement.setAttribute('playsinline', 'true')
-        videoElement.setAttribute('webkit-playsinline', 'true')
-
-        // Add click event listener
-        videoElement.addEventListener('click', handleVideoClick)
-
-        // Set initial volume based on gameSound state
-        updateVideoVolume()
-
-        console.log('✅ Jackpot video ready from preloaded assets')
-      } else {
-        console.warn('❌ Jackpot video not found in preloaded assets')
-      }
+    if (!videoSrc) {
+      console.error('❌ Jackpot video source not found')
+      return null
     }
-    return videoElement
+
+    console.log('📹 Creating fresh video element:', videoSrc)
+
+    // Create new video element
+    const video = document.createElement('video')
+    video.src = videoSrc
+    video.playsInline = true
+    video.setAttribute('playsinline', 'true')
+    video.setAttribute('webkit-playsinline', 'true')
+    video.muted = true // Start muted for mobile autoplay
+    video.preload = 'auto'
+
+    // Style for fullscreen
+    video.style.position = 'fixed'
+    video.style.top = '0'
+    video.style.left = '0'
+    video.style.width = '100%'
+    video.style.height = '100%'
+    video.style.objectFit = 'contain'
+    video.style.zIndex = '9999'
+    video.style.backgroundColor = 'black'
+    video.style.display = 'none'
+    video.style.cursor = 'pointer'
+
+    // Add to DOM
+    document.body.appendChild(video)
+
+    // Add click listener
+    video.addEventListener('click', handleVideoClick)
+
+    console.log('✅ Video element created')
+    return video
   }
 
   /**
@@ -133,37 +136,38 @@ export function createJackpotVideoOverlay() {
 
     console.log('🎬 Starting jackpot video...')
 
-    // Resume AudioContext in case it was suspended (video can be several seconds long)
+    // Resume AudioContext in case it was suspended
     if (howlerAudio.isReady()) {
       await howlerAudio.resumeAudioContext()
-      console.log('🔓 Audio context resumed before jackpot video')
+      console.log('🔓 Audio context resumed')
     }
 
     // Pause all background audio
     audioManager.pause()
 
-    // Get the preloaded video element
-    const video = getVideoElement()
-    if (!video) {
-      console.warn('❌ Video element not preloaded')
+    // Clean up old video if exists
+    if (videoElement) {
+      console.log('🧹 Cleaning up old video')
+      videoElement.pause()
+      videoElement.removeEventListener('click', handleVideoClick)
+      videoElement.remove()
+      videoElement = null
+    }
+
+    // Create fresh video element
+    videoElement = createVideoElement()
+    if (!videoElement) {
+      console.error('❌ Failed to create video element')
       hide()
       return
     }
 
-    console.log('📹 Preparing jackpot video for playback')
-
-    // Simple mobile-friendly approach
-    // Reset to beginning
-    video.currentTime = 0
-    video.muted = true
-    video.loop = false
-
-    // Watch for gameSound changes while video is playing
+    // Watch for gameSound changes
     if (!gameSoundWatcher) {
       gameSoundWatcher = watch(
         () => settingsStore.gameSound,
         () => {
-          if (isPlaying) {
+          if (isPlaying && videoElement) {
             updateVideoVolume()
           }
         }
@@ -171,56 +175,34 @@ export function createJackpotVideoOverlay() {
     }
 
     // Set up event listeners
-    const onEnded = () => {
-      console.log('✅ Jackpot video completed')
-      video.removeEventListener('ended', onEnded)
-      video.removeEventListener('error', onError)
+    videoElement.addEventListener('ended', () => {
+      console.log('✅ Video completed')
       hide()
-    }
+    }, { once: true })
 
-    const onError = (e) => {
-      console.error('❌ Video playback error:', e)
-      video.removeEventListener('ended', onEnded)
-      video.removeEventListener('error', onError)
+    videoElement.addEventListener('error', (e) => {
+      console.error('❌ Video error:', e)
       hide()
-    }
+    }, { once: true })
 
-    video.addEventListener('ended', onEnded, { once: true })
-    video.addEventListener('error', onError, { once: true })
+    // Show and play
+    videoElement.style.display = 'block'
 
-    // Show video immediately
-    video.style.display = 'block'
+    console.log('▶️ Playing video...')
 
-    // Start playback - simple and direct
-    console.log(`📹 Starting video (readyState: ${video.readyState})`)
+    try {
+      await videoElement.play()
+      console.log('✅ Video playing')
 
-    const playPromise = video.play()
-
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          console.log('✅ Video playing')
-          // Unmute after playback starts
-          setTimeout(() => {
-            updateVideoVolume()
-          }, 100)
-        })
-        .catch(err => {
-          console.error('❌ Play failed:', err)
-          // Try one more time after a brief delay
-          setTimeout(() => {
-            console.log('🔄 Retrying video playback...')
-            video.play()
-              .then(() => {
-                console.log('✅ Retry successful')
-                updateVideoVolume()
-              })
-              .catch(retryErr => {
-                console.error('❌ Retry failed:', retryErr)
-                hide()
-              })
-          }, 300)
-        })
+      // Unmute after playback starts
+      setTimeout(() => {
+        if (videoElement) {
+          updateVideoVolume()
+        }
+      }, 200)
+    } catch (err) {
+      console.error('❌ Play failed:', err)
+      hide()
     }
 
     // Enable skip after 2 seconds
@@ -234,6 +216,8 @@ export function createJackpotVideoOverlay() {
     container.visible = false
     isPlaying = false
 
+    console.log('🔽 Hiding jackpot video')
+
     // Disable skip functionality
     disableSkip()
 
@@ -243,16 +227,15 @@ export function createJackpotVideoOverlay() {
       gameSoundWatcher = null
     }
 
-    // Hide video but keep it preloaded for next time
+    // Clean up video element completely
     if (videoElement) {
       videoElement.pause()
-      videoElement.style.display = 'none'
-      videoElement.currentTime = 0 // Reset for next playback
+      videoElement.removeEventListener('click', handleVideoClick)
+      videoElement.remove() // Remove from DOM
+      videoElement = null
     }
 
-    // Don't resume music here - let the next state (free spin mode) handle starting jackpot music
-    // If we resume here, it will resume NORMAL music, then free spins will switch to jackpot music
-    // This causes a brief moment of normal music playing before switching
+    // Don't resume music here - let free spin mode handle jackpot music
 
     // Trigger completion callback
     if (onCompleteCallback) {
