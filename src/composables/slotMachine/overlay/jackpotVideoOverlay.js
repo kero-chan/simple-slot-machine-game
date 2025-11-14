@@ -82,10 +82,9 @@ export function createJackpotVideoOverlay() {
   }
 
   /**
-   * Create a fresh video element (simplest approach for mobile)
+   * Create a simple video element (no preloading, no Howler)
    */
   function createVideoElement() {
-    // Get video source URL
     const videoSrc = ASSETS.videoPaths?.jackpot
 
     if (!videoSrc) {
@@ -93,19 +92,16 @@ export function createJackpotVideoOverlay() {
       return null
     }
 
-    console.log('📹 Creating fresh video element:', videoSrc)
+    console.log('📹 Creating video:', videoSrc)
 
-    // Create new video element
+    // Simple video element
     const video = document.createElement('video')
     video.src = videoSrc
     video.playsInline = true
-    video.setAttribute('playsinline', 'true')
-    video.setAttribute('webkit-playsinline', 'true')
-    video.muted = true // Start muted for mobile autoplay
-    video.preload = 'auto'
-    video.crossOrigin = 'anonymous' // For better compatibility
+    video.muted = true
+    video.preload = 'none' // Don't preload anything
 
-    // Style for fullscreen
+    // Fullscreen styling
     video.style.position = 'fixed'
     video.style.top = '0'
     video.style.left = '0'
@@ -117,13 +113,10 @@ export function createJackpotVideoOverlay() {
     video.style.display = 'none'
     video.style.cursor = 'pointer'
 
-    // Add to DOM
     document.body.appendChild(video)
-
-    // Add click listener
     video.addEventListener('click', handleVideoClick)
 
-    console.log('✅ Video element created')
+    console.log('✅ Video created')
     return video
   }
 
@@ -135,30 +128,27 @@ export function createJackpotVideoOverlay() {
     isPlaying = true
     onCompleteCallback = onComplete
 
-    console.log('🎬 Starting jackpot video...')
+    console.log('🎬 Starting jackpot video')
 
-    // Resume AudioContext in case it was suspended
+    // Resume AudioContext
     if (howlerAudio.isReady()) {
       await howlerAudio.resumeAudioContext()
-      console.log('🔓 Audio context resumed')
     }
 
-    // Pause all background audio
+    // Pause background audio
     audioManager.pause()
 
-    // Clean up old video if exists
+    // Clean up old video
     if (videoElement) {
-      console.log('🧹 Cleaning up old video')
       videoElement.pause()
       videoElement.removeEventListener('click', handleVideoClick)
       videoElement.remove()
       videoElement = null
     }
 
-    // Create fresh video element
+    // Create new video
     videoElement = createVideoElement()
     if (!videoElement) {
-      console.error('❌ Failed to create video element')
       hide()
       return
     }
@@ -175,9 +165,9 @@ export function createJackpotVideoOverlay() {
       )
     }
 
-    // Set up event listeners
+    // Simple event listeners
     videoElement.addEventListener('ended', () => {
-      console.log('✅ Video completed')
+      console.log('✅ Video ended')
       hide()
     }, { once: true })
 
@@ -186,54 +176,23 @@ export function createJackpotVideoOverlay() {
       hide()
     }, { once: true })
 
-    // Wait for video to be ready before playing
-    const waitForVideo = new Promise((resolve) => {
-      if (videoElement.readyState >= 2) {
-        // Already have enough data
-        console.log('✅ Video already loaded (readyState: ' + videoElement.readyState + ')')
-        resolve()
-      } else {
-        // Wait for loadeddata event
-        console.log('⏳ Waiting for video to load...')
-        const onReady = () => {
-          console.log('✅ Video loaded (readyState: ' + videoElement.readyState + ')')
-          resolve()
-        }
-        videoElement.addEventListener('loadeddata', onReady, { once: true })
-        videoElement.addEventListener('canplay', onReady, { once: true })
-
-        // Timeout: proceed anyway after 3 seconds
-        setTimeout(() => {
-          console.warn('⏰ Video load timeout, trying to play anyway')
-          resolve()
-        }, 3000)
-      }
-    })
-
-    // Show video
+    // Show and play
     videoElement.style.display = 'block'
 
-    // Wait for video to be ready
-    await waitForVideo
+    console.log('▶️ Playing video')
 
-    console.log('▶️ Playing video...')
-
-    try {
-      await videoElement.play()
-      console.log('✅ Video playing successfully')
-
-      // Unmute after playback starts
+    videoElement.play().then(() => {
+      console.log('✅ Video playing')
+      // Unmute after playing starts
       setTimeout(() => {
         if (videoElement && isPlaying) {
           updateVideoVolume()
         }
-      }, 300)
-    } catch (err) {
-      console.error('❌ Play failed:', err.message || err)
-      console.error('Video readyState:', videoElement.readyState)
-      console.error('Video networkState:', videoElement.networkState)
+      }, 200)
+    }).catch(err => {
+      console.error('❌ Play error:', err)
       hide()
-    }
+    })
 
     // Enable skip after 2 seconds
     enableSkipAfterDelay()

@@ -2,71 +2,14 @@ import { Assets, Texture } from 'pixi.js'
 import { ASSETS } from '../config/assets'
 
 /**
- * Preload video element - simpler approach for mobile compatibility
- * Use direct URL instead of blob for better streaming
+ * Skip video preloading - videos will be created on-demand
+ * This is simpler and more reliable on mobile
  */
 async function preloadVideo(src) {
-  try {
-    console.log('📹 Preparing video:', src)
-
-    // Create video element with direct URL (better for mobile streaming)
-    const video = document.createElement('video')
-    video.src = src
-    video.preload = 'metadata' // Use metadata for all videos (lighter, better mobile support)
-    video.style.display = 'none'
-    video.playsInline = true
-    video.muted = true
-
-    // Enable hardware acceleration and mobile compatibility
-    video.setAttribute('playsinline', 'true')
-    video.setAttribute('webkit-playsinline', 'true')
-    video.style.willChange = 'transform'
-    video.style.transform = 'translateZ(0)'
-
-    // Add to DOM
-    document.body.appendChild(video)
-
-    console.log('✅ Video element created with direct URL')
-
-    // Simple readiness check - just wait for metadata
-    return new Promise((resolve) => {
-      let resolved = false
-
-      const finish = (result) => {
-        if (!resolved) {
-          resolved = true
-          resolve(result)
-        }
-      }
-
-      const onReady = () => {
-        console.log(`✅ Video ready (readyState: ${video.readyState})`)
-        finish(video)
-      }
-
-      // Wait for basic metadata
-      video.addEventListener('loadedmetadata', onReady, { once: true })
-
-      video.addEventListener('error', (e) => {
-        console.error('❌ Video error:', e)
-        finish(video) // Return video anyway, let playback handle errors
-      })
-
-      // Short timeout - video will stream when played
-      setTimeout(() => {
-        if (!resolved) {
-          console.log('⏱️ Video metadata timeout, returning anyway')
-          finish(video)
-        }
-      }, 3000)
-
-      // Load metadata
-      video.load()
-    })
-  } catch (error) {
-    console.error('❌ Video preload failed:', error)
-    return null
-  }
+  // Don't preload videos - just return null
+  // Videos will be created fresh when needed
+  console.log('📹 Skipping video preload (will create on-demand):', src)
+  return null
 }
 
 /**

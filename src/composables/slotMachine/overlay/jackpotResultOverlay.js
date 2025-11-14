@@ -285,109 +285,65 @@ export function createJackpotResultOverlay(gameState) {
     // Clear previous content
     container.removeChildren()
 
-    // Clean up previous video sprite if exists
+    // Clean up previous video if exists
+    if (bgVideo) {
+      bgVideo.pause()
+      bgVideo.remove()
+      bgVideo = null
+    }
     if (videoSprite) {
       videoSprite.destroy(true)
       videoSprite = null
     }
-    // Clear video reference (will be reassigned below)
-    bgVideo = null
 
-    // Use preloaded jackpot_result.mp4 video as FULLSCREEN background
+    // Create fresh jackpot_result video (no preloading)
     let bgVideoLoaded = false
     try {
-      // Get preloaded video from assets (loaded during initial loading screen)
-      const preloadedVideo = ASSETS.loadedVideos?.jackpot_result
+      const videoSrc = ASSETS.videoPaths?.jackpot_result
 
-      if (preloadedVideo) {
-        console.log('✅ Using preloaded jackpot result video')
+      if (videoSrc) {
+        console.log('📹 Creating jackpot result video:', videoSrc)
 
-        bgVideo = preloadedVideo
-
-        // Configure video element
+        // Create fresh video element
+        bgVideo = document.createElement('video')
+        bgVideo.src = videoSrc
         bgVideo.loop = true
         bgVideo.playsInline = true
-        bgVideo.style.display = 'none' // Keep hidden in DOM
-        bgVideo.muted = true // Keep muted for mobile compatibility
+        bgVideo.muted = true
+        bgVideo.style.display = 'none'
+        document.body.appendChild(bgVideo)
 
-        // Reset video to beginning
-        bgVideo.currentTime = 0
+        // Create PIXI texture and sprite
+        const videoTexture = Texture.from(bgVideo)
+        videoSprite = new Sprite(videoTexture)
+        videoSprite.anchor.set(0.5)
+        videoSprite.x = canvasWidth / 2
+        videoSprite.y = canvasHeight / 2
 
-        // Function to create texture and sprite once video is ready
-        const createVideoSprite = () => {
-          try {
-            // Create PIXI texture from video
-            const videoTexture = Texture.from(bgVideo)
-            videoSprite = new Sprite(videoTexture)
-            videoSprite.anchor.set(0.5)
-            videoSprite.x = canvasWidth / 2
-            videoSprite.y = canvasHeight / 2
+        // Set proper scale
+        const scaleX = canvasWidth / (bgVideo.videoWidth || 1280)
+        const scaleY = canvasHeight / (bgVideo.videoHeight || 720)
+        const scale = Math.max(scaleX, scaleY)
+        videoSprite.scale.set(scale)
 
-            // Set proper scale
-            const scaleX = canvasWidth / bgVideo.videoWidth
-            const scaleY = canvasHeight / bgVideo.videoHeight
-            const scale = Math.max(scaleX, scaleY)
-            videoSprite.scale.set(scale)
+        // Add to container
+        container.addChildAt(videoSprite, 0)
 
-            // Add to container (at the beginning so it's behind other elements)
-            container.addChildAt(videoSprite, 0)
-
-            console.log('✅ Jackpot result video sprite created')
-          } catch (err) {
-            console.error('❌ Failed to create video sprite:', err)
-          }
-        }
-
-        // If video has metadata ready, create sprite immediately
-        if (bgVideo.readyState >= 2) {
-          // HAVE_CURRENT_DATA or higher
-          createVideoSprite()
-
-          // Start playing
-          bgVideo.play()
-            .then(() => {
-              console.log('✅ Jackpot result video playing')
-            })
-            .catch(err => {
-              console.warn('⚠️ Failed to play jackpot result video:', err)
-            })
-        } else {
-          // Wait for video to be ready
-          let videoSpriteCreated = false
-          const onReady = () => {
-            if (videoSpriteCreated) return // Prevent double-creation
-            videoSpriteCreated = true
-
-            console.log('✅ Video metadata loaded, creating sprite...')
-            createVideoSprite()
-
-            // Start playing
-            bgVideo.play()
-              .then(() => {
-                console.log('✅ Jackpot result video playing')
-              })
-              .catch(err => {
-                console.warn('⚠️ Failed to play jackpot result video:', err)
-              })
-          }
-
-          // Listen to both events (whichever fires first)
-          bgVideo.addEventListener('loadeddata', onReady, { once: true })
-          bgVideo.addEventListener('canplay', onReady, { once: true })
-
-          // Try to trigger load if needed (video might be in loading state)
-          if (bgVideo.readyState === 0) {
-            console.log('📹 Video not loaded, triggering load...')
-            bgVideo.load()
-          }
-        }
+        // Start playing
+        bgVideo.play()
+          .then(() => {
+            console.log('✅ Jackpot result video playing')
+          })
+          .catch(err => {
+            console.warn('⚠️ Video play failed:', err)
+          })
 
         bgVideoLoaded = true
       } else {
-        console.warn('❌ Jackpot result video not found in preloaded assets')
+        console.warn('❌ Jackpot result video source not found')
       }
     } catch (error) {
-      console.warn('Failed to load jackpot result video:', error)
+      console.warn('Failed to create jackpot result video:', error)
     }
 
     // If video failed to load, use colored background
@@ -479,17 +435,16 @@ export function createJackpotResultOverlay(gameState) {
       clickOverlay = null
     }
 
-    // Clean up video (but keep it preloaded for next time)
+    // Clean up video completely
     if (bgVideo) {
       bgVideo.pause()
-      bgVideo.currentTime = 0
-      // Event listeners are auto-removed due to { once: true } option
+      bgVideo.remove() // Remove from DOM
+      bgVideo = null
     }
     if (videoSprite) {
       videoSprite.destroy(true)
       videoSprite = null
     }
-    bgVideo = null // Clear reference but video remains in ASSETS.loadedVideos
 
     // Notify state machine that overlay is complete
     gameStore.completeWinOverlay()
