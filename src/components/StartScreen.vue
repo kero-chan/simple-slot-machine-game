@@ -58,14 +58,22 @@ const loadingPercent = computed(() => {
 });
 
 const handleStart = async () => {
+  console.log('🎮 Start button clicked');
+
   // Unlock AudioContext (required for mobile browsers)
   await howlerAudio.unlockAudioContext();
+
+  // Small delay to ensure unlock is fully processed
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   // Ensure audioManager knows about gameSound state before starting
   audioManager.setGameSoundEnabled(settingsStore.gameSound);
 
   // Start background music and game
+  console.log('🎵 Starting background music...');
   backgroundMusic.start();
+
+  console.log('🎮 Hiding start screen...');
   gameStore.hideStartScreen();
 };
 </script>

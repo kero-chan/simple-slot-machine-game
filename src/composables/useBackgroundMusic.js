@@ -9,25 +9,31 @@ import { howlerAudio } from './useHowlerAudio'
 function getAudio(audioKey) {
   // Try Howler first (best for mobile)
   if (howlerAudio.isReady()) {
+    console.log(`🔊 Using Howler for: ${audioKey}`)
     const audio = howlerAudio.createAudioElement(audioKey)
     if (audio) {
       return audio
     }
+    console.warn(`⚠️ Howler ready but audio not found: ${audioKey}`)
+  } else {
+    console.log(`⚠️ Howler not ready, using fallback for: ${audioKey}`)
   }
 
   // Fallback: use regular HTMLAudioElement
   const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
   if (preloadedAudio) {
+    console.log(`🔊 Using preloaded HTMLAudioElement for: ${audioKey}`)
     return preloadedAudio.cloneNode()
   }
 
   // Last resort: create from path
   const audioPath = ASSETS.audioPaths?.[audioKey]
   if (audioPath) {
+    console.log(`🔊 Creating new Audio element from path for: ${audioKey}`)
     return new Audio(audioPath)
   }
 
-  console.warn(`Audio "${audioKey}" not found`)
+  console.warn(`❌ Audio "${audioKey}" not found`)
   return null
 }
 

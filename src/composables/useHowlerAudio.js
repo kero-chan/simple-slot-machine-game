@@ -184,16 +184,30 @@ class HowlerAudioManager {
     try {
       console.log('🔓 Unlocking audio...')
 
+      // Check if Howler is initialized
+      if (!this.isInitialized) {
+        console.warn('⚠️ Howler not initialized yet, skipping unlock')
+        return
+      }
+
       // Step 1: Resume Web Audio API context
       const ctx = Howler.ctx
-      if (ctx && ctx.state === 'suspended') {
-        await ctx.resume()
-        console.log('   ✅ AudioContext resumed')
+      if (ctx) {
+        console.log(`   📊 AudioContext state: ${ctx.state}`)
+        if (ctx.state === 'suspended') {
+          await ctx.resume()
+          console.log('   ✅ AudioContext resumed')
+        } else {
+          console.log('   ℹ️ AudioContext already running')
+        }
+      } else {
+        console.warn('   ⚠️ No AudioContext found')
       }
 
       // Step 2: Unlock only critical sounds - Howler will unlock others automatically
       // This makes unlock instant instead of taking 2 seconds
       const criticalSounds = ['background_music', 'background_music_jackpot', 'game_start']
+      let unlockedCount = 0
 
       for (const key of criticalSounds) {
         const howl = this.howls[key]
@@ -202,16 +216,22 @@ class HowlerAudioManager {
             const vol = howl.volume()
             howl.volume(0)
             const id = howl.play()
-            // Don't wait - stop immediately
+
+            // Wait a tiny bit to ensure playback starts
+            await new Promise(resolve => setTimeout(resolve, 10))
+
             howl.stop(id)
             howl.volume(vol)
+            unlockedCount++
           } catch (err) {
-            // Ignore errors
+            console.warn(`   ⚠️ Failed to unlock ${key}:`, err.message)
           }
+        } else {
+          console.warn(`   ⚠️ Sound not found: ${key}`)
         }
       }
 
-      console.log('   ✅ Critical sounds unlocked')
+      console.log(`   ✅ ${unlockedCount}/${criticalSounds.length} critical sounds unlocked`)
 
       this.isUnlocked = true
       console.log('✅ Audio ready')
