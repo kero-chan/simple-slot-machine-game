@@ -2,54 +2,33 @@ import { Assets, Texture } from 'pixi.js'
 import { ASSETS } from '../config/assets'
 
 /**
- * Preload video element - downloads entire video into memory
+ * Preload video element - simpler approach for mobile compatibility
+ * Use direct URL instead of blob for better streaming
  */
 async function preloadVideo(src) {
   try {
-    console.log('📹 Downloading video:', src)
+    console.log('📹 Preparing video:', src)
 
-    // Fetch the video file completely
-    const response = await fetch(src)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch video: ${response.statusText}`)
-    }
-
-    // Get video as blob
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-
-    console.log(`✅ Video downloaded (${(blob.size / 1024 / 1024).toFixed(2)} MB)`)
-
-    // Determine preload strategy based on video type
-    // jackpot.mp4 needs full preloading for smooth playback with audio
-    // jackpot_result.mp4 can use metadata-only (it's just background)
-    const isJackpotVideo = src.includes('jackpot.mp4') && !src.includes('jackpot_result')
-    const preloadStrategy = isJackpotVideo ? 'auto' : 'metadata'
-
-    console.log(`📹 Using preload strategy: ${preloadStrategy} for ${src}`)
-
-    // Create video element with blob URL
+    // Create video element with direct URL (better for mobile streaming)
     const video = document.createElement('video')
-    video.src = blobUrl
-    video.preload = preloadStrategy
+    video.src = src
+    video.preload = 'metadata' // Use metadata for all videos (lighter, better mobile support)
     video.style.display = 'none'
     video.playsInline = true
-    video.muted = true // Muted videos are more likely to load on mobile
+    video.muted = true
 
-    // Enable hardware acceleration on mobile
-    video.setAttribute('playsinline', 'true') // iOS compatibility
-    video.setAttribute('webkit-playsinline', 'true') // Older iOS
-
-    // For jackpot video, optimize for smooth playback
-    if (isJackpotVideo) {
-      video.style.willChange = 'transform' // Hint for hardware acceleration
-      video.style.transform = 'translateZ(0)' // Force GPU layer
-    }
+    // Enable hardware acceleration and mobile compatibility
+    video.setAttribute('playsinline', 'true')
+    video.setAttribute('webkit-playsinline', 'true')
+    video.style.willChange = 'transform'
+    video.style.transform = 'translateZ(0)'
 
     // Add to DOM
     document.body.appendChild(video)
 
-    // Wait for video to be ready with timeout
+    console.log('✅ Video element created with direct URL')
+
+    // Simple readiness check - just wait for metadata
     return new Promise((resolve) => {
       let resolved = false
 
@@ -60,42 +39,28 @@ async function preloadVideo(src) {
         }
       }
 
-      // Different readiness events based on preload strategy
       const onReady = () => {
-        console.log(`✅ Video ready for playback (readyState: ${video.readyState})`)
+        console.log(`✅ Video ready (readyState: ${video.readyState})`)
         finish(video)
       }
 
-      if (preloadStrategy === 'auto') {
-        // For full preload, wait for enough data to play through
-        console.log('⏳ Waiting for video to buffer fully...')
-        video.addEventListener('canplaythrough', onReady, { once: true })
-        // Fallback to canplay if canplaythrough takes too long
-        setTimeout(() => {
-          if (!resolved) {
-            console.log('⏰ canplaythrough timeout, using canplay instead')
-            video.addEventListener('canplay', onReady, { once: true })
-          }
-        }, 5000)
-      } else {
-        // For metadata-only, just wait for basic readiness
-        video.addEventListener('loadeddata', onReady, { once: true })
-        video.addEventListener('loadedmetadata', onReady, { once: true })
-        video.addEventListener('canplay', onReady, { once: true })
-      }
+      // Wait for basic metadata
+      video.addEventListener('loadedmetadata', onReady, { once: true })
 
       video.addEventListener('error', (e) => {
-        console.error('❌ Video element error:', e)
-        finish(null)
+        console.error('❌ Video error:', e)
+        finish(video) // Return video anyway, let playback handle errors
       })
 
-      // Timeout after 15 seconds for mobile devices
+      // Short timeout - video will stream when played
       setTimeout(() => {
-        console.warn('⚠️ Video loading timeout, continuing anyway...')
-        finish(video) // Return video element even if not fully loaded
-      }, 15000)
+        if (!resolved) {
+          console.log('⏱️ Video metadata timeout, returning anyway')
+          finish(video)
+        }
+      }, 3000)
 
-      // Try to trigger load explicitly
+      // Load metadata
       video.load()
     })
   } catch (error) {

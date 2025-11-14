@@ -150,9 +150,13 @@ export function createJackpotVideoOverlay() {
       return
     }
 
-    // IMPORTANT: Keep muted during play() for mobile compatibility
-    // We'll unmute after playback starts successfully
+    console.log('📹 Preparing jackpot video for playback')
+
+    // Simple mobile-friendly approach
+    // Reset to beginning
+    video.currentTime = 0
     video.muted = true
+    video.loop = false
 
     // Watch for gameSound changes while video is playing
     if (!gameSoundWatcher) {
@@ -166,112 +170,57 @@ export function createJackpotVideoOverlay() {
       )
     }
 
-    // Set up event listeners (only once per show)
+    // Set up event listeners
     const onEnded = () => {
       console.log('✅ Jackpot video completed')
       video.removeEventListener('ended', onEnded)
-      video.removeEventListener('waiting', onWaiting)
-      video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('error', onError)
       hide()
     }
 
-    // Handle buffering stalls (for heavy videos)
-    const onWaiting = () => {
-      console.log('⏸️ Video buffering...')
-      // Video will automatically resume when buffer fills
+    const onError = (e) => {
+      console.error('❌ Video playback error:', e)
+      video.removeEventListener('ended', onEnded)
+      video.removeEventListener('error', onError)
+      hide()
     }
 
-    const onPlaying = () => {
-      console.log('▶️ Video playing/resumed')
-    }
+    video.addEventListener('ended', onEnded, { once: true })
+    video.addEventListener('error', onError, { once: true })
 
-    video.addEventListener('ended', onEnded)
-    video.addEventListener('waiting', onWaiting)
-    video.addEventListener('playing', onPlaying)
+    // Show video immediately
+    video.style.display = 'block'
 
-    // Function to start playback after seeking
-    const startPlayback = () => {
-      console.log(`📹 Starting video playback (readyState: ${video.readyState})`)
+    // Start playback - simple and direct
+    console.log(`📹 Starting video (readyState: ${video.readyState})`)
 
-      // Show video
-      video.style.display = 'block'
+    const playPromise = video.play()
 
-      // Start playback while muted (better mobile compatibility)
-      video.play()
+    if (playPromise !== undefined) {
+      playPromise
         .then(() => {
-          console.log('✅ Video playback started successfully')
-          // Now that it's playing, unmute and set volume
-          updateVideoVolume()
+          console.log('✅ Video playing')
+          // Unmute after playback starts
+          setTimeout(() => {
+            updateVideoVolume()
+          }, 100)
         })
         .catch(err => {
-          console.error('❌ Failed to play video:', err)
-          hide()
+          console.error('❌ Play failed:', err)
+          // Try one more time after a brief delay
+          setTimeout(() => {
+            console.log('🔄 Retrying video playback...')
+            video.play()
+              .then(() => {
+                console.log('✅ Retry successful')
+                updateVideoVolume()
+              })
+              .catch(retryErr => {
+                console.error('❌ Retry failed:', retryErr)
+                hide()
+              })
+          }, 300)
         })
-    }
-
-    // For heavy videos, use progressive playback (play while buffering)
-    // Don't wait for full buffer - start as soon as we have some data
-
-    // Handle seeking with progressive playback
-    const handleSeekAndPlay = () => {
-      const onSeeked = () => {
-        console.log('✅ Video seeked to beginning')
-        video.removeEventListener('seeked', onSeeked)
-
-        // Start playback immediately after seek, even if not fully buffered
-        // Browser will buffer while playing
-        startPlayback()
-      }
-
-      video.addEventListener('seeked', onSeeked, { once: true })
-      video.currentTime = 0
-
-      // Timeout in case seeked doesn't fire
-      setTimeout(() => {
-        if (video.style.display !== 'block') {
-          console.warn('⚠️ Seeked timeout, forcing start')
-          video.removeEventListener('seeked', onSeeked)
-          startPlayback()
-        }
-      }, 500)
-    }
-
-    // Check if video needs seeking
-    if (video.currentTime > 0.1) {
-      // Video is not at beginning, seek to 0
-      console.log(`📹 Video at ${video.currentTime}s, seeking to beginning...`)
-      handleSeekAndPlay()
-    } else {
-      // Already at beginning, check readyState
-      console.log(`📹 Video already at beginning (readyState: ${video.readyState})`)
-
-      if (video.readyState >= 1) {
-        // HAVE_METADATA or higher - start immediately
-        // Browser will buffer while playing (progressive playback)
-        console.log('✅ Starting progressive playback')
-        startPlayback()
-      } else {
-        // Wait for metadata at minimum
-        console.log('⏳ Waiting for video metadata...')
-
-        const onLoadedMetadata = () => {
-          console.log('✅ Metadata loaded, starting playback')
-          startPlayback()
-        }
-
-        video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
-        video.addEventListener('loadeddata', onLoadedMetadata, { once: true })
-
-        // Timeout: force start
-        setTimeout(() => {
-          if (video.style.display !== 'block') {
-            console.warn('⚠️ Metadata timeout, forcing start')
-            video.removeEventListener('loadedmetadata', onLoadedMetadata)
-            video.removeEventListener('loadeddata', onLoadedMetadata)
-            startPlayback()
-          }
-        }, 500)
-      }
     }
 
     // Enable skip after 2 seconds
