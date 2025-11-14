@@ -271,7 +271,14 @@ class HowlerAudioManager {
       },
 
       play() {
-        // Stop previous instance if exists
+        // If paused, resume the existing sound
+        if (isPaused && soundId !== null) {
+          howl.play(soundId)
+          isPaused = false
+          return Promise.resolve()
+        }
+
+        // Stop previous instance if exists and not paused
         if (soundId !== null) {
           howl.stop(soundId)
         }
