@@ -180,17 +180,28 @@ export function createJackpotVideoOverlay() {
     videoElement.style.display = 'block'
 
     console.log('▶️ Playing video')
+    console.log('   Video src:', videoElement.src)
+    console.log('   Video readyState:', videoElement.readyState)
+    console.log('   Video networkState:', videoElement.networkState)
 
     videoElement.play().then(() => {
-      console.log('✅ Video playing')
+      console.log('✅ Video playing successfully')
+      console.log('   Video duration:', videoElement.duration)
+      console.log('   Video currentTime:', videoElement.currentTime)
+
       // Unmute after playing starts
       setTimeout(() => {
         if (videoElement && isPlaying) {
+          console.log('🔊 Unmuting video')
           updateVideoVolume()
         }
       }, 200)
     }).catch(err => {
-      console.error('❌ Play error:', err)
+      console.error('❌ Video play failed!')
+      console.error('   Error:', err.name, err.message)
+      console.error('   Video readyState:', videoElement.readyState)
+      console.error('   Video networkState:', videoElement.networkState)
+      console.error('   Video error:', videoElement.error)
       hide()
     })
 

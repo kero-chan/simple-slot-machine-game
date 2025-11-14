@@ -53,8 +53,12 @@ async function preloadAudio(src) {
       audio.addEventListener('canplay', onReady)
 
       audio.addEventListener('error', (e) => {
-        console.error('❌ Audio element error:', e)
-        finish(null)
+        console.error('❌ Audio preload error for:', src)
+        console.error('   Error code:', audio.error?.code)
+        console.error('   Error message:', audio.error?.message)
+        console.error('   Network state:', audio.networkState)
+        // Don't return null - return the audio anyway, Howler will handle it
+        finish(audio)
       })
 
       // Timeout after 5 seconds for mobile devices
