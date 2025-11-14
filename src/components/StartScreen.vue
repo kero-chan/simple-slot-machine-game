@@ -58,8 +58,6 @@ const loadingPercent = computed(() => {
 });
 
 const handleStart = async () => {
-  console.log('🎮 Start button clicked - unlocking audio...');
-
   // Unlock AudioContext (required for mobile browsers)
   await howlerAudio.unlockAudioContext();
 
