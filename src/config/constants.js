@@ -57,7 +57,7 @@ export const CONFIG = {
   },
   spawnRates: {
     bonusChance: 0.25,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
-    wildChance: 0.02,                // 2% chance for wild tiles
+    wildChance: 0.15,                // 2% chance for wild tiles
     goldChance: 0.15                 // 15% chance for gold variants
   }
 }

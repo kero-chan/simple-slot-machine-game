@@ -3,6 +3,7 @@ import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
+import { getCounterDuration } from '../../../utils/gameHelpers'
 
 /**
  * Creates a winning overlay popup that displays win information
@@ -387,8 +388,8 @@ export function createWinOverlay(gameState) {
 
     const config = getOverlayConfig(currentIntensity)
 
-    // Counter animation (0 to target over 3 seconds) - slower for better readability
-    const counterDuration = 3
+    // Counter animation - dynamic duration based on number size
+    const counterDuration = getCounterDuration(targetAmount)
     if (elapsed < counterDuration) {
       const counterProgress = Math.min(elapsed / counterDuration, 1)
       // Ease-out for smoother counting
@@ -426,8 +427,8 @@ export function createWinOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Start fade out 3 seconds AFTER counting is done (counterDuration + 3 = 6 seconds total)
-    const displayTime = counterDuration + 3
+    // Start fade out 2 seconds AFTER counting is done (counterDuration + 2)
+    const displayTime = counterDuration + 2
     if (elapsed > displayTime && !isFadingOut) {
       startFadeOut()
     }

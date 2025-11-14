@@ -3,6 +3,7 @@ import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
+import { getCounterDuration } from '../../../utils/gameHelpers'
 
 /**
  * Creates a jackpot result overlay that displays total wins after all free spins (jackpot mode) complete
@@ -507,9 +508,9 @@ export function createJackpotResultOverlay(gameState) {
       amountContainer.alpha = 1
     }
 
-    // Stage 3: Counter animation (1.0-4.0s) - counts up to target
+    // Stage 3: Counter animation - dynamic duration based on number size
     const counterStart = 1.0
-    const counterDuration = 3.0
+    const counterDuration = getCounterDuration(targetAmount)
     const counterEnd = counterStart + counterDuration
 
     if (elapsed >= counterStart && elapsed < counterEnd) {
@@ -573,8 +574,8 @@ export function createJackpotResultOverlay(gameState) {
 
     // Video plays automatically through PIXI's texture system
 
-    // Start fade out after 7 seconds (show only 7 seconds of the 10-second video)
-    const displayTime = 7
+    // Start fade out 2 seconds after counting finishes (counterEnd is at 4.0s, so 4 + 2 = 6)
+    const displayTime = counterEnd + 2
     if (elapsed > displayTime && !isFadingOut) {
       startFadeOut()
     }

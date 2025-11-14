@@ -65,6 +65,24 @@ export function getRandomSymbol(options = {}) {
   return symbol
 }
 
+/**
+ * Calculate dynamic counter duration based on number magnitude
+ * Small numbers count faster, large numbers take more time
+ * Uses logarithmic scale for natural feel
+ * @param {number} amount - The target amount to count to
+ * @returns {number} Duration in seconds
+ */
+export function getCounterDuration(amount) {
+  // Logarithmic scale: small numbers are very fast, scales smoothly with magnitude
+  // log10(10) = 1.0 → 0.6s
+  // log10(100) = 2.0 → 1.2s
+  // log10(1000) = 3.0 → 1.8s
+  // log10(10000) = 4.0 → 2.4s
+  // log10(100000) = 5.0 → 3.0s
+  const duration = Math.log10(amount + 1) * 0.6
+  return Math.max(0.3, Math.min(duration, 4.5)) // Min 0.3s, max 4.5s
+}
+
 export function createEmptyGrid() {
   const grid = []
   const bufferRows = CONFIG.reels.bufferRows || 0
