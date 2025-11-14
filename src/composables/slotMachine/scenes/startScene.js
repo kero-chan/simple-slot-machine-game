@@ -128,7 +128,7 @@ export function useStartScene(gameState) {
                 startButton.eventMode = 'static'
                 startButton.off('pointerdown') // Remove old listeners
                 startButton.on('pointerdown', () => {
-                    backgroundMusic.start()
+                    // Background music is started by StartScreen.vue
                     gameState.showStartScreen.value = false
                 })
             }
