@@ -3,6 +3,7 @@ import { BLEND_MODES } from '@pixi/constants'
 import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
+import { audioManager } from '../../audioManager'
 import { getCounterDuration } from '../../../utils/gameHelpers'
 
 /**
@@ -239,7 +240,8 @@ export function createWinOverlay(gameState) {
     targetAmount = amount
     currentDisplayAmount = 0  // Start from 0 for counter animation
 
-    // Play winning announcement audio (looped)
+    // Pause background music and play winning announcement audio (looped)
+    audioManager.pause()
     playWinningAnnouncement()
 
     // Clear previous content
@@ -359,8 +361,9 @@ export function createWinOverlay(gameState) {
     clearParticles()
     container.removeChildren()
 
-    // Stop winning announcement audio
+    // Stop winning announcement audio and resume background music
     stopWinningAnnouncement()
+    audioManager.resume()
 
     // Notify state machine that overlay is complete
     gameStore.completeWinOverlay()

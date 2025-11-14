@@ -36,6 +36,7 @@
 import { computed } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
+import { howlerAudio } from "../composables/useHowlerAudio";
 import { useGameStore } from "../stores/gameStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -56,7 +57,10 @@ const loadingPercent = computed(() => {
   return Math.floor(percent);
 });
 
-const handleStart = () => {
+const handleStart = async () => {
+  // Unlock AudioContext (required for mobile browsers)
+  await howlerAudio.unlockAudioContext();
+
   // Ensure audioManager knows about gameSound state before starting
   audioManager.setGameSoundEnabled(settingsStore.gameSound);
   backgroundMusic.start();
