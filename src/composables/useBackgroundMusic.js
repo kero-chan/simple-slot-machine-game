@@ -7,36 +7,27 @@ import { howlerAudio } from './useHowlerAudio'
  * Falls back to HTMLAudioElement if Howler not initialized
  */
 function getAudio(audioKey) {
-  console.log(`🔊 Getting audio: ${audioKey}`)
-
   // Try Howler first (best for mobile)
   if (howlerAudio.isReady()) {
-    console.log('   ✓ Howler is ready')
     const audio = howlerAudio.createAudioElement(audioKey)
     if (audio) {
-      console.log('   ✓ Howler audio created')
       return audio
     }
-    console.warn('   ✗ Howler failed to create audio')
-  } else {
-    console.warn('   ✗ Howler not ready yet')
   }
 
   // Fallback: use regular HTMLAudioElement
   const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
   if (preloadedAudio) {
-    console.log('   ✓ Using preloaded HTMLAudioElement')
     return preloadedAudio.cloneNode()
   }
 
   // Last resort: create from path
   const audioPath = ASSETS.audioPaths?.[audioKey]
   if (audioPath) {
-    console.log('   ✓ Creating new Audio from path')
     return new Audio(audioPath)
   }
 
-  console.error(`   ✗ Audio "${audioKey}" not found anywhere`)
+  console.warn(`Audio "${audioKey}" not found`)
   return null
 }
 
@@ -142,6 +133,8 @@ export function useBackgroundMusic() {
 
   // Start playing background music
   const start = () => {
+    console.log('🎵 Starting background music')
+
     if (isPlaying.value) return
 
     // Add visibility listener only once
@@ -154,25 +147,29 @@ export function useBackgroundMusic() {
       // Use preloaded audio
       const audio = getAudio('background_music')
       if (!audio) {
-        console.warn('Background music not found')
+        console.error('❌ Background music not found')
         return
       }
 
-      audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
-      audio.loop = true // Loop the audio infinitely
+      audio.volume = gameSoundEnabled.value ? baseVolume.music : 0
+      audio.loop = true
 
       currentAudio.value = audio
 
       // Handle errors
       audio.addEventListener('error', (e) => {
-        console.error('Error playing audio:', e)
+        console.error('❌ Audio error:', e)
       })
 
-      audio.play().catch(err => {
-        console.error('❌ Failed to play background music:', err)
-        console.log('   Howler ready:', howlerAudio.isReady())
-        console.log('   Audio object:', audio)
-      })
+      const playPromise = audio.play()
+
+      if (playPromise) {
+        playPromise.then(() => {
+          console.log('✅ Background music playing')
+        }).catch(err => {
+          console.error('❌ Failed to play:', err)
+        })
+      }
 
       isPlaying.value = true
 

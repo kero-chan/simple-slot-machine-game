@@ -92,8 +92,10 @@ class HowlerAudioManager {
     this.isInitialized = true
     console.log(`✅ Howler audio initialized: ${Object.keys(this.howls).length} sounds`)
 
-    // Enable Howler's built-in autoUnlock (handles Web Audio API)
+    // Enable Howler's built-in autoUnlock (handles Web Audio API automatically)
     Howler.autoUnlock = true
+    Howler.html5PoolSize = 10 // Increase HTML5 audio pool to prevent "pool exhausted" errors
+    console.log('🔧 Howler autoUnlock enabled, pool size: 10')
   }
 
   /**
@@ -164,41 +166,42 @@ class HowlerAudioManager {
    */
   async unlockAudioContext() {
     try {
-      console.log('🔓 Attempting to unlock audio...')
+      console.log('🔓 Unlocking audio...')
 
       // Step 1: Resume Web Audio API context
       const ctx = Howler.ctx
-      if (ctx) {
-        if (ctx.state === 'suspended') {
-          await ctx.resume()
-          console.log('   ✅ AudioContext resumed')
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume()
+        console.log('   ✅ AudioContext resumed')
+      }
+
+      // Step 2: Unlock only critical sounds - Howler will unlock others automatically
+      // This makes unlock instant instead of taking 2 seconds
+      const criticalSounds = ['background_music', 'background_music_jackpot', 'game_start']
+
+      for (const key of criticalSounds) {
+        const howl = this.howls[key]
+        if (howl) {
+          try {
+            const vol = howl.volume()
+            howl.volume(0)
+            const id = howl.play()
+            // Don't wait - stop immediately
+            howl.stop(id)
+            howl.volume(vol)
+          } catch (err) {
+            // Ignore errors
+          }
         }
       }
 
-      // Step 2: Unlock by playing ONE test sound
-      // Howler's autoUnlock will handle the rest
-      if (!this.isUnlocked && Object.keys(this.howls).length > 0) {
-        // Find the first HTML5 audio for unlock test
-        let testKey = 'background_music'
-        if (!this.howls[testKey]) {
-          testKey = Object.keys(this.howls)[0]
-        }
-
-        const testHowl = this.howls[testKey]
-        if (testHowl) {
-          const vol = testHowl.volume()
-          testHowl.volume(0)
-          const id = testHowl.play()
-          testHowl.stop(id)
-          testHowl.volume(vol)
-          console.log('   ✅ Unlock test sound played')
-        }
-      }
+      console.log('   ✅ Critical sounds unlocked')
 
       this.isUnlocked = true
-      console.log('✅ Audio unlock complete')
+      console.log('✅ Audio ready')
     } catch (err) {
       console.error('❌ Failed to unlock audio:', err)
+      this.isUnlocked = true
     }
   }
 
