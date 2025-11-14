@@ -350,8 +350,21 @@ export function useFooter(gameState) {
       for (const d of digits) {
         if (d === '.') {
         } else if (d === ',') {
+          const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+          if (!imageSrc) continue
+          const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+          const sprite = new Sprite(texture);
+          sprite.scale.set(0.8 * currentTextSprite.height / sprite.height)
+          sprite.x = offsetX;
+          sprite.y = currentTextSprite.y + (currentTextSprite.height - sprite.height) / 2
+          jackpotContainer.addChild(sprite);
+
+          offsetX += sprite.width * 0.7;
         } else {
-          const sprite = new Sprite(subTex(`jackpot_texts.number${d}`));
+          const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+          if (!imageSrc) continue
+          const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+          const sprite = new Sprite(texture);
           sprite.scale.set(0.8 * currentTextSprite.height / sprite.height)
           sprite.x = offsetX;
           sprite.y = currentTextSprite.y + (currentTextSprite.height - sprite.height) / 2

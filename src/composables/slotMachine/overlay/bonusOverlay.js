@@ -18,7 +18,7 @@ export function createBonusOverlay(gameState) {
   let background = null
   let bgImage = null  // Fullscreen jackpot_begin_bg image
   let titleText = null
-  let freeSpinsNumberText = null
+  let freeSpinsNumberContainer = null  // Container for image-based number sprites
   let messageText = null
   let startButton = null
   let startButtonText = null
@@ -113,6 +113,44 @@ export function createBonusOverlay(gameState) {
   }
 
   /**
+   * Create image-based number display using i40_XX sprites
+   */
+  function createNumberDisplay(number) {
+    const numberContainer = new Container()
+    const digits = String(number).split('')
+
+    let offsetX = 0
+
+    for (const d of digits) {
+      let sprite
+
+      if (d === ',') {
+        // Use i40_10 for comma
+        const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.7  // Tighter spacing for comma
+      } else if (d >= '0' && d <= '9') {
+        // Use i40_0X for digits
+        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.95  // Slight spacing between digits
+      }
+    }
+
+    return numberContainer
+  }
+
+  /**
    * Show the bonus trigger overlay
    */
   function show(freeSpinsCount, cWidth, cHeight, onStart) {
@@ -200,37 +238,13 @@ export function createBonusOverlay(gameState) {
     titleText.alpha = 0  // Start invisible for fade-in animation
     container.addChild(titleText)
 
-    // Create large number showing free spins count - cleaner, more readable
-    const numberStyle = {
-      fontFamily: 'Impact, sans-serif',
-      fontSize: 200,  // Reduced for better balance
-      fontWeight: '900',
-      fill: ['#ffff99', '#ffd700', '#ffed4e'],  // Rich gold gradient
-      fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#8B4513', width: 10 },  // Thick brown outline
-      dropShadow: {
-        color: 0xff6600,  // Orange glow
-        blur: 20,
-        angle: Math.PI / 4,
-        distance: 4,
-        alpha: 0.8
-      },
-      align: 'center',
-      letterSpacing: 8,
-      trim: false,
-      padding: 20
-    }
-
-    freeSpinsNumberText = new Text({
-      text: `${freeSpinsCount}`,
-      style: numberStyle
-    })
-    freeSpinsNumberText.anchor.set(0.5)
-    freeSpinsNumberText.x = canvasWidth / 2
-    freeSpinsNumberText.y = canvasHeight * 0.50  // Centered vertically
-    freeSpinsNumberText.alpha = 0  // Start invisible for fade-in animation
-    freeSpinsNumberText.scale.set(0.5)  // Start smaller for scale-up animation
-    container.addChild(freeSpinsNumberText)
+    // Create large number showing free spins count using image-based sprites
+    freeSpinsNumberContainer = createNumberDisplay(freeSpinsCount)
+    freeSpinsNumberContainer.x = canvasWidth / 2 - freeSpinsNumberContainer.width / 2
+    freeSpinsNumberContainer.y = canvasHeight * 0.50 - freeSpinsNumberContainer.height / 2  // Centered vertically
+    freeSpinsNumberContainer.alpha = 0  // Start invisible for fade-in animation
+    freeSpinsNumberContainer.scale.set(0.5)  // Start smaller for scale-up animation
+    container.addChild(freeSpinsNumberContainer)
 
     // Create message text (in Chinese) - cleaner and smaller
     const messageStyle = {
@@ -368,16 +382,16 @@ export function createBonusOverlay(gameState) {
     }
 
     // Number scales up and fades in second (0.3-0.9s)
-    if (freeSpinsNumberText && elapsed >= 0.3 && elapsed < 0.9) {
+    if (freeSpinsNumberContainer && elapsed >= 0.3 && elapsed < 0.9) {
       const progress = (elapsed - 0.3) / 0.6
       const easeOut = 1 - Math.pow(1 - progress, 3)  // Cubic ease-out
-      freeSpinsNumberText.alpha = easeOut
-      freeSpinsNumberText.scale.set(0.5 + easeOut * 0.5)  // Scale from 0.5 to 1
-    } else if (freeSpinsNumberText && elapsed >= 0.9) {
-      freeSpinsNumberText.alpha = 1
+      freeSpinsNumberContainer.alpha = easeOut
+      freeSpinsNumberContainer.scale.set(0.5 + easeOut * 0.5)  // Scale from 0.5 to 1
+    } else if (freeSpinsNumberContainer && elapsed >= 0.9) {
+      freeSpinsNumberContainer.alpha = 1
       // Gentle pulse after entrance (NO rotation)
       const pulse = 1 + Math.sin(elapsed * 2) * 0.04
-      freeSpinsNumberText.scale.set(pulse)
+      freeSpinsNumberContainer.scale.set(pulse)
     }
 
     // Message fades in third (0.7-1.1s)
@@ -432,9 +446,9 @@ export function createBonusOverlay(gameState) {
         titleText.x = canvasWidth / 2
         titleText.y = canvasHeight * 0.32
       }
-      if (freeSpinsNumberText) {
-        freeSpinsNumberText.x = canvasWidth / 2
-        freeSpinsNumberText.y = canvasHeight * 0.50
+      if (freeSpinsNumberContainer) {
+        freeSpinsNumberContainer.x = canvasWidth / 2 - freeSpinsNumberContainer.width / 2
+        freeSpinsNumberContainer.y = canvasHeight * 0.50 - freeSpinsNumberContainer.height / 2
       }
       if (messageText) {
         messageText.x = canvasWidth / 2

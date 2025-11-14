@@ -19,7 +19,7 @@ export function createWinOverlay(gameState) {
   let bgImage = null  // Background image for win announcement
   let titleText = null
   let titleImage = null  // Image for grand/mega/jackpot
-  let amountText = null
+  let amountContainer = null  // Container for image-based number sprites
   let animationStartTime = 0
   let isAnimating = false
   let currentIntensity = 'small'
@@ -107,6 +107,45 @@ export function createWinOverlay(gameState) {
       p.destroy()
     }
     particles.length = 0
+  }
+
+  /**
+   * Create image-based number display using i40_XX sprites
+   */
+  function createNumberDisplay(amount) {
+    const numberContainer = new Container()
+    const formattedAmount = amount.toLocaleString()  // e.g., "12,345"
+    const digits = formattedAmount.split('')
+
+    let offsetX = 0
+
+    for (const d of digits) {
+      let sprite
+
+      if (d === ',') {
+        // Use i40_10 for comma
+        const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.7  // Tighter spacing for comma
+      } else if (d >= '0' && d <= '9') {
+        // Use i40_0X for digits
+        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.95  // Slight spacing between digits
+      }
+    }
+
+    return numberContainer
   }
 
   /**
@@ -264,36 +303,11 @@ export function createWinOverlay(gameState) {
       container.addChild(titleText)
     }
 
-    // Amount text styling - decorative bold font with gold gradient and golden borders
-    const amountStyle = {
-      fontFamily: 'Impact, Haettenschweiler, "Franklin Gothic Bold", Charcoal, "Helvetica Inserat", "Bitstream Vera Sans Bold", "Arial Black", sans-serif',
-      fontSize: 130,  // Slightly smaller to prevent cutoff
-      fontWeight: '900',  // Extra bold
-      fill: ['#ffd700', '#ffed4e', '#ffc700'],  // Pure gold gradient
-      fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#d4af37', width: 5 },  // Thinner golden border to prevent cutoff
-      dropShadow: {
-        color: '#8B7500',  // Dark gold shadow
-        blur: 3,
-        angle: Math.PI / 4,
-        distance: 2,
-        alpha: 0.6  // More visible gold shadow
-      },
-      align: 'center',
-      letterSpacing: 4,  // Reduced spacing to prevent cutoff
-      fontStyle: 'italic',  // Slight italic for dynamic look
-      trim: false,  // Don't trim - helps prevent cutoff
-      padding: 10  // Add padding to prevent cutoff
-    }
-
-    amountText = new Text({
-      text: '0',  // Start at 0, will be animated
-      style: amountStyle
-    })
-    amountText.anchor.set(0.5)
-    amountText.x = canvasWidth / 2
-    amountText.y = canvasHeight / 2 + 50
-    container.addChild(amountText)
+    // Create image-based amount display
+    amountContainer = createNumberDisplay(0)  // Start at 0, will be animated
+    amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
+    amountContainer.y = canvasHeight / 2 + 50
+    container.addChild(amountContainer)
 
     // Add particles container and spawn chaotic particles
     container.addChild(particlesContainer)
@@ -356,14 +370,31 @@ export function createWinOverlay(gameState) {
       const easeProgress = 1 - Math.pow(1 - counterProgress, 3)
       currentDisplayAmount = Math.floor(targetAmount * easeProgress)
 
-      if (amountText) {
-        amountText.text = currentDisplayAmount.toLocaleString()
+      if (amountContainer) {
+        // Recreate number display with updated amount
+        const oldY = amountContainer.y
+        const centerX = background ? background.width / 2 : 300
+        container.removeChild(amountContainer)
+        amountContainer.destroy({ children: true })
+
+        amountContainer = createNumberDisplay(currentDisplayAmount)
+        amountContainer.x = centerX - amountContainer.width / 2
+        amountContainer.y = oldY
+        container.addChild(amountContainer)
       }
     } else if (currentDisplayAmount !== targetAmount) {
       // Ensure final amount is exact
       currentDisplayAmount = targetAmount
-      if (amountText) {
-        amountText.text = targetAmount.toLocaleString()
+      if (amountContainer) {
+        const oldY = amountContainer.y
+        const centerX = background ? background.width / 2 : 300
+        container.removeChild(amountContainer)
+        amountContainer.destroy({ children: true })
+
+        amountContainer = createNumberDisplay(targetAmount)
+        amountContainer.x = centerX - amountContainer.width / 2
+        amountContainer.y = oldY
+        container.addChild(amountContainer)
       }
     }
 
@@ -407,9 +438,9 @@ export function createWinOverlay(gameState) {
         titleImage.x = canvasWidth / 2
         titleImage.y = canvasHeight / 2 - 80
       }
-      if (amountText) {
-        amountText.x = canvasWidth / 2
-        amountText.y = canvasHeight / 2 + 50
+      if (amountContainer) {
+        amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
+        amountContainer.y = canvasHeight / 2 + 50
       }
     }
   }

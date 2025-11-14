@@ -24,7 +24,7 @@ export function createJackpotResultOverlay(gameState) {
   let skipEnableTimeout = null
   let titleText = null
   let messageText = null
-  let amountText = null
+  let amountContainer = null  // Container for image-based number sprites
   let animationStartTime = 0
   let isAnimating = false
   let targetAmount = 0
@@ -196,6 +196,45 @@ export function createJackpotResultOverlay(gameState) {
   }
 
   /**
+   * Create image-based number display using i40_XX sprites
+   */
+  function createNumberDisplay(amount) {
+    const numberContainer = new Container()
+    const formattedAmount = amount.toLocaleString()  // e.g., "12,345"
+    const digits = formattedAmount.split('')
+
+    let offsetX = 0
+
+    for (const d of digits) {
+      let sprite
+
+      if (d === ',') {
+        // Use i40_10 for comma
+        const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.7  // Tighter spacing for comma
+      } else if (d >= '0' && d <= '9') {
+        // Use i40_0X for digits
+        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        if (!imageSrc) continue
+        const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
+        sprite = new Sprite(texture)
+        sprite.x = offsetX
+        sprite.y = 0
+        numberContainer.addChild(sprite)
+        offsetX += sprite.width * 0.95  // Slight spacing between digits
+      }
+    }
+
+    return numberContainer
+  }
+
+  /**
    * Show the jackpot result overlay
    */
   function show(totalAmount, cWidth, cHeight) {
@@ -324,37 +363,13 @@ export function createJackpotResultOverlay(gameState) {
     titleText.scale.set(0.5)  // Start small
     container.addChild(titleText)
 
-    // Amount text - large and prominent with glow effect
-    const amountStyle = {
-      fontFamily: 'Impact, sans-serif',
-      fontSize: 140,
-      fontWeight: '900',
-      fill: ['#ffff99', '#ffd700', '#ffed4e'],
-      fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#d4af37', width: 8 },
-      dropShadow: {
-        color: 0xffd700,  // Gold glow
-        blur: 30,
-        angle: Math.PI / 4,
-        distance: 0,
-        alpha: 0.9
-      },
-      align: 'center',
-      letterSpacing: 6,
-      trim: false,
-      padding: 20
-    }
-
-    amountText = new Text({
-      text: '0',
-      style: amountStyle
-    })
-    amountText.anchor.set(0.5)
-    amountText.x = canvasWidth / 2
-    amountText.y = canvasHeight * 0.52
-    amountText.alpha = 0  // Start invisible
-    amountText.scale.set(0.3)  // Start very small
-    container.addChild(amountText)
+    // Create image-based amount display
+    amountContainer = createNumberDisplay(0)
+    amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
+    amountContainer.y = canvasHeight * 0.52
+    amountContainer.alpha = 0  // Start invisible
+    amountContainer.scale.set(0.3)  // Start very small
+    container.addChild(amountContainer)
 
     // Add clickable overlay for skip functionality
     const overlay = createClickOverlay(canvasWidth, canvasHeight)
@@ -456,13 +471,13 @@ export function createJackpotResultOverlay(gameState) {
     }
 
     // Stage 2: Amount entrance (0.4-1.0s) with dramatic scale-up
-    if (amountText && elapsed >= 0.4 && elapsed < 1.0) {
+    if (amountContainer && elapsed >= 0.4 && elapsed < 1.0) {
       const progress = (elapsed - 0.4) / 0.6
       const easeOut = 1 - Math.pow(1 - progress, 3)
-      amountText.alpha = easeOut
-      amountText.scale.set(0.3 + easeOut * 0.7)  // Scale from 0.3 to 1
-    } else if (amountText && elapsed >= 1.0) {
-      amountText.alpha = 1
+      amountContainer.alpha = easeOut
+      amountContainer.scale.set(0.3 + easeOut * 0.7)  // Scale from 0.3 to 1
+    } else if (amountContainer && elapsed >= 1.0) {
+      amountContainer.alpha = 1
     }
 
     // Stage 3: Counter animation (1.0-4.0s) - counts up to target
@@ -477,26 +492,48 @@ export function createJackpotResultOverlay(gameState) {
       const easeProgress = 1 - Math.pow(1 - counterProgress, 3)
       currentDisplayAmount = Math.floor(targetAmount * easeProgress)
 
-      if (amountText) {
-        amountText.text = currentDisplayAmount.toLocaleString()
+      if (amountContainer) {
+        // Recreate number display with updated amount
+        const oldY = amountContainer.y
+        const oldAlpha = amountContainer.alpha
+        const centerX = canvasWidth / 2
+        container.removeChild(amountContainer)
+        amountContainer.destroy({ children: true })
+
+        amountContainer = createNumberDisplay(currentDisplayAmount)
+        amountContainer.x = centerX - amountContainer.width / 2
+        amountContainer.y = oldY
+        amountContainer.alpha = oldAlpha
 
         // Dramatic scaling during counting
         const countPulse = 1 + Math.sin(counterElapsed * 15) * 0.05
-        amountText.scale.set(countPulse)
+        amountContainer.scale.set(countPulse)
+
+        container.addChild(amountContainer)
       }
     } else if (elapsed >= counterEnd) {
       // Ensure final amount is exact
       if (currentDisplayAmount !== targetAmount) {
         currentDisplayAmount = targetAmount
-        if (amountText) {
-          amountText.text = targetAmount.toLocaleString()
+        if (amountContainer) {
+          const oldY = amountContainer.y
+          const oldAlpha = amountContainer.alpha
+          const centerX = canvasWidth / 2
+          container.removeChild(amountContainer)
+          amountContainer.destroy({ children: true })
+
+          amountContainer = createNumberDisplay(targetAmount)
+          amountContainer.x = centerX - amountContainer.width / 2
+          amountContainer.y = oldY
+          amountContainer.alpha = oldAlpha
+          container.addChild(amountContainer)
         }
       }
 
       // Bigger pulse animation after counter finishes
-      if (amountText) {
+      if (amountContainer) {
         const pulse = 1 + Math.sin((elapsed - counterEnd) * 2.5) * 0.12
-        amountText.scale.set(pulse)
+        amountContainer.scale.set(pulse)
       }
     }
 
@@ -537,9 +574,9 @@ export function createJackpotResultOverlay(gameState) {
         titleText.x = canvasWidth / 2
         titleText.y = canvasHeight * 0.30
       }
-      if (amountText) {
-        amountText.x = canvasWidth / 2
-        amountText.y = canvasHeight * 0.52
+      if (amountContainer) {
+        amountContainer.x = canvasWidth / 2 - amountContainer.width / 2
+        amountContainer.y = canvasHeight * 0.52
       }
     }
   }
