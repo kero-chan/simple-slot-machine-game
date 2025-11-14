@@ -42,7 +42,7 @@ export const useGameStore = defineStore('game', {
     lastWinAmount: 0,
     allWinsThisSpin: [],
 
-    freeSpins: 19,
+    freeSpins: 0,
     inFreeSpinMode: false,
 
     // Anticipation mode (near-miss feature for bonus tiles)
@@ -142,7 +142,8 @@ export const useGameStore = defineStore('game', {
     },
 
     setBonusResults(bonusCount) {
-      if (bonusCount >= CONFIG.game.minBonusToTrigger) {
+      // Only award free spins if not already in free spin mode
+      if (bonusCount >= CONFIG.game.minBonusToTrigger && !this.inFreeSpinMode) {
         const freeSpinsAwarded = CONFIG.game.freeSpinsPerScatter
         this.addFreeSpins(freeSpinsAwarded)
         // Pop tiles first, then show video, then bonus overlay
