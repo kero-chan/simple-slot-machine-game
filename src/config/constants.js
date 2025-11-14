@@ -56,7 +56,7 @@ export const CONFIG = {
     maxBonusPerColumn: 2           // Maximum bonus tiles allowed per column in visible rows
   },
   spawnRates: {
-    bonusChance: 0.25,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
+    bonusChance: 0.0025,               // 25% chance for bonus tiles (increased for testing, normal: 0.03)
     wildChance: 0.02,                // 2% chance for wild tiles
     goldChance: 0.15                 // 15% chance for gold variants
   }

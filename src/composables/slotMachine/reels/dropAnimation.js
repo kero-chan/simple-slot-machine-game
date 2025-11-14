@@ -1,15 +1,17 @@
 import { useTimingStore } from '../../../stores/timingStore'
+import { gsap } from 'gsap'
 
 /**
  * Manages drop animations for tiles cascading down
+ * NOW USING GSAP for smoother, more performant animations
  */
 export function createDropAnimationManager() {
   const timingStore = useTimingStore()
-  const dropStates = new Map() // key -> { fromY, toY, startTime, duration, symbol }
+  const dropStates = new Map() // key -> { fromY, toY, currentY, tween, symbol }
   const completedStates = new Map() // key -> { symbol, completedAt } - Keep symbols after animation completes
 
   /**
-   * Start a drop animation for a tile
+   * Start a drop animation for a tile using GSAP
    * @param {string} key - The cellKey (col:visualRow)
    * @param {Sprite} sprite - The sprite to animate
    * @param {number} fromY - Starting Y position
@@ -32,11 +34,43 @@ export function createDropAnimationManager() {
     // Set sprite to starting Y position immediately
     sprite.y = fromY
 
+    // Kill any existing tween for this sprite
+    const existingDrop = dropStates.get(key)
+    if (existingDrop && existingDrop.tween) {
+      existingDrop.tween.kill()
+    }
+
+    // Create animation object to tween
+    const animObj = {
+      currentY: fromY
+    }
+
+    // Create GSAP tween with linear easing (matching original implementation)
+    const tween = gsap.to(animObj, {
+      currentY: toY,
+      duration: timingStore.DROP_DURATION / 1000, // Convert to seconds
+      ease: 'none', // Linear easing for smoothest, most predictable animation
+      onUpdate: () => {
+        // Update sprite Y position during animation
+        if (sprite && !sprite.destroyed) {
+          sprite.y = animObj.currentY
+        }
+      },
+      onComplete: () => {
+        // Animation complete - move to completed states to preserve symbol
+        completedStates.set(key, {
+          symbol: symbol,
+          completedAt: Date.now()
+        })
+        dropStates.delete(key)
+      }
+    })
+
     dropStates.set(key, {
       fromY,
       toY,
-      startTime: Date.now(),
-      duration: timingStore.DROP_DURATION,
+      currentY: fromY,
+      tween,
       symbol // Store the symbol for this animation
     })
 
@@ -45,25 +79,11 @@ export function createDropAnimationManager() {
   }
 
   /**
-   * Update all active drop animations
+   * Update - GSAP handles animation updates automatically
+   * This function only cleans up completed states after grace period
    */
   function update() {
     const now = Date.now()
-
-    // Update active animations
-    for (const [key, drop] of dropStates.entries()) {
-      const elapsed = now - drop.startTime
-      const progress = Math.min(elapsed / drop.duration, 1)
-
-      if (progress >= 1) {
-        // Animation complete - move to completed states to preserve symbol
-        completedStates.set(key, {
-          symbol: drop.symbol,
-          completedAt: now
-        })
-        dropStates.delete(key)
-      }
-    }
 
     // Auto-clear completed states after grace period
     // This prevents delays when waiting for drops to finish before showing win announcements
@@ -76,20 +96,14 @@ export function createDropAnimationManager() {
 
   /**
    * Get the current Y position for a dropping tile
+   * GSAP updates the currentY automatically during the tween
    */
   function getDropY(key, baseY) {
     const drop = dropStates.get(key)
     if (!drop) return baseY
 
-    const now = Date.now()
-    const elapsed = now - drop.startTime
-    const progress = Math.min(elapsed / drop.duration, 1)
-
-    // Linear easing - constant speed for smoothest, most predictable animation
-    // No acceleration/deceleration ensures perfectly smooth movement
-    const easeProgress = progress
-
-    return drop.fromY + (drop.toY - drop.fromY) * easeProgress
+    // Return the current Y value being animated by GSAP
+    return drop.currentY
   }
 
   /**
@@ -133,9 +147,15 @@ export function createDropAnimationManager() {
   }
 
   /**
-   * Clear all animations
+   * Clear all animations - kill GSAP tweens
    */
   function clear() {
+    // Kill all active GSAP tweens
+    for (const [key, drop] of dropStates.entries()) {
+      if (drop.tween) {
+        drop.tween.kill()
+      }
+    }
     dropStates.clear()
     completedStates.clear()
   }
