@@ -40,8 +40,8 @@ export const useTimingStore = defineStore('timing', {
     BUMP_DURATION: 600,           // ms - Bonus tile "bump" animation (up and down)
 
     // ========== SPIN TIMING ==========
-    SPIN_BASE_DURATION: 2500,     // ms - Base duration for reel spin
-    SPIN_REEL_STAGGER: 150,       // ms - Delay between each reel starting to spin
+    SPIN_BASE_DURATION: 2000,     // ms - Base duration for first reel (GSAP-optimized sequential stops)
+    SPIN_REEL_STAGGER: 200,       // ms - Delay between each reel (creates clear sequential stop effect)
 
     // ========== ANTICIPATION MODE TIMING ==========
     ANTICIPATION_SLOWDOWN_DURATION: 5000,  // ms - Extra slow spin time per column during anticipation (dramatic waiting!)

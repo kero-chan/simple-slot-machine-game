@@ -335,18 +335,24 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
         })
       }
 
-      // Create tweens for each column with stagger
+      // Create tweens for each column with SEQUENTIAL STOPS
+      // Each column stops AFTER the previous one for clear visual sequence
       for (let col = 0; col < cols; col++) {
         const animObj = animObjects[col]
 
-        // Create the tween with initial duration
+        // SEQUENTIAL STOP: Each column has progressively longer duration
+        // This ensures columns stop one after another in clear sequence
+        // Column 0 stops first, then 1, then 2, etc.
+        const sequentialDuration = baseDuration + (col * stagger * 2) // Double the stagger for clear sequential stops
+
+        // Create the tween with sequential duration
         const tween = gsap.to(animObj, {
           position: animObj.targetIndex,
-          duration: baseDuration,
-          ease: 'power2.out', // Equivalent to Math.pow(1-t, 2.0) easing
+          duration: sequentialDuration,
+          ease: 'power2.out', // Smooth quadratic deceleration (better for sequential feel)
           delay: col * stagger,
           onStart: () => {
-            console.log(`🎬 Column ${col} animation started`)
+            console.log(`🎬 Column ${col} animation started (duration: ${sequentialDuration.toFixed(2)}s)`)
           },
           onUpdate: function() {
             // Check for jackpot on every frame (for all columns)
@@ -442,11 +448,17 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             const newTopIndex = Math.floor(currentPosition)
             const newOffset = currentPosition - newTopIndex
 
-            // Calculate velocity based on distance remaining
+            // Calculate velocity to match power2.out deceleration
+            // Velocity should decrease quadratically as we approach the target
             const distanceRemaining = animObj.targetIndex - currentPosition
-            const normalizedDistance = Math.min(distanceRemaining / 2, 1)
-            const calculatedVelocity = normalizedDistance * 10
-            const minVelocity = distanceRemaining > 0.5 ? 0.1 : 0.01
+            const totalDistance = animObj.targetIndex
+            const progress = 1 - (distanceRemaining / totalDistance)
+
+            // Quadratic velocity decay matching power2.out easing: (1 - t)^2
+            const baseVelocity = 12
+            const quadDecay = Math.pow(1 - progress, 2) // Matches power2.out curve
+            const calculatedVelocity = baseVelocity * quadDecay
+            const minVelocity = 0.05 // Minimum visible velocity
 
             gridState.reelTopIndex[col] = newTopIndex % gridState.reelStrips[col].length
             gridState.spinOffsets[col] = newOffset
