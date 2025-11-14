@@ -279,7 +279,21 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
     // Store GSAP tweens for each column so we can control them dynamically
     const columnTweens = new Map()
 
-    // Helper: Count bonus tiles in a column's visible rows
+    /*
+     * ===== BONUS TILE CHECKING DURING SPIN =====
+     *
+     * IMPORTANT: These functions ONLY check stopped columns that have been synced to grid
+     *
+     * Flow:
+     * 1. Column stops → syncColumnToGrid() syncs strip to grid
+     * 2. onComplete callback → counts bonus tiles in STOPPED columns
+     * 3. If 2 bonus tiles found → activate anticipation mode (slow down remaining reels)
+     * 4. After ALL reels stop → game flow controller calls checkBonusTiles() for jackpot
+     *
+     * This ensures we NEVER check tiles while reels are spinning!
+     */
+
+    // Helper: Count bonus tiles in a column's visible rows (only for STOPPED columns!)
     const countBonusTilesInColumn = (col) => {
       let count = 0
       for (let row = WIN_CHECK_START_ROW; row <= WIN_CHECK_END_ROW; row++) {
@@ -291,7 +305,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
       return count
     }
 
-    // Helper: Count total bonus tiles across all stopped columns
+    // Helper: Count total bonus tiles across all STOPPED columns
     const countTotalBonusTiles = (stoppedCols) => {
       let total = 0
       for (const col of stoppedCols) {
@@ -355,61 +369,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             console.log(`🎬 Column ${col} animation started (duration: ${sequentialDuration.toFixed(2)}s)`)
           },
           onUpdate: function() {
-            // Check for jackpot on every frame (for all columns)
-            if (!gameStore.inFreeSpinMode) {
-              const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
-
-              // If we've reached minimum bonus tiles for jackpot, IMMEDIATELY stop all reels
-              if (totalBonusTiles >= CONFIG.game.minBonusToTrigger) {
-                console.log(`🎯 JACKPOT DETECTED! ${totalBonusTiles} bonus tiles - stopping all reels immediately!`)
-
-                // Kill all tweens
-                timeline.kill()
-
-                // Stop ALL columns immediately
-                for (let c = 0; c < cols; c++) {
-                  if (gridState.spinVelocities[c] > 0) {
-                    syncColumnToGrid(c)
-                    gridState.spinVelocities[c] = 0
-                    stoppedColumns.add(c)
-                  }
-                }
-
-                // Deactivate anticipation mode
-                if (gameStore.anticipationMode) {
-                  gameStore.deactivateAnticipationMode()
-                }
-
-                // Reset state
-                firstBonusColumn = -1
-                currentSlowdownColumn = -1
-                gridState.activeSlowdownColumn = -1
-
-                // Trigger reactivity and exit
-                gridState.grid = [...gridState.grid.map(col => [...col])]
-                resolve()
-                return
-              }
-              // Activate anticipation mode when exactly 2 bonus tiles
-              else if (!gameStore.anticipationMode && firstBonusColumn === -1 && totalBonusTiles === 2) {
-                firstBonusColumn = Math.min(...Array.from(stoppedColumns))
-                gameStore.activateAnticipationMode()
-                console.log(`🎰 ANTICIPATION MODE ACTIVATED! Found ${totalBonusTiles} bonus tiles`)
-
-                // Slow down columns after the bonus column
-                for (let c = firstBonusColumn + 1; c < cols; c++) {
-                  const nextTween = columnTweens.get(c)
-                  if (nextTween && nextTween.isActive()) {
-                    const remainingProgress = 1 - nextTween.progress()
-                    const newDuration = remainingProgress * anticipationExtraDuration
-
-                    // Update duration dynamically
-                    nextTween.duration(newDuration)
-                    console.log(`🐌 Slowing down column ${c} to ${newDuration.toFixed(2)}s`)
-                  }
-                }
-              }
-            }
+            // Note: Bonus tile checking moved to onComplete - only check after columns stop!
 
             // Handle anticipation mode column highlighting
             if (gameStore.anticipationMode && firstBonusColumn >= 0) {
@@ -472,9 +432,37 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
 
             console.log(`✅ Column ${col} STOPPED at target ${animObj.targetIndex}`)
 
-            // Sync this column's grid at target position
+            // CRITICAL: Sync this column's grid at target position BEFORE checking bonus tiles
             syncColumnToGrid(col)
             stoppedColumns.add(col)
+
+            // ===== BONUS TILE CHECK: Only after column has stopped and synced to grid =====
+            if (!gameStore.inFreeSpinMode) {
+              const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
+              console.log(`🎲 Column ${col} stopped. Total bonus tiles in stopped columns: ${totalBonusTiles}`)
+
+              // Activate anticipation mode when we're one bonus tile away from jackpot (only if not already active)
+              // This creates anticipation before hitting the jackpot trigger
+              const anticipationThreshold = CONFIG.game.minBonusToTrigger - 1
+              if (!gameStore.anticipationMode && firstBonusColumn === -1 && totalBonusTiles === anticipationThreshold) {
+                firstBonusColumn = Math.min(...Array.from(stoppedColumns))
+                gameStore.activateAnticipationMode()
+                console.log(`🎰 ANTICIPATION MODE ACTIVATED! Found ${totalBonusTiles} bonus tiles (threshold: ${anticipationThreshold})`)
+
+                // Slow down columns that haven't stopped yet
+                for (let c = firstBonusColumn + 1; c < cols; c++) {
+                  const nextTween = columnTweens.get(c)
+                  if (nextTween && nextTween.isActive()) {
+                    const remainingProgress = 1 - nextTween.progress()
+                    const newDuration = remainingProgress * anticipationExtraDuration
+
+                    // Update duration dynamically
+                    nextTween.duration(newDuration)
+                    console.log(`🐌 Slowing down column ${c} to ${newDuration.toFixed(2)}s`)
+                  }
+                }
+              }
+            }
 
             // Clear current slowdown column if this was the active one
             if (currentSlowdownColumn === col) {
