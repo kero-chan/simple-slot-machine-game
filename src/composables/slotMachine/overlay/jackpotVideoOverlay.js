@@ -103,6 +103,7 @@ export function createJackpotVideoOverlay() {
     video.setAttribute('webkit-playsinline', 'true')
     video.muted = true // Start muted for mobile autoplay
     video.preload = 'auto'
+    video.crossOrigin = 'anonymous' // For better compatibility
 
     // Style for fullscreen
     video.style.position = 'fixed'
@@ -181,27 +182,56 @@ export function createJackpotVideoOverlay() {
     }, { once: true })
 
     videoElement.addEventListener('error', (e) => {
-      console.error('❌ Video error:', e)
+      console.error('❌ Video error:', e.target.error)
       hide()
     }, { once: true })
 
-    // Show and play
+    // Wait for video to be ready before playing
+    const waitForVideo = new Promise((resolve) => {
+      if (videoElement.readyState >= 2) {
+        // Already have enough data
+        console.log('✅ Video already loaded (readyState: ' + videoElement.readyState + ')')
+        resolve()
+      } else {
+        // Wait for loadeddata event
+        console.log('⏳ Waiting for video to load...')
+        const onReady = () => {
+          console.log('✅ Video loaded (readyState: ' + videoElement.readyState + ')')
+          resolve()
+        }
+        videoElement.addEventListener('loadeddata', onReady, { once: true })
+        videoElement.addEventListener('canplay', onReady, { once: true })
+
+        // Timeout: proceed anyway after 3 seconds
+        setTimeout(() => {
+          console.warn('⏰ Video load timeout, trying to play anyway')
+          resolve()
+        }, 3000)
+      }
+    })
+
+    // Show video
     videoElement.style.display = 'block'
+
+    // Wait for video to be ready
+    await waitForVideo
 
     console.log('▶️ Playing video...')
 
     try {
       await videoElement.play()
-      console.log('✅ Video playing')
+      console.log('✅ Video playing successfully')
 
       // Unmute after playback starts
       setTimeout(() => {
-        if (videoElement) {
+        if (videoElement && isPlaying) {
           updateVideoVolume()
         }
-      }, 200)
+      }, 300)
     } catch (err) {
-      console.error('❌ Play failed:', err)
+      console.error('❌ Play failed:', err.message || err)
+      console.error('Video readyState:', videoElement.readyState)
+      console.error('Video networkState:', videoElement.networkState)
       hide()
     }
 

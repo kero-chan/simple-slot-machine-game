@@ -162,9 +162,6 @@ export function useBackgroundMusic() {
       return true
     }
 
-    // Set playing immediately to prevent double-start
-    isPlaying.value = true
-
     // Add visibility listener only once
     if (!visibilityListenerAdded) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -172,13 +169,22 @@ export function useBackgroundMusic() {
     }
 
     try {
+      // Stop any existing audio first
+      if (currentAudio.value) {
+        console.log('🛑 Stopping existing audio')
+        currentAudio.value.pause()
+        currentAudio.value = null
+      }
+
       // Use preloaded audio
       const audio = getAudio('background_music')
       if (!audio) {
         console.error('❌ Background music not found')
-        isPlaying.value = false
         return false
       }
+
+      // Set playing immediately AFTER we have audio
+      isPlaying.value = true
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0
       audio.loop = true
@@ -188,6 +194,7 @@ export function useBackgroundMusic() {
       // Handle errors
       audio.addEventListener('error', (e) => {
         console.error('❌ Audio error:', e)
+        isPlaying.value = false
       })
 
       const playPromise = audio.play()
@@ -210,7 +217,7 @@ export function useBackgroundMusic() {
           return true
         } catch (err) {
           console.error('❌ Failed to play:', err)
-          // Keep playing state true so game continues
+          isPlaying.value = false
           return false
         }
       } else {
