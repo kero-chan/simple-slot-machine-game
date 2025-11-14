@@ -13,12 +13,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useSlotMachine } from "./composables/useSlotMachine";
+import { useSettingsStore } from "./stores/settingsStore";
+import { audioManager } from "./composables/audioManager";
 import StartScreen from "./components/StartScreen.vue";
 import bgUrl from "./assets/background.jpg";
 
 const canvasRef = ref(null);
+const settingsStore = useSettingsStore();
+
+// Initialize audio manager early and set initial game sound state
+audioManager.setGameSoundEnabled(settingsStore.gameSound);
 
 const canvasStyle = {
   display: "block",
@@ -33,6 +39,14 @@ const {
   handleKeydown,
   stopAnimation,
 } = useSlotMachine(canvasRef);
+
+// Watch gameSound state from settings store and update audio manager
+watch(
+  () => settingsStore.gameSound,
+  (newValue) => {
+    audioManager.setGameSoundEnabled(newValue);
+  }
+);
 
 onMounted(() => {
   init();

@@ -37,9 +37,11 @@ import { computed } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
 import { useGameStore } from "../stores/gameStore";
+import { useSettingsStore } from "../stores/settingsStore";
 
 const gameState = useGameState();
 const gameStore = useGameStore();
+const settingsStore = useSettingsStore();
 const backgroundMusic = audioManager.initialize();
 
 const isLoading = computed(() => {
@@ -55,6 +57,8 @@ const loadingPercent = computed(() => {
 });
 
 const handleStart = () => {
+  // Ensure audioManager knows about gameSound state before starting
+  audioManager.setGameSoundEnabled(settingsStore.gameSound);
   backgroundMusic.start();
   gameStore.hideStartScreen();
 };

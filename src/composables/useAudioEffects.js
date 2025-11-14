@@ -1,4 +1,5 @@
 import { ASSETS } from "../config/assets";
+import { audioManager } from "./audioManager";
 
 /**
  * Get preloaded audio or create new one if not preloaded
@@ -25,6 +26,14 @@ function getAudio(audioKey) {
   return null;
 }
 
+/**
+ * Get volume based on game sound state
+ * Returns 0 if game sound is disabled, otherwise returns the base volume
+ */
+function getVolume(baseVolume) {
+  return audioManager.isGameSoundEnabled() ? baseVolume : 0;
+}
+
 export function useAudioEffects() {
   // Store reference to the winning announcement audio for loop control
   let winningAnnouncementAudio = null;
@@ -41,7 +50,7 @@ export function useAudioEffects() {
         return;
       }
 
-      winningAnnouncementAudio.volume = 0.7; // 70% volume
+      winningAnnouncementAudio.volume = getVolume(0.7); // 70% volume
       winningAnnouncementAudio.loop = true; // Loop the audio
 
       winningAnnouncementAudio.addEventListener("error", (e) => {
@@ -133,7 +142,7 @@ export function useAudioEffects() {
           return;
         }
 
-        audio.volume = 0.9; // 90% volume for win sounds
+        audio.volume = getVolume(0.9); // 90% volume for win sounds
 
         audio.addEventListener("error", (e) => {
           console.error(`Error playing win audio (${audioKey}):`, e);
@@ -183,7 +192,7 @@ export function useAudioEffects() {
         return;
       }
 
-      audio.volume = 0.6; // 60% volume for effect sounds
+      audio.volume = getVolume(0.6); // 60% volume for effect sounds
 
       audio.addEventListener("error", (e) => {
         console.error(`Error playing consecutive wins audio (${audioKey}):`, e);
@@ -208,7 +217,7 @@ export function useAudioEffects() {
         return;
       }
 
-      audio.volume = 0.6; // 60% volume for effect sounds
+      audio.volume = getVolume(0.6); // 60% volume for effect sounds
 
       audio.addEventListener("error", (e) => {
         console.error(`Error playing effect audio (${effect}):`, e);

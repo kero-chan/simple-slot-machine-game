@@ -1,7 +1,9 @@
 import { Container } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { audioManager } from '../../audioManager'
+import { watch } from 'vue'
 
 /**
  * Creates a jackpot video overlay that plays the jackpot.mp4 video
@@ -9,6 +11,7 @@ import { audioManager } from '../../audioManager'
  */
 export function createJackpotVideoOverlay() {
   const gameStore = useGameStore()
+  const settingsStore = useSettingsStore()
   const container = new Container()
   container.visible = false
   container.zIndex = 1200 // Above everything else
@@ -18,6 +21,17 @@ export function createJackpotVideoOverlay() {
   let videoElement = null
   let canSkip = false // Flag to allow skipping after 2 seconds
   let skipEnableTimeout = null
+  let gameSoundWatcher = null // Store watcher to cleanup later
+
+  /**
+   * Update video volume based on gameSound state
+   */
+  function updateVideoVolume() {
+    if (videoElement) {
+      videoElement.volume = settingsStore.gameSound ? 1.0 : 0
+      console.log(`🔊 Video volume set to: ${videoElement.volume}`)
+    }
+  }
 
   /**
    * Enable skip after 2 seconds
@@ -88,6 +102,9 @@ export function createJackpotVideoOverlay() {
         // Add click event listener
         videoElement.addEventListener('click', handleVideoClick)
         
+        // Set initial volume based on gameSound state
+        updateVideoVolume()
+        
         console.log('✅ Jackpot video ready from preloaded assets')
       } else {
         console.warn('❌ Jackpot video not found in preloaded assets')
@@ -122,6 +139,21 @@ export function createJackpotVideoOverlay() {
     video.currentTime = 0 // Reset to beginning
     video.muted = false // Unmute for playback (was muted during preload for mobile compatibility)
 
+    // Set volume based on gameSound state
+    updateVideoVolume()
+
+    // Watch for gameSound changes while video is playing
+    if (!gameSoundWatcher) {
+      gameSoundWatcher = watch(
+        () => settingsStore.gameSound,
+        () => {
+          if (isPlaying) {
+            updateVideoVolume()
+          }
+        }
+      )
+    }
+
     // Set up event listeners (only once per show)
     const onEnded = () => {
       console.log('✅ Jackpot video completed')
@@ -150,6 +182,12 @@ export function createJackpotVideoOverlay() {
 
     // Disable skip functionality
     disableSkip()
+
+    // Stop watching gameSound changes
+    if (gameSoundWatcher) {
+      gameSoundWatcher()
+      gameSoundWatcher = null
+    }
 
     // Hide video but keep it preloaded for next time
     if (videoElement) {
