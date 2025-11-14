@@ -37,6 +37,10 @@ export function useFooter(gameState) {
   let spinShimmer = null
   let spinParticlesContainer = null
   let spinParticles = []
+  let spinLightningContainer = null
+  let lightningBolts = []
+  let lightningStartTime = 0
+  let wasSpinning = false
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -580,6 +584,12 @@ export function useFooter(gameState) {
       spinParticlesContainer.y = spinBtnSprite.y
       mainMenuContainer.addChild(spinParticlesContainer)
 
+      // 3. Add lightning effects container
+      spinLightningContainer = new Container()
+      spinLightningContainer.x = spinBtnSprite.x
+      spinLightningContainer.y = spinBtnSprite.y
+      mainMenuContainer.addChild(spinLightningContainer)
+
       // No continuous animations on button itself - button stays still when idle!
     }
 
@@ -924,6 +934,95 @@ export function useFooter(gameState) {
     }
   }
 
+  // === ROTATING LIGHT RAYS ===
+  function createLightRays() {
+    if (!spinBtnSprite) return null
+
+    const rays = new Graphics()
+    rays.blendMode = 'add'
+
+    const numRays = 100  // Many small rays for dense radiant effect
+    const innerRadius = spinBtnSprite.height * 0.45  // Start from button edge area
+    const outerRadius = spinBtnSprite.height * 0.65  // Extend further out to match button
+    const rayWidth = 20  // Width at the base
+
+    for (let i = 0; i < numRays; i++) {
+      const angle = (i / numRays) * Math.PI * 2
+
+      // Create triangular ray shape - smaller/thinner rays
+      const innerX1 = Math.cos(angle - 0.02) * innerRadius
+      const innerY1 = Math.sin(angle - 0.02) * innerRadius
+      const innerX2 = Math.cos(angle + 0.02) * innerRadius
+      const innerY2 = Math.sin(angle + 0.02) * innerRadius
+      const outerX = Math.cos(angle) * outerRadius
+      const outerY = Math.sin(angle) * outerRadius
+
+      // Draw ray with gradient-like layers
+      // Outer glow layer (widest, most transparent)
+      rays.poly([
+        { x: innerX1 * 1.2, y: innerY1 * 1.2 },
+        { x: innerX2 * 1.2, y: innerY2 * 1.2 },
+        { x: outerX, y: outerY }
+      ])
+      rays.fill({ color: 0xffeb3b, alpha: 0.15 })
+
+      // Middle golden layer
+      rays.poly([
+        { x: innerX1, y: innerY1 },
+        { x: innerX2, y: innerY2 },
+        { x: outerX * 0.9, y: outerY * 0.9 }
+      ])
+      rays.fill({ color: 0xffd700, alpha: 0.3 })
+
+      // Inner bright core (thinnest)
+      rays.poly([
+        { x: innerX1 * 0.8, y: innerY1 * 0.8 },
+        { x: innerX2 * 0.8, y: innerY2 * 0.8 },
+        { x: outerX * 0.8, y: outerY * 0.8 }
+      ])
+      rays.fill({ color: 0xffffff, alpha: 0.4 })
+    }
+
+    rays.rotation = 0
+    return rays
+  }
+
+  function updateLightning() {
+    if (!spinLightningContainer) return
+
+    const isSpinning = gameState.isSpinning?.value
+
+    // Detect when spinning just started (still needed for glow timer)
+    if (isSpinning && !wasSpinning) {
+      lightningStartTime = Date.now()
+    }
+    wasSpinning = isSpinning
+
+    // Show rays throughout the entire spin (not just 1 second)
+    if (isSpinning) {
+      // Create light rays if not exists
+      if (lightningBolts.length === 0) {
+        const rays = createLightRays()
+        if (rays) {
+          spinLightningContainer.addChild(rays)
+          lightningBolts.push(rays)
+        }
+      } else {
+        // Rotate the rays slowly
+        for (const rays of lightningBolts) {
+          rays.rotation += 0.02  // Slow rotation speed
+        }
+      }
+    } else {
+      // Clear all rays when not spinning
+      for (const bolt of lightningBolts) {
+        spinLightningContainer.removeChild(bolt)
+        bolt.destroy()
+      }
+      lightningBolts.length = 0
+    }
+  }
+
 
   // Refresh pill values each frame so they reflect game state
   function updateValues() {
@@ -996,12 +1095,16 @@ export function useFooter(gameState) {
       // Control glow filter based on button state
       const canSpin = !!gameState.canSpin?.value
 
-      // Show glow ONLY when spinning
-      if (spinBtnSprite && spinBtnSprite.glowFilter) {
-        spinBtnSprite.glowFilter.enabled = spinning
+      // Calculate elapsed time since spin started (same logic as lightning)
+      const elapsedSeconds = (Date.now() - lightningStartTime) / 1000
+      const showGlow = spinning && elapsedSeconds < 1
 
-        if (spinning) {
-          // Strong glow during spinning
+      // Show glow ONLY when spinning AND within first 1 second
+      if (spinBtnSprite && spinBtnSprite.glowFilter) {
+        spinBtnSprite.glowFilter.enabled = showGlow
+
+        if (showGlow) {
+          // Strong glow during first 1 second of spinning
           if (spinBtnSprite.glowFilter.outerStrength < 3.5) {
             gsap.to(spinBtnSprite.glowFilter, {
               outerStrength: 4,
@@ -1032,8 +1135,9 @@ export function useFooter(gameState) {
       }
     }
 
-    // Update spin button particles
+    // Update spin button particles and lightning
     updateSpinButtonParticles()
+    updateLightning()
 
     if (!notiTextSprite || !notiTextSprite.visible) return;
 
