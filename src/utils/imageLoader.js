@@ -13,67 +13,14 @@ async function preloadVideo(src) {
 }
 
 /**
- * Preload audio element - downloads entire audio into memory
+ * Skip audio preloading - Howler.js will handle all audio loading
+ * This prevents blob URL conflicts and decode errors on mobile
  */
 async function preloadAudio(src) {
-  try {
-    // Fetch the audio file completely
-    const response = await fetch(src)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch audio: ${response.statusText}`)
-    }
-
-    // Get audio as blob
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-
-    // Create audio element with blob URL
-    const audio = new Audio()
-    audio.src = blobUrl
-    audio.preload = 'metadata' // Changed from 'auto' for better mobile compatibility
-
-    // Wait for audio to be ready with timeout
-    return new Promise((resolve) => {
-      let resolved = false
-
-      const finish = (result) => {
-        if (!resolved) {
-          resolved = true
-          resolve(result)
-        }
-      }
-
-      // Mobile-friendly: Use multiple events to detect readiness
-      const onReady = () => {
-        finish(audio)
-      }
-
-      audio.addEventListener('canplaythrough', onReady)
-      audio.addEventListener('loadedmetadata', onReady)
-      audio.addEventListener('canplay', onReady)
-
-      audio.addEventListener('error', (e) => {
-        console.error('❌ Audio preload error for:', src)
-        console.error('   Error code:', audio.error?.code)
-        console.error('   Error message:', audio.error?.message)
-        console.error('   Network state:', audio.networkState)
-        // Don't return null - return the audio anyway, Howler will handle it
-        finish(audio)
-      })
-
-      // Timeout after 5 seconds for mobile devices
-      setTimeout(() => {
-        console.warn('⚠️ Audio loading timeout, continuing anyway...')
-        finish(audio) // Return audio element even if not fully loaded
-      }, 5000)
-
-      // Start loading from blob
-      audio.load()
-    })
-  } catch (error) {
-    console.error('❌ Audio preload failed:', error)
-    return null
-  }
+  // Don't preload audio - just return null
+  // Howler.js will load audio from original paths when needed
+  console.log('🔊 Skipping audio preload (Howler will load on-demand):', src)
+  return null
 }
 
 export async function loadAllAssets(onProgress = null) {

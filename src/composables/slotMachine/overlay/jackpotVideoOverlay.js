@@ -99,7 +99,7 @@ export function createJackpotVideoOverlay() {
     video.src = videoSrc
     video.playsInline = true
     video.muted = true
-    video.preload = 'none' // Don't preload anything
+    video.preload = 'auto' // Preload video data
 
     // Fullscreen styling
     video.style.position = 'fixed'
@@ -115,6 +115,9 @@ export function createJackpotVideoOverlay() {
 
     document.body.appendChild(video)
     video.addEventListener('click', handleVideoClick)
+
+    // Start loading video data
+    video.load()
 
     console.log('✅ Video created')
     return video
@@ -165,7 +168,7 @@ export function createJackpotVideoOverlay() {
       )
     }
 
-    // Simple event listeners
+    // Event listeners
     videoElement.addEventListener('ended', () => {
       console.log('✅ Video ended')
       hide()
@@ -176,15 +179,72 @@ export function createJackpotVideoOverlay() {
       hide()
     }, { once: true })
 
-    // Show and play
+    // Monitor buffering/loading issues
+    videoElement.addEventListener('waiting', () => {
+      console.warn('⏸️ Video waiting for data (buffering)...')
+    })
+
+    videoElement.addEventListener('stalled', () => {
+      console.warn('⚠️ Video stalled (network issue)')
+    })
+
+    videoElement.addEventListener('suspend', () => {
+      console.warn('⏹️ Video suspended (browser paused loading)')
+    })
+
+    videoElement.addEventListener('playing', () => {
+      console.log('▶️ Video resumed playing')
+    })
+
+    videoElement.addEventListener('pause', () => {
+      console.log('⏸️ Video paused')
+    })
+
+    // Show video
     videoElement.style.display = 'block'
 
-    console.log('▶️ Playing video')
+    console.log('⏳ Waiting for video to buffer...')
     console.log('   Video src:', videoElement.src)
-    console.log('   Video readyState:', videoElement.readyState)
-    console.log('   Video networkState:', videoElement.networkState)
+    console.log('   Initial readyState:', videoElement.readyState)
+    console.log('   Initial networkState:', videoElement.networkState)
 
-    videoElement.play().then(() => {
+    // Wait for video to have enough data
+    const waitForData = () => {
+      return new Promise((resolve) => {
+        if (videoElement.readyState >= 3) {
+          // HAVE_FUTURE_DATA - enough to play
+          console.log('✅ Video has enough data (readyState: ' + videoElement.readyState + ')')
+          resolve()
+        } else {
+          console.log('⏳ Waiting for video data (readyState: ' + videoElement.readyState + ')...')
+
+          const onCanPlay = () => {
+            console.log('✅ Video can play (readyState: ' + videoElement.readyState + ')')
+            resolve()
+          }
+
+          videoElement.addEventListener('canplay', onCanPlay, { once: true })
+          videoElement.addEventListener('canplaythrough', onCanPlay, { once: true })
+
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            console.warn('⏰ Video wait timeout, trying anyway')
+            videoElement.removeEventListener('canplay', onCanPlay)
+            videoElement.removeEventListener('canplaythrough', onCanPlay)
+            resolve()
+          }, 5000)
+        }
+      })
+    }
+
+    // Wait then play
+    waitForData().then(() => {
+      console.log('▶️ Playing video')
+      console.log('   Final readyState:', videoElement.readyState)
+      console.log('   Final networkState:', videoElement.networkState)
+
+      return videoElement.play()
+    }).then(() => {
       console.log('✅ Video playing successfully')
       console.log('   Video duration:', videoElement.duration)
       console.log('   Video currentTime:', videoElement.currentTime)
