@@ -122,7 +122,7 @@ export function useAudioEffects() {
         // Map symbol to audio key
         const symbolAudioMap = {
           fa: "win_fa",
-          zhong: "zhong",
+          zhong: "win_zhong",
           bai: "win_bai",
           liangsuo: "win_liangsuo",
           liangtong: "win_liangtong",
