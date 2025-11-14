@@ -521,6 +521,10 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
           if (pathDistance < 0) {
             console.error(`❌ Invalid path: target ${newTarget} < current ${currentPosFloor}`)
           } else {
+            // Path cleaning DISABLED - Allowing bonus tiles to remain in slowdown path for increased bonus chance
+            console.log(`   ✅ Path not cleaned: Allowing bonus tiles to remain (distance: ${pathDistance} positions)`)
+
+            /* ORIGINAL PATH CLEANING CODE - COMMENTED OUT TO INCREASE BONUS TILES
             // Clean every position along the path
             for (let offset = 0; offset <= pathDistance; offset++) {
               const pathPos = (currentPosFloor + offset) % stripLength
@@ -559,6 +563,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             } else {
               console.log(`   ✅ Path already clean: 0 bonus tiles along ${pathDistance} positions`)
             }
+            */
           }
         }
 
