@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
+import { GlowFilter } from '@pixi/filter-glow'
 import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
 import { useGameStore } from '../../../stores/gameStore'
@@ -30,6 +31,12 @@ export function useFooter(gameState) {
   let x,y,w,h
   let inFreeSpinMode = false
   let spins = 0
+
+  // Spin button visual effects
+  let spinGlowCircle = null
+  let spinShimmer = null
+  let spinParticlesContainer = null
+  let spinParticles = []
 
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
@@ -474,6 +481,48 @@ export function useFooter(gameState) {
         if (gameState.isSpinning?.value) return
         if (!gameState.canSpin?.value) return
 
+        // === POP UP ANIMATION ON CLICK ===
+
+        // 1. Button pops up (scales up) then back to original
+        const timeline = gsap.timeline()
+        timeline.to(spinBtnSprite.scale, {
+          x: spinBtnSprite.originalScale.x * 1.15,
+          y: spinBtnSprite.originalScale.y * 1.15,
+          duration: 0.15,
+          ease: "back.out(2)"
+        })
+        timeline.to(spinBtnSprite.scale, {
+          x: spinBtnSprite.originalScale.x,
+          y: spinBtnSprite.originalScale.y,
+          duration: 0.3,
+          ease: "power2.out"
+        })
+
+        // 2. Arrow pops with button
+        const arrowTimeline = gsap.timeline()
+        arrowTimeline.to(spinBtnArrowSprite.scale, {
+          x: spinBtnArrowSprite.originalScale.x * 1.15,
+          y: spinBtnArrowSprite.originalScale.y * 1.15,
+          duration: 0.15,
+          ease: "back.out(2)"
+        })
+        arrowTimeline.to(spinBtnArrowSprite.scale, {
+          x: spinBtnArrowSprite.originalScale.x,
+          y: spinBtnArrowSprite.originalScale.y,
+          duration: 0.3,
+          ease: "power2.out"
+        })
+
+        // 3. Glow flashes bright on click
+        if (spinBtnSprite.glowFilter) {
+          gsap.fromTo(spinBtnSprite.glowFilter,
+            { outerStrength: 3.5, distance: 20 },
+            { outerStrength: 1.2, distance: 8, duration: 0.5, ease: "power2.out" }
+          )
+        }
+
+        // 4. Arrow speed boost effect (handled in update function via game state)
+
         startSpin()
         handlers.spin && handlers.spin()
       })
@@ -502,6 +551,36 @@ export function useFooter(gameState) {
       spinHoverCircle.alpha = 0
       spinHoverCircle.visible = false
       mainMenuContainer.addChild(spinHoverCircle)
+
+      // === VISUAL EFFECTS: Bright Golden Glow (Matching Reference) ===
+
+      // 1. Apply STRONG GlowFilter to match reference image
+      const glowFilter = new GlowFilter({
+        distance: 15,
+        outerStrength: 3,
+        innerStrength: 1,
+        color: 0xffd700,  // Pure gold color
+        quality: 0.5
+      })
+
+      // Store original filters array and add glow filter
+      const originalFilters = spinBtnSprite.filters || []
+      spinBtnSprite.filters = [...originalFilters, glowFilter]
+
+      // Store the glow filter reference for later use
+      spinBtnSprite.glowFilter = glowFilter
+
+      // Store original scales for reset
+      spinBtnSprite.originalScale = { x: spinBtnSprite.scale.x, y: spinBtnSprite.scale.y }
+      spinBtnArrowSprite.originalScale = { x: spinBtnArrowSprite.scale.x, y: spinBtnArrowSprite.scale.y }
+
+      // 2. Add floating particle sparkles (like in reference)
+      spinParticlesContainer = new Container()
+      spinParticlesContainer.x = spinBtnSprite.x
+      spinParticlesContainer.y = spinBtnSprite.y
+      mainMenuContainer.addChild(spinParticlesContainer)
+
+      // No continuous animations on button itself - button stays still when idle!
     }
 
     // plus button
@@ -789,6 +868,63 @@ export function useFooter(gameState) {
     sprite.scale.set(scaleFactor)
   }
 
+  // === SPIN BUTTON PARTICLE SPARKLES (Matching Reference Image) ===
+  function spawnSpinButtonParticle() {
+    if (!spinParticlesContainer || !spinBtnSprite) return
+
+    const particle = new Graphics()
+    const size = 3 + Math.random() * 5
+    particle.circle(0, 0, size)
+    particle.fill({ color: 0xffd700, alpha: 0.9 })
+    particle.blendMode = 'add'
+
+    // Spawn around the button edge (like in reference)
+    const angle = Math.random() * Math.PI * 2
+    const radius = spinBtnSprite.height * 0.5
+    particle.x = Math.cos(angle) * radius
+    particle.y = Math.sin(angle) * radius
+
+    // Gentle floating movement (slower, more elegant)
+    particle.vx = (Math.random() - 0.5) * 0.3
+    particle.vy = -0.3 - Math.random() * 0.3  // Float upward
+    particle.life = 120  // Longer life for elegant effect
+    particle.maxLife = 120
+
+    spinParticlesContainer.addChild(particle)
+    spinParticles.push(particle)
+  }
+
+  function updateSpinButtonParticles() {
+    if (!spinParticlesContainer) return
+
+    // Spawn new particles only when spinning
+    if (Math.random() < 0.08 && gameState.isSpinning?.value) {
+      spawnSpinButtonParticle()
+    }
+
+    // Update existing particles
+    for (let i = spinParticles.length - 1; i >= 0; i--) {
+      const p = spinParticles[i]
+      p.life--
+
+      // Move particle
+      p.x += p.vx
+      p.y += p.vy
+
+      // Fade out elegantly
+      const lifePercent = p.life / p.maxLife
+      p.alpha = lifePercent * 0.9
+
+      // Remove dead particles
+      if (p.life <= 0) {
+        spinParticlesContainer.removeChild(p)
+        p.destroy()
+        spinParticles.splice(i, 1)
+      }
+    }
+  }
+
+
   // Refresh pill values each frame so they reflect game state
   function updateValues() {
     const spinWinAmount = gameState.accumulatedWinAmount.value
@@ -856,7 +992,48 @@ export function useFooter(gameState) {
       setToSpinning(spinning);
       const speed = spinning ? (Math.PI * 5) : (Math.PI * 0.5);
       spinBtnArrowSprite.rotation += speed * dt;
+
+      // Control glow filter based on button state
+      const canSpin = !!gameState.canSpin?.value
+
+      // Show glow ONLY when spinning
+      if (spinBtnSprite && spinBtnSprite.glowFilter) {
+        spinBtnSprite.glowFilter.enabled = spinning
+
+        if (spinning) {
+          // Strong glow during spinning
+          if (spinBtnSprite.glowFilter.outerStrength < 3.5) {
+            gsap.to(spinBtnSprite.glowFilter, {
+              outerStrength: 4,
+              distance: 18,
+              duration: 0.2,
+              ease: "power2.out"
+            })
+          }
+        } else {
+          // Ensure button and arrow scales return to original when idle
+          if (Math.abs(spinBtnSprite.scale.x - spinBtnSprite.originalScale.x) > 0.01) {
+            gsap.to(spinBtnSprite.scale, {
+              x: spinBtnSprite.originalScale.x,
+              y: spinBtnSprite.originalScale.y,
+              duration: 0.2,
+              ease: "power2.out"
+            })
+          }
+          if (Math.abs(spinBtnArrowSprite.scale.x - spinBtnArrowSprite.originalScale.x) > 0.01) {
+            gsap.to(spinBtnArrowSprite.scale, {
+              x: spinBtnArrowSprite.originalScale.x,
+              y: spinBtnArrowSprite.originalScale.y,
+              duration: 0.2,
+              ease: "power2.out"
+            })
+          }
+        }
+      }
     }
+
+    // Update spin button particles
+    updateSpinButtonParticles()
 
     if (!notiTextSprite || !notiTextSprite.visible) return;
 
