@@ -1,10 +1,13 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
-import { GlowFilter } from '@pixi/filter-glow'
 import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
 import { useGameStore } from '../../../stores/gameStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import gsap from "gsap";
+
+// CONFIGURABLE: Duration (in seconds) for spin button effects to stay visible
+const SPIN_BUTTON_EFFECT_DURATION = 1
+const SPIN_BUTTON_EFFECT_FADEOUT = 0.3  // Fade out duration in seconds
 
 export function useFooter(gameState) {
   const gameStore = useGameStore()
@@ -39,6 +42,7 @@ export function useFooter(gameState) {
   let spinParticles = []
   let spinLightningContainer = null
   let lightningBolts = []
+  let spinGlowStarSprite = null  // Star glow sprite
   let lightningStartTime = 0
   let wasSpinning = false
 
@@ -517,13 +521,7 @@ export function useFooter(gameState) {
           ease: "power2.out"
         })
 
-        // 3. Glow flashes bright on click
-        if (spinBtnSprite.glowFilter) {
-          gsap.fromTo(spinBtnSprite.glowFilter,
-            { outerStrength: 3.5, distance: 20 },
-            { outerStrength: 1.2, distance: 8, duration: 0.5, ease: "power2.out" }
-          )
-        }
+        // 3. Star glow appears when spinning starts (handled in update function)
 
         // 4. Arrow speed boost effect (handled in update function via game state)
 
@@ -556,23 +554,29 @@ export function useFooter(gameState) {
       spinHoverCircle.visible = false
       mainMenuContainer.addChild(spinHoverCircle)
 
-      // === VISUAL EFFECTS: Bright Golden Glow (Matching Reference) ===
+      // === VISUAL EFFECTS: Star Glow ===
 
-      // 1. Apply STRONG GlowFilter to match reference image
-      const glowFilter = new GlowFilter({
-        distance: 15,
-        outerStrength: 3,
-        innerStrength: 1,
-        color: 0xffd700,  // Pure gold color
-        quality: 0.5
-      })
+      // 1. Create star glow sprite
+      const starTexture = ASSETS.loadedImages?.tiles_star || ASSETS.imagePaths?.tiles_star
+      if (starTexture) {
+        const texture = starTexture instanceof Texture ? starTexture : Texture.from(starTexture)
+        spinGlowStarSprite = new Sprite(texture)
+        spinGlowStarSprite.anchor.set(0.5)
+        spinGlowStarSprite.x = spinBtnSprite.x
+        spinGlowStarSprite.y = spinBtnSprite.y
 
-      // Store original filters array and add glow filter
-      const originalFilters = spinBtnSprite.filters || []
-      spinBtnSprite.filters = [...originalFilters, glowFilter]
+        // Scale star to be larger than button
+        const scale = (spinBtnSprite.height / spinGlowStarSprite.height) * 1.3
+        spinGlowStarSprite.scale.set(scale)
 
-      // Store the glow filter reference for later use
-      spinBtnSprite.glowFilter = glowFilter
+        // Additive blend mode for glow effect
+        spinGlowStarSprite.blendMode = 'add'
+        spinGlowStarSprite.alpha = 0.6
+        spinGlowStarSprite.visible = false  // Start hidden
+
+        // Add star behind spin button (add to container before button sprites were added)
+        mainMenuContainer.addChildAt(spinGlowStarSprite, mainMenuContainer.children.indexOf(spinBtnSprite))
+      }
 
       // Store original scales for reset
       spinBtnSprite.originalScale = { x: spinBtnSprite.scale.x, y: spinBtnSprite.scale.y }
@@ -907,12 +911,7 @@ export function useFooter(gameState) {
   function updateSpinButtonParticles() {
     if (!spinParticlesContainer) return
 
-    // Spawn new particles only when spinning
-    if (Math.random() < 0.08 && gameState.isSpinning?.value) {
-      spawnSpinButtonParticle()
-    }
-
-    // Update existing particles
+    // Update existing particles (clean up any remaining)
     for (let i = spinParticles.length - 1; i >= 0; i--) {
       const p = spinParticles[i]
       p.life--
@@ -941,7 +940,7 @@ export function useFooter(gameState) {
     const rays = new Graphics()
     rays.blendMode = 'add'
 
-    const numRays = 100  // Many small rays for dense radiant effect
+    const numRays = 1000  // Many small rays for dense radiant effect
     const innerRadius = spinBtnSprite.height * 0.45  // Start from button edge area
     const outerRadius = spinBtnSprite.height * 0.65  // Extend further out to match button
     const rayWidth = 20  // Width at the base
@@ -957,14 +956,14 @@ export function useFooter(gameState) {
       const outerX = Math.cos(angle) * outerRadius
       const outerY = Math.sin(angle) * outerRadius
 
-      // Draw ray with gradient-like layers
+      // Draw ray with gradient-like layers (reduced alpha for 1000 rays)
       // Outer glow layer (widest, most transparent)
       rays.poly([
         { x: innerX1 * 1.2, y: innerY1 * 1.2 },
         { x: innerX2 * 1.2, y: innerY2 * 1.2 },
         { x: outerX, y: outerY }
       ])
-      rays.fill({ color: 0xffeb3b, alpha: 0.15 })
+      rays.fill({ color: 0xffeb3b, alpha: 0.02 })
 
       // Middle golden layer
       rays.poly([
@@ -972,7 +971,7 @@ export function useFooter(gameState) {
         { x: innerX2, y: innerY2 },
         { x: outerX * 0.9, y: outerY * 0.9 }
       ])
-      rays.fill({ color: 0xffd700, alpha: 0.3 })
+      rays.fill({ color: 0xffd700, alpha: 0.04 })
 
       // Inner bright core (thinnest)
       rays.poly([
@@ -980,7 +979,7 @@ export function useFooter(gameState) {
         { x: innerX2 * 0.8, y: innerY2 * 0.8 },
         { x: outerX * 0.8, y: outerY * 0.8 }
       ])
-      rays.fill({ color: 0xffffff, alpha: 0.4 })
+      rays.fill({ color: 0xffffff, alpha: 0.05 })
     }
 
     rays.rotation = 0
@@ -992,26 +991,45 @@ export function useFooter(gameState) {
 
     const isSpinning = gameState.isSpinning?.value
 
-    // Detect when spinning just started (still needed for glow timer)
+    // Detect when spinning just started
     if (isSpinning && !wasSpinning) {
       lightningStartTime = Date.now()
     }
     wasSpinning = isSpinning
 
-    // Show rays throughout the entire spin (not just 1 second)
+    // Calculate elapsed time since spin started
+    const elapsedSeconds = (Date.now() - lightningStartTime) / 1000
+
+    // Show rays with fade out
     if (isSpinning) {
-      // Create light rays if not exists
-      if (lightningBolts.length === 0) {
-        const rays = createLightRays()
-        if (rays) {
-          spinLightningContainer.addChild(rays)
-          lightningBolts.push(rays)
+      if (elapsedSeconds < SPIN_BUTTON_EFFECT_DURATION) {
+        // Full opacity during effect duration
+        if (lightningBolts.length === 0) {
+          const rays = createLightRays()
+          if (rays) {
+            spinLightningContainer.addChild(rays)
+            lightningBolts.push(rays)
+          }
+        } else {
+          for (const rays of lightningBolts) {
+            rays.rotation += 0.02
+            rays.alpha = 1
+          }
+        }
+      } else if (elapsedSeconds < SPIN_BUTTON_EFFECT_DURATION + SPIN_BUTTON_EFFECT_FADEOUT) {
+        // Fade out phase
+        const fadeProgress = (elapsedSeconds - SPIN_BUTTON_EFFECT_DURATION) / SPIN_BUTTON_EFFECT_FADEOUT
+        for (const rays of lightningBolts) {
+          rays.rotation += 0.02
+          rays.alpha = 1 - fadeProgress
         }
       } else {
-        // Rotate the rays slowly
-        for (const rays of lightningBolts) {
-          rays.rotation += 0.02  // Slow rotation speed
+        // Clear rays after fade out
+        for (const bolt of lightningBolts) {
+          spinLightningContainer.removeChild(bolt)
+          bolt.destroy()
         }
+        lightningBolts.length = 0
       }
     } else {
       // Clear all rays when not spinning
@@ -1092,45 +1110,52 @@ export function useFooter(gameState) {
       const speed = spinning ? (Math.PI * 5) : (Math.PI * 0.5);
       spinBtnArrowSprite.rotation += speed * dt;
 
-      // Control glow filter based on button state
+      // Control star glow based on button state
       const canSpin = !!gameState.canSpin?.value
 
       // Calculate elapsed time since spin started (same logic as lightning)
       const elapsedSeconds = (Date.now() - lightningStartTime) / 1000
-      const showGlow = spinning && elapsedSeconds < 1
+      const showGlow = spinning && elapsedSeconds < SPIN_BUTTON_EFFECT_DURATION
 
-      // Show glow ONLY when spinning AND within first 1 second
-      if (spinBtnSprite && spinBtnSprite.glowFilter) {
-        spinBtnSprite.glowFilter.enabled = showGlow
-
-        if (showGlow) {
-          // Strong glow during first 1 second of spinning
-          if (spinBtnSprite.glowFilter.outerStrength < 3.5) {
-            gsap.to(spinBtnSprite.glowFilter, {
-              outerStrength: 4,
-              distance: 18,
-              duration: 0.2,
-              ease: "power2.out"
-            })
+      // Show star glow with fade out
+      if (spinGlowStarSprite) {
+        if (spinning) {
+          if (elapsedSeconds < SPIN_BUTTON_EFFECT_DURATION) {
+            // Full opacity during effect duration
+            spinGlowStarSprite.visible = true
+            spinGlowStarSprite.alpha = 0.6
+            spinGlowStarSprite.rotation += 0.03
+          } else if (elapsedSeconds < SPIN_BUTTON_EFFECT_DURATION + SPIN_BUTTON_EFFECT_FADEOUT) {
+            // Fade out phase
+            const fadeProgress = (elapsedSeconds - SPIN_BUTTON_EFFECT_DURATION) / SPIN_BUTTON_EFFECT_FADEOUT
+            spinGlowStarSprite.alpha = 0.6 * (1 - fadeProgress)
+            spinGlowStarSprite.rotation += 0.03
+          } else {
+            // Completely hidden after fade out
+            spinGlowStarSprite.visible = false
           }
         } else {
-          // Ensure button and arrow scales return to original when idle
-          if (Math.abs(spinBtnSprite.scale.x - spinBtnSprite.originalScale.x) > 0.01) {
-            gsap.to(spinBtnSprite.scale, {
-              x: spinBtnSprite.originalScale.x,
-              y: spinBtnSprite.originalScale.y,
-              duration: 0.2,
-              ease: "power2.out"
-            })
-          }
-          if (Math.abs(spinBtnArrowSprite.scale.x - spinBtnArrowSprite.originalScale.x) > 0.01) {
-            gsap.to(spinBtnArrowSprite.scale, {
-              x: spinBtnArrowSprite.originalScale.x,
-              y: spinBtnArrowSprite.originalScale.y,
-              duration: 0.2,
-              ease: "power2.out"
-            })
-          }
+          spinGlowStarSprite.visible = false
+        }
+      }
+
+      // Ensure button and arrow scales return to original when idle
+      if (!spinning) {
+        if (Math.abs(spinBtnSprite.scale.x - spinBtnSprite.originalScale.x) > 0.01) {
+          gsap.to(spinBtnSprite.scale, {
+            x: spinBtnSprite.originalScale.x,
+            y: spinBtnSprite.originalScale.y,
+            duration: 0.2,
+            ease: "power2.out"
+          })
+        }
+        if (Math.abs(spinBtnArrowSprite.scale.x - spinBtnArrowSprite.originalScale.x) > 0.01) {
+          gsap.to(spinBtnArrowSprite.scale, {
+            x: spinBtnArrowSprite.originalScale.x,
+            y: spinBtnArrowSprite.originalScale.y,
+            duration: 0.2,
+            ease: "power2.out"
+          })
         }
       }
     }
