@@ -13,6 +13,10 @@ const SPIN_BUTTON_EFFECT_FADEOUT = 0.3  // Fade out duration in seconds
 const NOTIFICATION_TEXT_SCALE = 0.7  // Adjust this to make all notification texts bigger/smaller
 const BIG_WIN_TEXT_SCALE = 0.3  // Smaller scale for big win notifications (x10+ multiplier)
 
+// CONFIGURABLE: Punctuation (period and comma) positioning in win amount displays
+const PUNCTUATION_SCALE_FACTOR = 0.5  // Scale multiplier for period and comma (0.5 = half the size of numbers)
+const PUNCTUATION_Y_POSITION = 1.02   // Vertical position multiplier (1.02 = slightly below baseline)
+
 export function useFooter(gameState) {
   const gameStore = useGameStore()
   const settingsStore = useSettingsStore()
@@ -177,6 +181,10 @@ export function useFooter(gameState) {
       bgToShow.visible = true;
     }
 
+    // Calculate target height for consistent sizing
+    const scaleToUse = (bgToShow === notiBgSprite2) ? BIG_WIN_TEXT_SCALE : NOTIFICATION_TEXT_SCALE
+    const targetHeight = bgToShow.height * scaleToUse
+
     const digits = String(value).split('');
     let offsetX = 0;
     let textSprite
@@ -187,36 +195,43 @@ export function useFooter(gameState) {
       return
     }
     textSprite = new Sprite(winTexture)
+    // Normalize text sprite to target height
+    const textScale = targetHeight / textSprite.height
+    textSprite.scale.set(textScale)
+    textSprite.x = offsetX
+    textSprite.y = 0
     winAmounContainer.addChild(textSprite)
-    textSprite.scale.set(0.7)
-    textSprite.y = 0.07 * textSprite.height
-    offsetX += textSprite.width * 1.1
+    offsetX += textSprite.width * 1.02
 
     for (const d of digits) {
-      if (d === '.') {
-        const setting = getDeepSetting('footer_notification_texts.period')
-        const texture = subTex(`footer_notification_texts.period`)
+      if (d === '.' || d === ',') {
+        // Shared logic for period and comma punctuation
+        const textureKey = d === '.' ? 'footer_notification_texts.period' : 'footer_notification_texts.comma'
+        const texture = subTex(textureKey)
         if (!texture) continue
-        const sprite = new Sprite(texture)
-        sprite.scale.set(1.1)
-        sprite.x = offsetX - sprite.width * 0.2;
-        sprite.y = 2.5 *sprite.height
-        sprite.rotation = setting.rotation
-        winAmounContainer.addChild(sprite)
-        offsetX += sprite.width * 0.7;
-      } else if (d === ',') {
-        const texture = subTex(`footer_notification_texts.comma`)
-        if (!texture) continue
-        const sprite = new Sprite(texture)
-        sprite.x = offsetX - sprite.width * 0.1;
-        sprite.y = 1.2*sprite.height;
-        winAmounContainer.addChild(sprite);
 
-        offsetX += sprite.width * 0.6;
+        const sprite = new Sprite(texture)
+        // Apply configurable punctuation scale and position
+        const spriteScale = (targetHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
+        sprite.scale.set(spriteScale)
+        sprite.x = offsetX - sprite.width * 0.1
+        sprite.y = targetHeight * PUNCTUATION_Y_POSITION
+
+        // Apply rotation for period if needed
+        if (d === '.') {
+          const setting = getDeepSetting('footer_notification_texts.period')
+          if (setting) sprite.rotation = setting.rotation
+        }
+
+        winAmounContainer.addChild(sprite)
+        offsetX += sprite.width * 0.7
       } else {
         const texture = subTex(`footer_notification_texts.number${d}`)
         if (!texture) continue
         const sprite = new Sprite(texture)
+        // Normalize to target height
+        const spriteScale = targetHeight / sprite.height
+        sprite.scale.set(spriteScale)
         sprite.x = offsetX;
         sprite.y = 0;
         winAmounContainer.addChild(sprite);
@@ -225,9 +240,7 @@ export function useFooter(gameState) {
       }
     }
 
-    // Use smaller scale for big win notifications (notiBgSprite2)
-    const scaleToUse = (bgToShow === notiBgSprite2) ? BIG_WIN_TEXT_SCALE : NOTIFICATION_TEXT_SCALE
-    winAmounContainer.scale.set(scaleToUse * bgToShow.height / winAmounContainer.height)
+    // Center the container in the background
     winAmounContainer.x = bgToShow.x - winAmounContainer.width * 0.5
     winAmounContainer.y = bgToShow.y - winAmounContainer.height * 0.5
 
