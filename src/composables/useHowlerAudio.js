@@ -72,10 +72,7 @@ class HowlerAudioManager {
           },
           onplayerror: (id, err) => {
             console.warn(`Howler play error for ${key}:`, err)
-            // Try to unlock audio
-            this.howls[key].once('unlock', () => {
-              this.howls[key].play()
-            })
+            // Don't auto-play on error - let Howler handle unlock automatically
           }
         })
       } catch (err) {
@@ -163,35 +160,15 @@ class HowlerAudioManager {
     }
 
     try {
-      // Unlock Web Audio API context
+      // Unlock Web Audio API context only
+      // Howler's autoUnlock feature will handle the rest
       const ctx = Howler.ctx
       if (ctx && ctx.state === 'suspended') {
         await ctx.resume()
-      }
-
-      // Unlock HTML5 audio elements silently by playing at volume 0
-      // This runs asynchronously without blocking
-      for (const [key, howl] of Object.entries(this.howls)) {
-        try {
-          // Only unlock HTML5 audio elements
-          if (howl._html5) {
-            const originalVolume = howl.volume()
-            howl.volume(0)
-            const id = howl.play()
-
-            // Stop immediately without delay
-            setTimeout(() => {
-              howl.stop(id)
-              howl.volume(originalVolume)
-            }, 10)
-          }
-        } catch (err) {
-          // Ignore errors during unlock
-        }
+        console.log('✅ AudioContext resumed')
       }
 
       this.isUnlocked = true
-      console.log('✅ Audio unlocked')
     } catch (err) {
       console.error('❌ Failed to unlock audio:', err)
     }
