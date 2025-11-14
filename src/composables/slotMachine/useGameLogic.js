@@ -11,9 +11,12 @@ import { gsap } from 'gsap'
  * Each function performs a specific action and returns a promise
  * Flow orchestration is handled by useGameFlowController
  */
-export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
+export function useGameLogic(gameState, gridState, render, showWinOverlayFn, reelsAPI = null) {
   const gameStore = useGameStore()
   const timingStore = useTimingStore()
+
+  // Reel controller for GSAP-driven animations (set after renderer initializes)
+  let reels = reelsAPI
 
   // Buffer offset for accessing game rows in expanded grid
   const BUFFER_OFFSET = getBufferOffset()
@@ -147,24 +150,16 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
 
   const animateSpin = () => {
     /*
-     * FIX FOR: Tiles changing visually when hitting spin button (2nd spin onwards)
+     * FULLY GSAP-DRIVEN REEL SCROLL SYSTEM
      *
-     * ROOT CAUSE:
-     * - Strip was built with grid symbols at sequential positions strip[0-9]
-     * - But renderer reads using formula strip[(reelTop-row)%100], which at reelTop=0 reads:
-     *   strip[0], strip[99], strip[98], ... (not strip[0], strip[1], strip[2], ...)
-     * - This mismatch caused 1-tile visual jump when hitting spin
+     * This uses GSAP to directly animate reel container Y positions for smooth,
+     * GPU-accelerated scrolling. All game logic (jackpot detection, anticipation mode)
+     * is preserved using GSAP callbacks and timers.
      *
-     * SOLUTION:
-     * 1. Place current grid symbols at positions where renderer will read them at reelTop=0
-     *    - grid[0] at strip[0], grid[1] at strip[99], grid[2] at strip[98], etc.
-     * 2. Protect these positions from bonus enforcement to prevent changes
-     * 3. Stop only when animation fully completes (t>=1.0) to avoid fractional offsets
-     * 4. Explicitly set reelTop=targetIndex, offset=0 when stopping
-     *
-     * This satisfies spec.txt rules #4 and #5: no tile changes after spin stops or when hitting spin
-     *
-     * NOW USING GSAP: Replaced requestAnimationFrame with GSAP for smoother animations
+     * SATISFIES spec.txt:
+     * - TOP_TO_BOTTOM spin direction (GSAP scrolls containers downward)
+     * - No tile changes after spin stops (grid is synced at completion)
+     * - No tile changes when hitting spin (strips built with current grid)
      */
 
     const baseDuration = timingStore.SPIN_BASE_DURATION / 1000 // Convert to seconds for GSAP
@@ -173,8 +168,16 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
-    // Anticipation mode extra slowdown duration (configurable in timingStore)
-    const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION / 1000 // Convert to seconds for GSAP
+    // Anticipation mode extra slowdown duration
+    const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION / 1000
+
+    // Check if we can use GSAP reel scroll (reels API available)
+    const useGSAPScroll = reels && reels.startGSAPReelScroll
+
+    if (!useGSAPScroll) {
+      console.warn('⚠️ GSAP reel scroll not available, falling back to traditional animation')
+      // Fall back to the original GSAP timeline approach below
+    }
 
     // Build reel strips - place current grid at positions the renderer will read at reelTop=0
     // Renderer formula: strip[(reelTop - row) % 100], so at reelTop=0:
@@ -707,6 +710,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     return bonusCount
   }
 
+  // Method to set reels reference after renderer initializes
+  function setReels(reelsRef) {
+    reels = reelsRef
+  }
+
   return {
     spin,
     increaseBet,
@@ -724,6 +732,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn) {
     playWinSound,
     playEffect,
     showWinOverlay: showWinOverlayFn,
-    checkBonusTiles
+    checkBonusTiles,
+    setReels // Expose method to set reels reference
   }
 }

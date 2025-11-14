@@ -25,6 +25,9 @@ export function useSlotMachine(canvasRef) {
     decreaseBet: gameLogic.decreaseBet
   })
 
+  // Flag to track if reels have been wired
+  let reelsWired = false
+
   const init = async () => {
     try {
       await nextTick()
@@ -35,6 +38,16 @@ export function useSlotMachine(canvasRef) {
 
       // Initialize renderer first
       await renderer.init()
+
+      // Wire up reels reference to game logic for GSAP-driven animations
+      if (renderer.getReels && gameLogic.setReels && !reelsWired) {
+        const reelsAPI = renderer.getReels()
+        if (reelsAPI) {
+          gameLogic.setReels(reelsAPI)
+          reelsWired = true
+          console.log('✅ GSAP-driven reels wired to game logic')
+        }
+      }
 
       // Load assets with progress tracking
       await loadAllAssets((loaded, total) => {

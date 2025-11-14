@@ -345,5 +345,8 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
-    return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay, initializeComposedTextures }
+    // Expose reels API for GSAP-driven animations
+    const getReels = () => reels
+
+    return { init, render, startAnimation, stopAnimation, setControls, showWinOverlay, initializeComposedTextures, getReels }
 }
