@@ -29,11 +29,12 @@ class HowlerAudioManager {
     }
 
     if (!ASSETS.audioPaths) {
-      console.warn('⚠️ No audio paths found')
+      console.warn('⚠️ No audio paths found in ASSETS')
       return
     }
 
     console.log('🔊 Initializing Howler.js audio...')
+    console.log('📋 Audio paths available:', Object.keys(ASSETS.audioPaths))
 
     // Get audio paths and flatten arrays (like background_noises)
     const audioEntries = []
@@ -49,6 +50,7 @@ class HowlerAudioManager {
     })
 
     // Create Howl instances using original file paths
+    console.log(`📦 Creating Howl instances for ${audioEntries.length} audio files...`)
     audioEntries.forEach(([key, src]) => {
       try {
         if (!src) {
@@ -72,6 +74,7 @@ class HowlerAudioManager {
             })
           }
         })
+        console.log(`✓ Created Howl: ${key}`)
       } catch (err) {
         console.error(`Error creating Howl for ${key}:`, err)
       }
@@ -79,6 +82,7 @@ class HowlerAudioManager {
 
     this.isInitialized = true
     console.log(`✅ Howler audio initialized: ${Object.keys(this.howls).length} sounds`)
+    console.log('🔑 Registered audio keys:', Object.keys(this.howls).join(', '))
 
     // Enable audio on first user interaction (Howler handles this automatically)
     Howler.autoUnlock = true
@@ -92,6 +96,7 @@ class HowlerAudioManager {
 
     if (!howl) {
       console.warn(`Howl not found: ${audioKey}`)
+      console.warn(`Available Howls:`, Object.keys(this.howls))
       return null
     }
 
