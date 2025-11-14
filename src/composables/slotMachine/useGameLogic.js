@@ -168,8 +168,8 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
     const cols = CONFIG.reels.count
     const stripLength = CONFIG.reels.stripLength
 
-    // Anticipation mode extra slowdown duration
-    const anticipationExtraDuration = timingStore.ANTICIPATION_SLOWDOWN_DURATION / 1000
+    // Anticipation mode: exact time each column takes to slow down and stop
+    const anticipationSlowdownPerColumn = timingStore.ANTICIPATION_SLOWDOWN_PER_COLUMN / 1000 // Convert to seconds
 
     // Check if we can use GSAP reel scroll (reels API available)
     const useGSAPScroll = reels && reels.startGSAPReelScroll
@@ -237,13 +237,24 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
         // If more than max bonus in this window, replace extras
         // BUT skip protected positions (current grid at reelTop=0) to prevent visual change
         if (bonusPositions.length > maxBonusPerColumn) {
-          for (let i = maxBonusPerColumn; i < bonusPositions.length; i++) {
+          let replaced = 0
+          let requiredReplacements = bonusPositions.length - maxBonusPerColumn
+
+          // Try to replace non-protected positions first
+          for (let i = bonusPositions.length - 1; i >= 0 && replaced < requiredReplacements; i--) {
             const { idx, gridRow } = bonusPositions[i]
             // Skip if this is a protected position (current grid symbol)
             if (protectedSet.has(idx)) continue
 
             const visualRow = gridRow - BUFFER_OFFSET
             strip[idx] = getRandomSymbol({ col, visualRow, allowGold: true, allowBonus: false })
+            replaced++
+          }
+
+          // If we couldn't replace enough (due to protected positions), this landing is invalid
+          // This shouldn't happen if our target landing positions avoid reelTop=0
+          if (replaced < requiredReplacements) {
+            console.warn(`⚠️ Column ${col} at reelTop ${reelTop}: Could only replace ${replaced}/${requiredReplacements} bonus tiles (${bonusPositions.length - replaced} remain, max: ${maxBonusPerColumn})`)
           }
         }
       }
@@ -263,7 +274,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
     // Initialize positions - start from 0 (current grid symbols are now at correct positions)
     gridState.reelTopIndex = Array(cols).fill(0)
     gridState.spinOffsets = Array(cols).fill(0)
-    gridState.spinVelocities = Array(cols).fill(10) // High initial velocity
+    gridState.spinVelocities = Array(cols).fill(18) // High initial velocity (matches spin speed)
     gridState.activeSlowdownColumn = -1 // Reset active slowdown column
 
     // Track which columns have been explicitly stopped
@@ -315,21 +326,39 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
     }
 
     return new Promise(resolve => {
+      // Flag to track if we've already resolved (prevent double resolution)
+      let hasResolved = false
+
+      // Helper function to complete the spin and continue game flow
+      const completeSpin = () => {
+        if (hasResolved) return
+        hasResolved = true
+
+        console.log('🏁 All columns stopped - completing spin animation')
+
+        // All reels stopped - deactivate anticipation mode to remove dark mask
+        if (gameStore.anticipationMode) {
+          gameStore.deactivateAnticipationMode()
+          console.log('🎯 Anticipation mode deactivated - removing dark mask')
+        }
+
+        // Reset active slowdown column
+        gridState.activeSlowdownColumn = -1
+
+        // Trigger reactivity
+        gridState.grid = [...gridState.grid.map(col => [...col])]
+        resolve()
+      }
+
       // Create GSAP timeline for the spin animation
       const timeline = gsap.timeline({
         onComplete: () => {
-          // All reels stopped - deactivate anticipation mode to remove dark mask
-          if (gameStore.anticipationMode) {
-            gameStore.deactivateAnticipationMode()
-            console.log('🎯 Anticipation mode deactivated - removing dark mask')
+          // Check if all columns have truly stopped (including slowdown tweens)
+          // If anticipation mode is active, some columns may still be in slowdown
+          if (!gameStore.anticipationMode) {
+            completeSpin()
           }
-
-          // Reset active slowdown column
-          gridState.activeSlowdownColumn = -1
-
-          // Trigger reactivity
-          gridState.grid = [...gridState.grid.map(col => [...col])]
-          resolve()
+          // If anticipation mode is active, the slowdown onComplete will call completeSpin
         }
       })
 
@@ -347,6 +376,173 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
           isSlowingDown: false,
           hasSlowedDown: false
         })
+      }
+
+      /**
+       * Helper function to create a slowdown tween for a column
+       * This function calls itself recursively for the next column, creating a cascade effect
+       */
+      const createSlowdownTween = (targetCol) => {
+        // Validate column exists and is still animating
+        if (targetCol >= cols) return
+
+        const targetTween = columnTweens.get(targetCol)
+        const targetAnimObj = animObjects[targetCol]
+
+        if (!targetTween || !targetTween.isActive() || !targetAnimObj) {
+          console.warn(`⚠️ Cannot create slowdown for column ${targetCol} - tween not active`)
+          return
+        }
+
+        // Kill the current tween
+        targetTween.kill()
+
+        // Get current position
+        const currentPosition = targetAnimObj.position
+
+        // CRITICAL: Ensure there's enough distance to animate during slowdown
+        // We need at least 15-20 units of travel to make the slowdown visible
+        const minDistanceForSlowdown = 15
+        const currentDistance = targetAnimObj.targetIndex - currentPosition
+
+        let newTarget = targetAnimObj.targetIndex
+        if (currentDistance < minDistanceForSlowdown) {
+          // Extend the target to ensure visible slowdown animation
+          newTarget = Math.floor(currentPosition + minDistanceForSlowdown)
+          // Make sure we don't exceed strip length
+          if (newTarget >= stripLength) {
+            newTarget = stripLength - 1
+          }
+
+          // VALIDATE: Ensure the extended target doesn't violate maxBonusPerColumn
+          // Count bonus tiles that would be visible at this new target
+          const strip = gridState.reelStrips[targetCol]
+          let bonusCountAtNewTarget = 0
+          for (let gridRow = WIN_CHECK_START_ROW; gridRow <= WIN_CHECK_END_ROW; gridRow++) {
+            const stripIdx = ((newTarget - gridRow) % strip.length + strip.length) % strip.length
+            if (isBonusTile(strip[stripIdx])) {
+              bonusCountAtNewTarget++
+            }
+          }
+
+          const maxBonusPerColumn = CONFIG.game.maxBonusPerColumn || 2
+          if (bonusCountAtNewTarget > maxBonusPerColumn) {
+            console.warn(`⚠️ Column ${targetCol}: Extended target ${newTarget} would have ${bonusCountAtNewTarget} bonus tiles (max: ${maxBonusPerColumn}). Using original target ${targetAnimObj.targetIndex} instead.`)
+            newTarget = targetAnimObj.targetIndex
+          } else {
+            console.log(`📏 Column ${targetCol}: Extending target from ${targetAnimObj.targetIndex} to ${newTarget} (current: ${currentPosition.toFixed(1)}, distance was only ${currentDistance.toFixed(1)}). Bonus tiles at new target: ${bonusCountAtNewTarget}`)
+            targetAnimObj.targetIndex = newTarget
+          }
+        }
+
+        console.log(`🎯 Column ${targetCol}: Switching to ANTICIPATION SLOWDOWN from position ${currentPosition.toFixed(1)} to ${newTarget}`)
+
+        // Create NEW tween that takes EXACTLY the configured slowdown time
+        const newTween = gsap.to(targetAnimObj, {
+          position: newTarget,
+          duration: anticipationSlowdownPerColumn, // EXACT time (e.g., 5 seconds)
+          ease: 'power4.out', // Very slow deceleration curve
+          onUpdate: function() {
+            // Update reel position
+            const currentPosition = targetAnimObj.position
+            const newTopIndex = Math.floor(currentPosition)
+            const newOffset = currentPosition - newTopIndex
+
+            const distanceRemaining = targetAnimObj.targetIndex - currentPosition
+            const totalDistance = targetAnimObj.targetIndex
+            const progress = 1 - (distanceRemaining / totalDistance)
+
+            const baseVelocity = 18 // Match normal spin velocity
+            const quadDecay = Math.pow(1 - progress, 2)
+            const calculatedVelocity = baseVelocity * quadDecay
+            const minVelocity = 0.05
+
+            gridState.reelTopIndex[targetCol] = newTopIndex % gridState.reelStrips[targetCol].length
+            gridState.spinOffsets[targetCol] = newOffset
+            gridState.spinVelocities[targetCol] = Math.max(minVelocity, calculatedVelocity)
+          },
+          onComplete: () => {
+            console.log(`✅ Column ${targetCol} SLOWDOWN COMPLETE at target ${targetAnimObj.targetIndex}`)
+
+            // Finalize position
+            gridState.reelTopIndex[targetCol] = targetAnimObj.targetIndex % gridState.reelStrips[targetCol].length
+            gridState.spinOffsets[targetCol] = 0
+            gridState.spinVelocities[targetCol] = 0
+
+            // Sync to grid and mark as stopped
+            syncColumnToGrid(targetCol)
+            stoppedColumns.add(targetCol)
+
+            // Clear slowdown highlight
+            if (currentSlowdownColumn === targetCol) {
+              currentSlowdownColumn = -1
+              gridState.activeSlowdownColumn = -1
+            }
+
+            // CHECK IF JACKPOT TRIGGERED: Per spec.txt line 25
+            // "if during the above animations, constants.minBonusToTrigger is reached,
+            // stop all other spinning column, do the jackpot detection"
+            if (!gameStore.inFreeSpinMode && gameStore.anticipationMode) {
+              const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
+              console.log(`🎲 Column ${targetCol} slowdown complete. Total bonus tiles: ${totalBonusTiles}`)
+
+              if (totalBonusTiles >= CONFIG.game.minBonusToTrigger) {
+                console.log(`🎰 JACKPOT TRIGGERED during slowdown! Total: ${totalBonusTiles} >= ${CONFIG.game.minBonusToTrigger}`)
+
+                // IMMEDIATELY stop all remaining columns
+                for (let col = targetCol + 1; col < cols; col++) {
+                  const remainingTween = columnTweens.get(col)
+                  if (remainingTween && remainingTween.isActive()) {
+                    remainingTween.kill()
+
+                    // Snap to current position (wherever it is in the perpetual spin)
+                    const remainingAnimObj = animObjects[col]
+                    const currentPos = Math.floor(remainingAnimObj.position)
+
+                    gridState.reelTopIndex[col] = currentPos % gridState.reelStrips[col].length
+                    gridState.spinOffsets[col] = 0
+                    gridState.spinVelocities[col] = 0
+
+                    // Sync to grid at current position
+                    syncColumnToGrid(col)
+                    stoppedColumns.add(col)
+
+                    console.log(`⏹️ Force-stopped column ${col} at position ${currentPos} (was in perpetual spin)`)
+                  }
+                }
+
+                // Complete the spin immediately
+                console.log(`🎬 All columns force-stopped - calling completeSpin()`)
+                completeSpin()
+                return // Exit early, don't cascade to next column
+              }
+            }
+
+            // RECURSIVE CASCADE: Trigger next column slowdown if in anticipation mode
+            // Only if jackpot NOT triggered
+            if (gameStore.anticipationMode && targetCol >= firstBonusColumn) {
+              const nextCol = targetCol + 1
+              if (nextCol < cols) {
+                console.log(`🔄 Cascading slowdown to column ${nextCol}`)
+                createSlowdownTween(nextCol) // RECURSIVE CALL
+              } else {
+                // This was the last column - complete the spin
+                console.log(`🎬 Last column slowdown complete - calling completeSpin()`)
+                completeSpin()
+              }
+            }
+          }
+        })
+
+        // Store the new tween
+        columnTweens.set(targetCol, newTween)
+
+        // Highlight this column and play sound effect
+        currentSlowdownColumn = targetCol
+        gridState.activeSlowdownColumn = targetCol
+        playEffect("reach_bonus")
+
+        console.log(`🐌 Column ${targetCol}: Starting ${anticipationSlowdownPerColumn}s ANTICIPATION slowdown`)
       }
 
       // Create tweens for each column with SEQUENTIAL STOPS
@@ -369,39 +565,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             console.log(`🎬 Column ${col} animation started (duration: ${sequentialDuration.toFixed(2)}s)`)
           },
           onUpdate: function() {
-            // Note: Bonus tile checking moved to onComplete - only check after columns stop!
-
-            // Handle anticipation mode column highlighting
-            if (gameStore.anticipationMode && firstBonusColumn >= 0) {
-              const stoppedAfterBonus = Array.from(stoppedColumns).filter(c => c > firstBonusColumn)
-              const lastStoppedAfterBonus = stoppedAfterBonus.length > 0 ? Math.max(...stoppedAfterBonus) : firstBonusColumn
-              const nextColumnToSlowdown = lastStoppedAfterBonus + 1
-
-              // Update active slowdown column
-              if (col === nextColumnToSlowdown && currentSlowdownColumn !== col) {
-                currentSlowdownColumn = col
-                gridState.activeSlowdownColumn = col
-                console.log(`🎯 Column ${col} is now the ACTIVE SLOWDOWN COLUMN`)
-                playEffect("reach_bonus")
-              }
-
-              // Keep other columns spinning if they're waiting
-              if (col > firstBonusColumn && col !== nextColumnToSlowdown && !stoppedColumns.has(col)) {
-                const spinSpeed = 0.5
-                const currentTop = gridState.reelTopIndex[col]
-                const currentOffset = gridState.spinOffsets[col]
-                const stripLen = gridState.reelStrips[col].length
-
-                let newPosition = currentTop + currentOffset + spinSpeed
-                const newTopIndex = Math.floor(newPosition) % stripLen
-                const newOffset = newPosition - Math.floor(newPosition)
-
-                gridState.reelTopIndex[col] = newTopIndex
-                gridState.spinOffsets[col] = newOffset
-                gridState.spinVelocities[col] = spinSpeed
-                return // Don't update position from tween
-              }
-            }
+            // Note: Bonus tile checking and column highlighting moved to onComplete!
 
             // Update reel position based on tween progress
             const currentPosition = animObj.position
@@ -415,7 +579,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             const progress = 1 - (distanceRemaining / totalDistance)
 
             // Quadratic velocity decay matching power2.out easing: (1 - t)^2
-            const baseVelocity = 12
+            const baseVelocity = 18 // Increased from 12 for faster normal spin
             const quadDecay = Math.pow(1 - progress, 2) // Matches power2.out curve
             const calculatedVelocity = baseVelocity * quadDecay
             const minVelocity = 0.05 // Minimum visible velocity
@@ -438,28 +602,66 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
 
             // ===== BONUS TILE CHECK: Only after column has stopped and synced to grid =====
             if (!gameStore.inFreeSpinMode) {
+              // Debug: Check how many bonus tiles THIS column has
+              const bonusInThisColumn = countBonusTilesInColumn(col)
               const totalBonusTiles = countTotalBonusTiles(stoppedColumns)
-              console.log(`🎲 Column ${col} stopped. Total bonus tiles in stopped columns: ${totalBonusTiles}`)
+              console.log(`🎲 Column ${col} stopped. Bonus in this column: ${bonusInThisColumn}, Total in all stopped columns: ${totalBonusTiles}`)
+
+              // Warn if this column violates maxBonusPerColumn
+              if (bonusInThisColumn > CONFIG.game.maxBonusPerColumn) {
+                console.error(`❌ Column ${col} has ${bonusInThisColumn} bonus tiles, exceeds max ${CONFIG.game.maxBonusPerColumn}!`)
+              }
 
               // Activate anticipation mode when we're one bonus tile away from jackpot (only if not already active)
               // This creates anticipation before hitting the jackpot trigger
               const anticipationThreshold = CONFIG.game.minBonusToTrigger - 1
               if (!gameStore.anticipationMode && firstBonusColumn === -1 && totalBonusTiles === anticipationThreshold) {
-                firstBonusColumn = Math.min(...Array.from(stoppedColumns))
+                firstBonusColumn = col // Track which column triggered anticipation
                 gameStore.activateAnticipationMode()
                 console.log(`🎰 ANTICIPATION MODE ACTIVATED! Found ${totalBonusTiles} bonus tiles (threshold: ${anticipationThreshold})`)
 
-                // Slow down columns that haven't stopped yet
-                for (let c = firstBonusColumn + 1; c < cols; c++) {
-                  const nextTween = columnTweens.get(c)
-                  if (nextTween && nextTween.isActive()) {
-                    const remainingProgress = 1 - nextTween.progress()
-                    const newDuration = remainingProgress * anticipationExtraDuration
+                // CRITICAL: Prevent remaining columns from stopping at their normal times
+                // They should keep spinning until it's their turn to slow down
+                for (let i = col + 2; i < cols; i++) {
+                  const remainingTween = columnTweens.get(i)
+                  const remainingAnimObj = animObjects[i]
 
-                    // Update duration dynamically
-                    nextTween.duration(newDuration)
-                    console.log(`🐌 Slowing down column ${c} to ${newDuration.toFixed(2)}s`)
+                  if (remainingTween && remainingTween.isActive() && remainingAnimObj) {
+                    // Kill the original tween
+                    remainingTween.kill()
+
+                    // Create a "perpetual spin" tween - maintains TOP_TO_BOTTOM scrolling
+                    // Calculate speed to match normal spin: ~18 velocity means ~35 strip positions per second
+                    const currentPos = remainingAnimObj.position
+                    const perpetualDistance = 5000 // Large distance to ensure perpetual motion
+                    const perpetualDuration = perpetualDistance / 35 // Match normal spin speed (~35 positions/sec)
+
+                    const perpetualTween = gsap.to(remainingAnimObj, {
+                      position: currentPos + perpetualDistance, // Move forward through strip (TOP_TO_BOTTOM)
+                      duration: perpetualDuration, // Maintain normal spin speed
+                      ease: 'none', // Constant speed
+                      onUpdate: function() {
+                        const currentPosition = remainingAnimObj.position
+                        const newTopIndex = Math.floor(currentPosition)
+                        const newOffset = currentPosition - newTopIndex
+
+                        gridState.reelTopIndex[i] = newTopIndex % gridState.reelStrips[i].length
+                        gridState.spinOffsets[i] = newOffset
+                        gridState.spinVelocities[i] = 18 // Match normal spin velocity
+                      }
+                    })
+
+                    columnTweens.set(i, perpetualTween)
+                    console.log(`♾️ Column ${i}: Converted to perpetual spin (will slow down when ready)`)
                   }
+                }
+
+                // SEQUENTIAL SLOWDOWN: Trigger the cascade starting with the NEXT column
+                // Only trigger once when anticipation mode is first activated
+                const nextColumn = col + 1
+                if (nextColumn < cols) {
+                  console.log(`🎬 Triggering initial anticipation cascade at column ${nextColumn}`)
+                  createSlowdownTween(nextColumn)
                 }
               }
             }

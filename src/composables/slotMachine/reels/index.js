@@ -677,8 +677,8 @@ export function useReels(gameState, gridState) {
                 // Only check this column's velocity, not the global spinning flag
                 const columnIsSpinning = gridState.spinVelocities && gridState.spinVelocities[col] > 0.001
 
-                // Get anticipation visual state, passing the spinning state
-                const anticipationState = anticipationEffects.getTileVisualState(col, gridRow, symbol, columnIsSpinning)
+                // Get anticipation visual state, passing the spinning state and grid
+                const anticipationState = anticipationEffects.getTileVisualState(col, gridRow, symbol, columnIsSpinning, gridState.grid)
 
                 // Apply tile visuals with anticipation mode overrides
                 // If anticipation mode is active:
