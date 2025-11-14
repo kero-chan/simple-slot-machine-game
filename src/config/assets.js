@@ -147,6 +147,7 @@ export const ASSETS = {
     win_all_girl: new URL('../assets/audio/wins/all_girl_sound.mp3', import.meta.url).href,
     win_megagrand: new URL('../assets/audio/wins/jackpot.mp3', import.meta.url).href,
     winning_announcement: new URL('../assets/audio/wins/winning_announcement.mp3', import.meta.url).href,
+    winning_highlight: new URL('../assets/audio/wins/winning_highlight.mp3', import.meta.url).href,
     background_noises: [
       new URL('../assets/audio/background_noise/noise_1.mp3', import.meta.url).href,
       new URL('../assets/audio/background_noise/noise_2.mp3', import.meta.url).href,

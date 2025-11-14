@@ -16,6 +16,7 @@ import { isBonusTile } from '../../../utils/tileHelpers'
 import { useWinningStore, WINNING_STATES } from '../../../stores/winningStore'
 import { useTimingStore } from '../../../stores/timingStore'
 import { CONFIG } from '../../../config/constants'
+import { useAudioEffects } from '../../useAudioEffects'
 
 export function useReels(gameState, gridState) {
     const container = new Container()
@@ -28,7 +29,13 @@ export function useReels(gameState, gridState) {
     const timingStore = useTimingStore()
     const { ensureBackdrop } = createBackdrop(tilesContainer)
     const winningEffects = createWinningEffects()
-    const winningFrames = createWinningFrameManager()
+
+    // Get audio effects to play sound when winning frames appear
+    const { playWinningHighlight } = useAudioEffects()
+    const winningFrames = createWinningFrameManager(() => {
+        // Play winning highlight sound when a new winning frame appears
+        playWinningHighlight()
+    })
     const dropAnimations = createDropAnimationManager()
     const bumpAnimations = createBumpAnimationManager()
     const popAnimations = createPopAnimationManager()

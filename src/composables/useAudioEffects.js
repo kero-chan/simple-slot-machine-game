@@ -231,11 +231,35 @@ export function useAudioEffects() {
     }
   };
 
+  // Play winning highlight sound when winning frames appear
+  const playWinningHighlight = () => {
+    try {
+      const audio = getAudio("winning_highlight");
+      if (!audio) {
+        console.warn("Winning highlight audio not found");
+        return;
+      }
+
+      audio.volume = getVolume(0.5); // 50% volume for subtle highlight sound
+
+      audio.addEventListener("error", (e) => {
+        console.error("Error playing winning highlight audio:", e);
+      });
+
+      audio.play().catch((err) => {
+        console.warn("Failed to play winning highlight audio:", err);
+      });
+    } catch (err) {
+      console.error("Error creating winning highlight audio:", err);
+    }
+  };
+
   return {
     playWinSound,
     playConsecutiveWinSound,
     playWinningAnnouncement,
     stopWinningAnnouncement,
     playEffect,
+    playWinningHighlight,
   };
 }

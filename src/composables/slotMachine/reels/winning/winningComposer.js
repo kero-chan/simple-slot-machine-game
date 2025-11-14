@@ -1,9 +1,10 @@
 import { Graphics, Container } from 'pixi.js'
 
 // Create a manager for winning frames that doesn't attach to sprites
-export function createWinningFrameManager() {
+export function createWinningFrameManager(onNewFrameCallback = null) {
   const container = new Container()
   const frameCache = new Map() // key -> Graphics
+  const activeFrames = new Set() // Track which frames are currently visible/winning
 
   function updateFrame(key, sprite, highlight, x, y, isBonus = false) {
     if (!sprite) return
@@ -11,6 +12,9 @@ export function createWinningFrameManager() {
     let frame = frameCache.get(key)
 
     if (highlight) {
+      // Check if this is a NEW winning frame (wasn't active before)
+      const isNewFrame = !activeFrames.has(key)
+
       if (!frame) {
         frame = new Graphics()
         container.addChild(frame)
@@ -18,6 +22,15 @@ export function createWinningFrameManager() {
       }
 
       frame.visible = true
+
+      // Track this frame as active and trigger callback for new frames
+      if (isNewFrame) {
+        activeFrames.add(key)
+        // Trigger audio callback when a new winning frame appears
+        if (onNewFrameCallback) {
+          onNewFrameCallback(key)
+        }
+      }
       frame.clear()
 
       // Position frame at sprite's center (x, y are already the center position)
@@ -78,6 +91,8 @@ export function createWinningFrameManager() {
 
     } else if (frame) {
       frame.visible = false
+      // Remove from active frames when no longer winning
+      activeFrames.delete(key)
     }
   }
 
@@ -87,6 +102,7 @@ export function createWinningFrameManager() {
         if (frame.parent) frame.parent.removeChild(frame)
         frame.destroy({ children: true })
         frameCache.delete(key)
+        activeFrames.delete(key)
       }
     }
   }
