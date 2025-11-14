@@ -174,48 +174,49 @@ export function createBonusOverlay(gameState) {
     // Create title text (congratulations message in Chinese)
     const titleStyle = {
       fontFamily: 'Arial Black, sans-serif',
-      fontSize: 70,
+      fontSize: 48,
       fontWeight: 'bold',
       fill: ['#ffff66', '#ffeb3b', '#ffd700'],  // Bright gold gradient
       fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#8B4513', width: 8 },  // Brown stroke for contrast
+      stroke: { color: '#8B4513', width: 5 },  // Brown stroke for contrast
       dropShadow: {
         color: 0xff6600,  // Orange glow
-        blur: 20,
+        blur: 12,
         angle: Math.PI / 6,
         distance: 0,
-        alpha: 0.8
+        alpha: 0.7
       },
       align: 'center',
-      letterSpacing: 3
+      letterSpacing: 2
     }
 
     titleText = new Text({
-      text: '恭得免费旋装',  // Congratulations on free spins
+      text: '恭喜获得免费旋转',  // Congratulations on free spins
       style: titleStyle
     })
     titleText.anchor.set(0.5)
     titleText.x = canvasWidth / 2
-    titleText.y = canvasHeight / 2 - 200
+    titleText.y = canvasHeight * 0.32  // Moved down to prevent cutoff
+    titleText.alpha = 0  // Start invisible for fade-in animation
     container.addChild(titleText)
 
-    // Create large number showing free spins count - HUGE and dramatic
+    // Create large number showing free spins count - cleaner, more readable
     const numberStyle = {
       fontFamily: 'Impact, sans-serif',
-      fontSize: 280,  // Much bigger!
+      fontSize: 200,  // Reduced for better balance
       fontWeight: '900',
-      fill: ['#ffff99', '#ffd700', '#ffed4e', '#ffa500'],  // Rich gold gradient
-      fillGradientStops: [0, 0.3, 0.6, 1],
-      stroke: { color: '#8B4513', width: 12 },  // Thick brown outline
+      fill: ['#ffff99', '#ffd700', '#ffed4e'],  // Rich gold gradient
+      fillGradientStops: [0, 0.5, 1],
+      stroke: { color: '#8B4513', width: 10 },  // Thick brown outline
       dropShadow: {
-        color: 0xff4500,  // Orange-red glow
-        blur: 25,
+        color: 0xff6600,  // Orange glow
+        blur: 20,
         angle: Math.PI / 4,
-        distance: 0,
-        alpha: 0.9
+        distance: 4,
+        alpha: 0.8
       },
       align: 'center',
-      letterSpacing: 10,
+      letterSpacing: 8,
       trim: false,
       padding: 20
     }
@@ -226,23 +227,25 @@ export function createBonusOverlay(gameState) {
     })
     freeSpinsNumberText.anchor.set(0.5)
     freeSpinsNumberText.x = canvasWidth / 2
-    freeSpinsNumberText.y = canvasHeight / 2 + 20  // Slightly lower
+    freeSpinsNumberText.y = canvasHeight * 0.50  // Centered vertically
+    freeSpinsNumberText.alpha = 0  // Start invisible for fade-in animation
+    freeSpinsNumberText.scale.set(0.5)  // Start smaller for scale-up animation
     container.addChild(freeSpinsNumberText)
 
-    // Create message text (in Chinese) - enhanced
+    // Create message text (in Chinese) - cleaner and smaller
     const messageStyle = {
       fontFamily: 'Arial Black, sans-serif',
-      fontSize: 38,
+      fontSize: 32,
       fontWeight: 'bold',
       fill: ['#ffeb3b', '#ffd700'],  // Gold gradient
       fillGradientStops: [0, 1],
-      stroke: { color: '#5c3a1a', width: 4 },  // Brown stroke
+      stroke: { color: '#5c3a1a', width: 3 },  // Brown stroke
       dropShadow: {
         color: 0x000000,
-        blur: 8,
+        blur: 6,
         angle: Math.PI / 4,
-        distance: 3,
-        alpha: 0.7
+        distance: 2,
+        alpha: 0.6
       },
       align: 'center',
       letterSpacing: 1
@@ -254,44 +257,38 @@ export function createBonusOverlay(gameState) {
     })
     messageText.anchor.set(0.5)
     messageText.x = canvasWidth / 2
-    messageText.y = canvasHeight / 2 + 180
+    messageText.y = canvasHeight * 0.66  // Better spacing below number
+    messageText.alpha = 0  // Start invisible for fade-in animation
     container.addChild(messageText)
 
-    // Create start button - more prominent and beautiful
-    const buttonWidth = 250
-    const buttonHeight = 80
+    // Create start button - cleaner and better positioned
+    const buttonWidth = 220
+    const buttonHeight = 70
     startButton = new Graphics()
-    startButton.roundRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, 20)
+    startButton.roundRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, 15)
     startButton.fill({ color: 0xdc143c })  // Crimson red
-    startButton.stroke({ color: 0xffd700, width: 5 })  // Thick gold border
+    startButton.stroke({ color: 0xffd700, width: 4 })  // Gold border
     startButton.x = canvasWidth / 2
-    startButton.y = canvasHeight / 2 + 280
+    startButton.y = canvasHeight * 0.78  // Better spacing below message
     startButton.eventMode = 'static'
     startButton.cursor = 'pointer'
-
-    // Add inner glow effect to button
-    const buttonGlow = new Graphics()
-    buttonGlow.roundRect(-buttonWidth / 2 + 5, -buttonHeight / 2 + 5, buttonWidth - 10, buttonHeight - 10, 15)
-    buttonGlow.stroke({ color: 0xff6347, width: 2, alpha: 0.6 })
-    buttonGlow.x = startButton.x
-    buttonGlow.y = startButton.y
+    startButton.alpha = 0  // Start invisible for fade-in animation
     container.addChild(startButton)
-    container.addChild(buttonGlow)
 
-    // Start button text - larger and more dramatic
+    // Start button text - cleaner
     const buttonTextStyle = {
       fontFamily: 'Arial Black, sans-serif',
-      fontSize: 48,
+      fontSize: 42,
       fontWeight: 'bold',
       fill: ['#ffffff', '#ffff99'],  // White to light yellow
       fillGradientStops: [0, 1],
-      stroke: { color: 0x8B0000, width: 3 },
+      stroke: { color: 0x8B0000, width: 2 },
       dropShadow: {
         color: 0x000000,
-        blur: 6,
+        blur: 4,
         angle: Math.PI / 4,
         distance: 2,
-        alpha: 0.8
+        alpha: 0.7
       },
       align: 'center'
     }
@@ -303,16 +300,18 @@ export function createBonusOverlay(gameState) {
     startButtonText.anchor.set(0.5)
     startButtonText.x = startButton.x
     startButtonText.y = startButton.y
+    startButtonText.alpha = 0  // Start invisible for fade-in animation
     container.addChild(startButtonText)
 
-    // Button hover effect
-    let buttonHoverScale = 1
+    // Button hover effect - smoother
     startButton.on('pointerover', () => {
-      buttonHoverScale = 1.1
+      startButton.scale.set(1.05)
+      startButtonText.scale.set(1.05)
     })
 
     startButton.on('pointerout', () => {
-      buttonHoverScale = 1
+      startButton.scale.set(1)
+      startButtonText.scale.set(1)
     })
 
     startButton.on('pointerdown', () => {
@@ -322,9 +321,9 @@ export function createBonusOverlay(gameState) {
       hide()
     })
 
-    // Add particles container and spawn MORE coins for celebration!
+    // Add particles container and spawn particles (reduced count for better performance)
     container.addChild(particlesContainer)
-    spawnParticles(canvasWidth, canvasHeight, 200)  // Double the particles for more excitement!
+    spawnParticles(canvasWidth, canvasHeight, 80)  // Moderate amount for celebration
   }
 
   /**
@@ -353,36 +352,55 @@ export function createBonusOverlay(gameState) {
       const scaleX = canvasWidth / bgImage.texture.width
       const scaleY = canvasHeight / bgImage.texture.height
       const baseScale = Math.max(scaleX, scaleY)
-      const pulse = baseScale * (1 + Math.sin(elapsed * 1.2) * 0.02)  // Very subtle pulse
+      const pulse = baseScale * (1 + Math.sin(elapsed * 1.2) * 0.015)  // Very subtle pulse
       bgImage.scale.set(pulse)
     }
 
-    // Pulse animation for the title - gentle float effect
-    if (titleText) {
-      const titlePulse = 1 + Math.sin(elapsed * 2) * 0.05
+    // Sequential entrance animations (staggered reveals)
+    // Title fades in first (0-0.5s)
+    if (titleText && elapsed < 0.5) {
+      titleText.alpha = Math.min(1, elapsed * 2)
+    } else if (titleText) {
+      titleText.alpha = 1
+      // Gentle idle pulse after entrance
+      const titlePulse = 1 + Math.sin(elapsed * 1.8) * 0.03
       titleText.scale.set(titlePulse)
-      titleText.y = (canvasHeight / 2 - 200) + Math.sin(elapsed * 1.5) * 8  // Gentle float
     }
 
-    // BIGGER pulse animation for the free spins number - more dramatic!
-    if (freeSpinsNumberText) {
-      const pulse = 1 + Math.sin(elapsed * 3) * 0.15  // Bigger pulse
+    // Number scales up and fades in second (0.3-0.9s)
+    if (freeSpinsNumberText && elapsed >= 0.3 && elapsed < 0.9) {
+      const progress = (elapsed - 0.3) / 0.6
+      const easeOut = 1 - Math.pow(1 - progress, 3)  // Cubic ease-out
+      freeSpinsNumberText.alpha = easeOut
+      freeSpinsNumberText.scale.set(0.5 + easeOut * 0.5)  // Scale from 0.5 to 1
+    } else if (freeSpinsNumberText && elapsed >= 0.9) {
+      freeSpinsNumberText.alpha = 1
+      // Gentle pulse after entrance (NO rotation)
+      const pulse = 1 + Math.sin(elapsed * 2) * 0.04
       freeSpinsNumberText.scale.set(pulse)
-      // Add rotation for extra drama
-      freeSpinsNumberText.rotation = Math.sin(elapsed * 2) * 0.05
     }
 
-    // Message text gentle pulse
-    if (messageText) {
-      const msgPulse = 1 + Math.sin(elapsed * 2.5) * 0.03
-      messageText.scale.set(msgPulse)
+    // Message fades in third (0.7-1.1s)
+    if (messageText && elapsed >= 0.7 && elapsed < 1.1) {
+      messageText.alpha = (elapsed - 0.7) / 0.4
+    } else if (messageText) {
+      messageText.alpha = 1
     }
 
-    // Gently pulse the start button with more emphasis
-    if (startButton && startButtonText) {
-      const buttonPulse = 1 + Math.sin(elapsed * 2.5) * 0.08  // More visible pulse
-      startButton.scale.set(buttonPulse)
-      startButtonText.scale.set(buttonPulse)
+    // Button fades in last (1.0-1.4s)
+    if (startButton && startButtonText && elapsed >= 1.0 && elapsed < 1.4) {
+      const alpha = (elapsed - 1.0) / 0.4
+      startButton.alpha = alpha
+      startButtonText.alpha = alpha
+    } else if (startButton && startButtonText && elapsed >= 1.4) {
+      startButton.alpha = 1
+      startButtonText.alpha = 1
+      // Gentle pulse to draw attention
+      const buttonPulse = 1 + Math.sin(elapsed * 2.2) * 0.05
+      if (startButton.scale.x === 1) {  // Only apply if not hovering
+        startButton.scale.set(buttonPulse)
+        startButtonText.scale.set(buttonPulse)
+      }
     }
   }
 
@@ -409,26 +427,26 @@ export function createBonusOverlay(gameState) {
         bgImage.scale.set(scale)
       }
 
-      // Reposition elements
+      // Reposition elements using percentage-based layout
       if (titleText) {
         titleText.x = canvasWidth / 2
-        titleText.y = canvasHeight / 2 - 200
+        titleText.y = canvasHeight * 0.32
       }
       if (freeSpinsNumberText) {
         freeSpinsNumberText.x = canvasWidth / 2
-        freeSpinsNumberText.y = canvasHeight / 2 + 20
+        freeSpinsNumberText.y = canvasHeight * 0.50
       }
       if (messageText) {
         messageText.x = canvasWidth / 2
-        messageText.y = canvasHeight / 2 + 180
+        messageText.y = canvasHeight * 0.66
       }
       if (startButton) {
         startButton.x = canvasWidth / 2
-        startButton.y = canvasHeight / 2 + 280
+        startButton.y = canvasHeight * 0.78
       }
       if (startButtonText) {
         startButtonText.x = canvasWidth / 2
-        startButtonText.y = canvasHeight / 2 + 280
+        startButtonText.y = canvasHeight * 0.78
       }
     }
   }
