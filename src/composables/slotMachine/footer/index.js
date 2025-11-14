@@ -157,11 +157,13 @@ export function useFooter(gameState) {
     const digits = String(value).split('');
     let offsetX = 0;
     let textSprite
-    if (isTotal) {
-      textSprite = new Sprite(subTex(`footer_notification_texts.total_win`));
-    } else {
-      textSprite = new Sprite(subTex(`footer_notification_texts.win`));
+    const winTextKey = isTotal ? 'footer_notification_texts.total_win' : 'footer_notification_texts.win'
+    const winTexture = subTex(winTextKey)
+    if (!winTexture) {
+      console.warn(`Missing texture: ${winTextKey}`)
+      return
     }
+    textSprite = new Sprite(winTexture)
     winAmounContainer.addChild(textSprite)
     textSprite.scale.set(0.7)
     textSprite.y = 0.07 * textSprite.height
@@ -170,7 +172,9 @@ export function useFooter(gameState) {
     for (const d of digits) {
       if (d === '.') {
         const setting = getDeepSetting('footer_notification_texts.period')
-        const sprite = new Sprite(subTex(`footer_notification_texts.period`))
+        const texture = subTex(`footer_notification_texts.period`)
+        if (!texture) continue
+        const sprite = new Sprite(texture)
         sprite.scale.set(1.1)
         sprite.x = offsetX - sprite.width * 0.2;
         sprite.y = 2.5 *sprite.height
@@ -178,14 +182,18 @@ export function useFooter(gameState) {
         winAmounContainer.addChild(sprite)
         offsetX += sprite.width * 0.7;
       } else if (d === ',') {
-        const sprite = new Sprite(subTex(`footer_notification_texts.comma`));
+        const texture = subTex(`footer_notification_texts.comma`)
+        if (!texture) continue
+        const sprite = new Sprite(texture)
         sprite.x = offsetX - sprite.width * 0.1;
         sprite.y = 1.2*sprite.height;
         winAmounContainer.addChild(sprite);
 
         offsetX += sprite.width * 0.6;
       } else {
-        const sprite = new Sprite(subTex(`footer_notification_texts.number${d}`));
+        const texture = subTex(`footer_notification_texts.number${d}`)
+        if (!texture) continue
+        const sprite = new Sprite(texture)
         sprite.x = offsetX;
         sprite.y = 0;
         winAmounContainer.addChild(sprite);
@@ -704,7 +712,7 @@ export function useFooter(gameState) {
           fill: amountColor,
         }
       })
-      fitTextToBox(label, pillHeight, 0.6)
+      fitTextToBox(label, pillHeight, 0.45)  // Reduced from 0.6 to 0.45 (45% of height)
       label.anchor.set(0.5)
       label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, bgRect.height/2)
       amountLabels[key] = label
@@ -765,11 +773,13 @@ export function useFooter(gameState) {
     });
   }
 
-  function fitTextToBox(textObj, boxHeight, heightPercent = 0.8) {
+  function fitTextToBox(textObj, boxHeight, heightPercent = 0.8, baseFontSize = 24) {
     const targetHeight = boxHeight * heightPercent
-    const baseSize = textObj.style.fontSize
+    // Reset to base font size first to prevent compounding
+    textObj.style.fontSize = baseFontSize
+    // Now calculate scale factor based on the reset size
     let scaleFactor = targetHeight / textObj.height
-    textObj.style.fontSize = baseSize * scaleFactor
+    textObj.style.fontSize = baseFontSize * scaleFactor
   }
 
   function fitSpriteToRect(sprite, boxHeight, heightPercent = 0.5) {
