@@ -170,38 +170,25 @@ class HowlerAudioManager {
       }
 
       // Unlock HTML5 audio elements silently by playing at volume 0
-      const unlockPromises = []
-
+      // This runs asynchronously without blocking
       for (const [key, howl] of Object.entries(this.howls)) {
         try {
           // Only unlock HTML5 audio elements
           if (howl._html5) {
-            const promise = new Promise((resolve) => {
-              // Store original volume
-              const originalVolume = howl.volume()
+            const originalVolume = howl.volume()
+            howl.volume(0)
+            const id = howl.play()
 
-              // Set volume to 0 for silent unlock
-              howl.volume(0)
-
-              // Play and immediately stop
-              const id = howl.play()
-
-              // Stop after a tiny delay
-              setTimeout(() => {
-                howl.stop(id)
-                howl.volume(originalVolume) // Restore volume
-                resolve()
-              }, 50)
-            })
-            unlockPromises.push(promise)
+            // Stop immediately without delay
+            setTimeout(() => {
+              howl.stop(id)
+              howl.volume(originalVolume)
+            }, 10)
           }
         } catch (err) {
           // Ignore errors during unlock
         }
       }
-
-      // Wait for all unlocks to complete
-      await Promise.all(unlockPromises)
 
       this.isUnlocked = true
       console.log('✅ Audio unlocked')
