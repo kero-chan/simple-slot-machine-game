@@ -166,33 +166,32 @@ class HowlerAudioManager {
     try {
       console.log('🔓 Attempting to unlock audio...')
 
-      // Always try to unlock, even if already unlocked (for reliability)
+      // Step 1: Resume Web Audio API context
       const ctx = Howler.ctx
       if (ctx) {
-        console.log(`   AudioContext state: ${ctx.state}`)
         if (ctx.state === 'suspended') {
           await ctx.resume()
           console.log('   ✅ AudioContext resumed')
-        } else {
-          console.log('   ✓ AudioContext already running')
         }
-      } else {
-        console.warn('   ⚠️ No AudioContext found')
       }
 
-      // Force unlock by playing a silent sound if not already unlocked
+      // Step 2: Unlock by playing ONE test sound
+      // Howler's autoUnlock will handle the rest
       if (!this.isUnlocked && Object.keys(this.howls).length > 0) {
-        const firstKey = Object.keys(this.howls)[0]
-        const testHowl = this.howls[firstKey]
+        // Find the first HTML5 audio for unlock test
+        let testKey = 'background_music'
+        if (!this.howls[testKey]) {
+          testKey = Object.keys(this.howls)[0]
+        }
+
+        const testHowl = this.howls[testKey]
         if (testHowl) {
           const vol = testHowl.volume()
           testHowl.volume(0)
           const id = testHowl.play()
-          setTimeout(() => {
-            testHowl.stop(id)
-            testHowl.volume(vol)
-          }, 10)
-          console.log('   ✅ Silent unlock sound played')
+          testHowl.stop(id)
+          testHowl.volume(vol)
+          console.log('   ✅ Unlock test sound played')
         }
       }
 

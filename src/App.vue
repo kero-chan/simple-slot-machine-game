@@ -100,6 +100,7 @@ body {
 
 .gameView {
   position: relative;
+  width: 100vw;
   max-width: 100vw;
   max-height: 100vh;
   aspect-ratio: 9 / 16;
@@ -119,7 +120,7 @@ body {
 
 @media (max-aspect-ratio: 9/16) {
   .gameView {
-    width: 100vw;
+    width: 100vw !important;
     height: auto;
   }
 }

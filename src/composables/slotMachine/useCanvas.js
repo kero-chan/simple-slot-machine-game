@@ -71,25 +71,28 @@ export function useCanvas(canvasRef) {
       return
     }
     
-    // Get viewport dimensions
+    // Get viewport dimensions - use full window for accurate mobile sizing
     const vw = window.innerWidth
     const vh = window.innerHeight
     const viewportRatio = vw / vh
     const targetRatio = 9 / 16  // 0.5625
-    
+
     let width, height
-    
-    // ALWAYS calculate based on 9:16 aspect ratio, don't trust gameView dimensions
+
+    // ALWAYS calculate based on 9:16 aspect ratio
+    // For smartphones (narrow screens), prioritize full width
     if (viewportRatio < targetRatio) {
-      // Viewport is narrower than 9:16 (e.g., 246/689 = 0.357)
-      // Canvas should be constrained by width
+      // Viewport is narrower than 9:16 (typical smartphones)
+      // Canvas MUST use full viewport width
       width = vw
       height = Math.floor(width * (16 / 9))
+      console.log(`📱 Mobile mode: Full width ${width}px, calculated height ${height}px`)
     } else {
-      // Viewport is wider than 9:16
+      // Viewport is wider than 9:16 (tablets/desktop)
       // Canvas should be constrained by height
       height = vh
       width = Math.floor(height * (9 / 16))
+      console.log(`🖥️ Desktop mode: Full height ${height}px, calculated width ${width}px`)
     }
 
     const dpr = window.devicePixelRatio || 1
