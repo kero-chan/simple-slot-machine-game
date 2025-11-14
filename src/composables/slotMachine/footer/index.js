@@ -46,6 +46,10 @@ export function useFooter(gameState) {
   let lightningStartTime = 0
   let wasSpinning = false
 
+  // Free spin counter particle effects
+  let jackpotParticlesContainer = null
+  let jackpotParticles = []
+
   function setHandlers(h) {
     handlers = { ...handlers, ...h }
   }
@@ -300,12 +304,22 @@ export function useFooter(gameState) {
   }
 
   function buildJackpotContainer() {
+    // Preserve particle container when rebuilding
+    const particlesTemp = jackpotParticlesContainer
     jackpotContainer.removeChildren()
 
     const spins = gameState.freeSpins.value
     const menuHeight = h
     jackpotContainer.position.set(x, y)
     container.addChild(jackpotContainer)
+
+    // Initialize or re-add particle container for falling light bubbles
+    if (!jackpotParticlesContainer) {
+      jackpotParticlesContainer = new Container()
+    } else {
+      jackpotParticlesContainer = particlesTemp
+    }
+    jackpotContainer.addChild(jackpotParticlesContainer)
 
     let currentTextSprite
     const spinningSprite = new Sprite(subTex('jackpot_texts.spinning'))
@@ -933,6 +947,71 @@ export function useFooter(gameState) {
     }
   }
 
+  // === JACKPOT COUNTER PARTICLE EFFECTS (Falling Light Bubbles) ===
+  function spawnJackpotParticle() {
+    if (!jackpotParticlesContainer) return
+
+    const particle = new Graphics()
+    const size = 3 + Math.random() * 6
+    particle.circle(0, 0, size)
+    particle.fill({ color: 0xffd700, alpha: 0.8 })
+    particle.blendMode = 'add'
+
+    // Spawn from just above footer (lower position)
+    particle.x = Math.random() * w
+    particle.y = -5 - Math.random() * 10
+
+    // Faster falling motion
+    particle.vx = (Math.random() - 0.5) * 0.8
+    particle.vy = 0.5 + Math.random() * 0.8
+    particle.life = 150 + Math.random() * 100
+    particle.maxLife = particle.life
+
+    jackpotParticlesContainer.addChild(particle)
+    jackpotParticles.push(particle)
+  }
+
+  function updateJackpotParticles() {
+    if (!jackpotParticlesContainer) return
+
+    const isFreeSpinMode = gameState.inFreeSpinMode?.value
+
+    // Spawn new particles when in free spin mode
+    if (isFreeSpinMode && Math.random() < 0.15) {
+      spawnJackpotParticle()
+    }
+
+    // Update existing particles
+    for (let i = jackpotParticles.length - 1; i >= 0; i--) {
+      const p = jackpotParticles[i]
+      p.life--
+
+      // Move particle with gentle floating
+      p.x += p.vx + Math.sin(p.life * 0.05) * 0.2
+      p.y += p.vy
+
+      // Fade out
+      const lifePercent = p.life / p.maxLife
+      p.alpha = lifePercent * 0.8
+
+      // Remove dead particles or ones that fell below footer
+      if (p.life <= 0 || p.y > h + 10) {
+        jackpotParticlesContainer.removeChild(p)
+        p.destroy()
+        jackpotParticles.splice(i, 1)
+      }
+    }
+
+    // Clear all particles when not in free spin mode
+    if (!isFreeSpinMode && jackpotParticles.length > 0) {
+      for (const p of jackpotParticles) {
+        jackpotParticlesContainer.removeChild(p)
+        p.destroy()
+      }
+      jackpotParticles.length = 0
+    }
+  }
+
   // === ROTATING LIGHT RAYS ===
   function createLightRays() {
     if (!spinBtnSprite) return null
@@ -1163,6 +1242,9 @@ export function useFooter(gameState) {
     // Update spin button particles and lightning
     updateSpinButtonParticles()
     updateLightning()
+
+    // Update jackpot counter falling particles
+    updateJackpotParticles()
 
     if (!notiTextSprite || !notiTextSprite.visible) return;
 
