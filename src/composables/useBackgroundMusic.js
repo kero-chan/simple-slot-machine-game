@@ -7,27 +7,36 @@ import { howlerAudio } from './useHowlerAudio'
  * Falls back to HTMLAudioElement if Howler not initialized
  */
 function getAudio(audioKey) {
+  console.log(`🔊 Getting audio: ${audioKey}`)
+
   // Try Howler first (best for mobile)
   if (howlerAudio.isReady()) {
+    console.log('   ✓ Howler is ready')
     const audio = howlerAudio.createAudioElement(audioKey)
     if (audio) {
+      console.log('   ✓ Howler audio created')
       return audio
     }
+    console.warn('   ✗ Howler failed to create audio')
+  } else {
+    console.warn('   ✗ Howler not ready yet')
   }
 
   // Fallback: use regular HTMLAudioElement
   const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
   if (preloadedAudio) {
+    console.log('   ✓ Using preloaded HTMLAudioElement')
     return preloadedAudio.cloneNode()
   }
 
   // Last resort: create from path
   const audioPath = ASSETS.audioPaths?.[audioKey]
   if (audioPath) {
+    console.log('   ✓ Creating new Audio from path')
     return new Audio(audioPath)
   }
 
-  console.warn(`Audio "${audioKey}" not found anywhere`)
+  console.error(`   ✗ Audio "${audioKey}" not found anywhere`)
   return null
 }
 
@@ -160,7 +169,9 @@ export function useBackgroundMusic() {
       })
 
       audio.play().catch(err => {
-        console.warn('Failed to play audio (autoplay may be blocked):', err)
+        console.error('❌ Failed to play background music:', err)
+        console.log('   Howler ready:', howlerAudio.isReady())
+        console.log('   Audio object:', audio)
       })
 
       isPlaying.value = true

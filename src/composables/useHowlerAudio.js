@@ -17,6 +17,15 @@ class HowlerAudioManager {
     this.howls = {} // { audioKey: Howl instance }
     this.isInitialized = false
     this.isUnlocked = false // Track if audio has been unlocked
+
+    // Reset unlock state on page visibility change (for reliability)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.isUnlocked = false
+        }
+      })
+    }
   }
 
   /**
@@ -154,21 +163,41 @@ class HowlerAudioManager {
    * This is required for mobile browsers
    */
   async unlockAudioContext() {
-    // Only unlock once
-    if (this.isUnlocked) {
-      return
-    }
-
     try {
-      // Unlock Web Audio API context only
-      // Howler's autoUnlock feature will handle the rest
+      console.log('🔓 Attempting to unlock audio...')
+
+      // Always try to unlock, even if already unlocked (for reliability)
       const ctx = Howler.ctx
-      if (ctx && ctx.state === 'suspended') {
-        await ctx.resume()
-        console.log('✅ AudioContext resumed')
+      if (ctx) {
+        console.log(`   AudioContext state: ${ctx.state}`)
+        if (ctx.state === 'suspended') {
+          await ctx.resume()
+          console.log('   ✅ AudioContext resumed')
+        } else {
+          console.log('   ✓ AudioContext already running')
+        }
+      } else {
+        console.warn('   ⚠️ No AudioContext found')
+      }
+
+      // Force unlock by playing a silent sound if not already unlocked
+      if (!this.isUnlocked && Object.keys(this.howls).length > 0) {
+        const firstKey = Object.keys(this.howls)[0]
+        const testHowl = this.howls[firstKey]
+        if (testHowl) {
+          const vol = testHowl.volume()
+          testHowl.volume(0)
+          const id = testHowl.play()
+          setTimeout(() => {
+            testHowl.stop(id)
+            testHowl.volume(vol)
+          }, 10)
+          console.log('   ✅ Silent unlock sound played')
+        }
       }
 
       this.isUnlocked = true
+      console.log('✅ Audio unlock complete')
     } catch (err) {
       console.error('❌ Failed to unlock audio:', err)
     }
