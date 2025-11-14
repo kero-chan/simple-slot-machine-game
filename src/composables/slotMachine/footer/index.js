@@ -9,6 +9,10 @@ import gsap from "gsap";
 const SPIN_BUTTON_EFFECT_DURATION = 1
 const SPIN_BUTTON_EFFECT_FADEOUT = 0.3  // Fade out duration in seconds
 
+// CONFIGURABLE: Notification text scaling (percentage of notification bar height)
+const NOTIFICATION_TEXT_SCALE = 0.7  // Adjust this to make all notification texts bigger/smaller
+const BIG_WIN_TEXT_SCALE = 0.3  // Smaller scale for big win notifications (x10+ multiplier)
+
 export function useFooter(gameState) {
   const gameStore = useGameStore()
   const settingsStore = useSettingsStore()
@@ -101,9 +105,9 @@ export function useFooter(gameState) {
 
     notiTextSprite.mask = null
     notiTextSprite.scale.set(1)
-    notiTextSprite.scale.set(0.6 * notiBgSprite.height / notiTextSprite.height)
+    notiTextSprite.scale.set(NOTIFICATION_TEXT_SCALE * notiBgSprite.height / notiTextSprite.height)
     notiMask.clear()
-    if (notiTextSprite.width > notiBgSprite.width * 0.9) {
+    if (notiTextSprite.width > notiBgSprite.width * 0.6) {
       const visibleWidth = notiBgSprite.width * 0.8
       const visibleHeight = notiBgSprite.height
       notiMask.rect(
@@ -221,9 +225,11 @@ export function useFooter(gameState) {
       }
     }
 
-    winAmounContainer.scale.set(0.7 * notiBgSprite.height / winAmounContainer.height)
-    winAmounContainer.x = notiBgSprite.x - winAmounContainer.width * 0.5
-    winAmounContainer.y = notiBgSprite.y - winAmounContainer.height * 0.5
+    // Use smaller scale for big win notifications (notiBgSprite2)
+    const scaleToUse = (bgToShow === notiBgSprite2) ? BIG_WIN_TEXT_SCALE : NOTIFICATION_TEXT_SCALE
+    winAmounContainer.scale.set(scaleToUse * bgToShow.height / winAmounContainer.height)
+    winAmounContainer.x = bgToShow.x - winAmounContainer.width * 0.5
+    winAmounContainer.y = bgToShow.y - winAmounContainer.height * 0.5
 
     winAmounContainer.alpha = 0;
     gsap.to(winAmounContainer, { alpha: 1, duration: 1, ease: "power2.out" });
@@ -1248,7 +1254,7 @@ export function useFooter(gameState) {
 
     if (!notiTextSprite || !notiTextSprite.visible) return;
 
-    if (!notiTextSprite.mask || notiTextSprite.width <= notiBgSprite.width*0.8) {
+    if (!notiTextSprite.mask || notiTextSprite.width <= notiBgSprite.width*0.6) {
       // short notification, don't animate
       notiTimer += dt;
       if (notiTimer >= 3) {

@@ -44,7 +44,7 @@ export const useTimingStore = defineStore('timing', {
     SPIN_REEL_STAGGER: 200,       // ms - Delay between each reel (creates clear sequential stop effect)
 
     // ========== ANTICIPATION MODE TIMING ==========
-    ANTICIPATION_SLOWDOWN_PER_COLUMN: 3000,  // ms - Exact time each column takes to slow down and stop during anticipation
+    ANTICIPATION_SLOWDOWN_PER_COLUMN: 4000,  // ms - Exact time each column takes to slow down and stop during anticipation
 
     // ========== JACKPOT TIMING ==========
     JACKPOT_PAUSE_BEFORE_POP: 1000,  // ms - Pause after last column stops to let player observe result before bonus tiles start popping
