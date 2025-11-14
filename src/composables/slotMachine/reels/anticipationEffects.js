@@ -89,24 +89,22 @@ export function createAnticipationEffects() {
 
     // For STOPPED columns during anticipation mode:
     if (!columnIsSpinning) {
-      // Per spec.txt: ONLY darken columns that have bonus tiles
-      // Columns without bonus tiles should remain normal (no effects)
+      // Per spec.txt line 25-26:
+      // - Columns WITH bonus tiles: highlight bonus, darken non-bonus
+      // - Columns WITHOUT bonus tiles: darken all tiles
       const hasBonusTiles = grid ? columnHasBonusTiles(col, grid) : false
 
-      if (!hasBonusTiles) {
-        // Column has NO bonus tiles - no effects applied
-        return { highlight: false, shouldDim: false }
+      if (hasBonusTiles) {
+        // Column has bonus tiles - highlight bonus in visible rows, darken everything else
+        if (isBonus && isInVisibleRows(row)) {
+          return { highlight: true, shouldDim: false }
+        }
+        // Darken non-bonus tiles
+        return { highlight: false, shouldDim: true }
+      } else {
+        // Column has NO bonus tiles - darken entire column
+        return { highlight: false, shouldDim: true }
       }
-
-      // Column has bonus tiles - apply highlighting and darkening
-      // Highlight ONLY bonus tiles in the 4 visible rows (where jackpot is calculated)
-      if (isBonus && isInVisibleRows(row)) {
-        return { highlight: true, shouldDim: false }
-      }
-      // Darken everything else in this column:
-      // - Bonus tiles outside visible rows (don't count for jackpot)
-      // - Non-bonus tiles
-      return { highlight: false, shouldDim: true }
     }
 
     // Column is still spinning - no effects applied

@@ -1,5 +1,6 @@
 import { Container } from 'pixi.js'
 import { useAudioEffects } from '../../useAudioEffects'
+import { useTimingStore } from '../../../stores/timingStore'
 import { getBufferOffset } from '../../../utils/gameHelpers'
 import { CONFIG } from '../../../config/constants'
 
@@ -9,6 +10,7 @@ import { CONFIG } from '../../../config/constants'
  */
 export function createBonusTilePopAnimation(gridState, reels) {
   const audioEffects = useAudioEffects()
+  const timingStore = useTimingStore()
   const container = new Container()
   container.visible = false
   container.zIndex = 1100 // Below video overlay but above game elements
@@ -56,8 +58,15 @@ export function createBonusTilePopAnimation(gridState, reels) {
     // Reset state
     currentTileIndex = 0
 
-    // Start the sequential pop animation
-    startPopSequence()
+    // IMPORTANT: Add delay before starting pop animation
+    // This gives players time to observe the final result after the last column stops
+    const pauseBeforePop = timingStore.JACKPOT_PAUSE_BEFORE_POP
+    console.log(`⏸️ Waiting ${pauseBeforePop}ms before starting bonus tile pop animation`)
+
+    setTimeout(() => {
+      // Start the sequential pop animation
+      startPopSequence()
+    }, pauseBeforePop)
   }
 
   /**

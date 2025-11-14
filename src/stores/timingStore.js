@@ -46,6 +46,9 @@ export const useTimingStore = defineStore('timing', {
     // ========== ANTICIPATION MODE TIMING ==========
     ANTICIPATION_SLOWDOWN_PER_COLUMN: 5000,  // ms - Exact time each column takes to slow down and stop during anticipation (very dramatic!)
 
+    // ========== JACKPOT TIMING ==========
+    JACKPOT_PAUSE_BEFORE_POP: 1000,  // ms - Pause after last column stops to let player observe result before bonus tiles start popping
+
     // ========== COMPUTED TIMING ==========
     // These are derived from the above constants for convenience
   }),
