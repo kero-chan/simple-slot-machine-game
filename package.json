@@ -21,6 +21,7 @@
     "pixi-filters": "^6.1.4",
     "pixi.js": "^8.14.0",
     "vconsole": "^3.15.1",
+    "video.js": "^8.23.4",
     "vue": "^3.5.22"
   },
   "devDependencies": {

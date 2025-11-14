@@ -5,6 +5,8 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { audioManager } from '../../audioManager'
 import { howlerAudio } from '../../useHowlerAudio'
 import { watch } from 'vue'
+import videojs from 'video.js'
+import 'video.js/dist/video-js.css'
 
 /**
  * Creates a jackpot video overlay that plays the jackpot.mp4 video
@@ -20,6 +22,7 @@ export function createJackpotVideoOverlay() {
   let isPlaying = false
   let onCompleteCallback = null
   let videoElement = null
+  let player = null // Video.js player instance
   let canSkip = false // Flag to allow skipping after 2 seconds
   let skipEnableTimeout = null
   let gameSoundWatcher = null // Store watcher to cleanup later
@@ -29,11 +32,12 @@ export function createJackpotVideoOverlay() {
    * Update video volume based on gameSound state
    */
   function updateVideoVolume() {
-    if (videoElement) {
-      // Keep muted=true for mobile compatibility, control volume instead
-      videoElement.muted = false // Unmute but control via volume
-      videoElement.volume = settingsStore.gameSound ? 1.0 : 0
-      console.log(`🔊 Video volume set to: ${videoElement.volume}`)
+    if (player && player.readyState() >= 1) {
+      // Video.js API for volume control
+      const volume = settingsStore.gameSound ? 1.0 : 0
+      player.volume(volume)
+      player.muted(volume === 0)
+      console.log(`🔊 Video.js volume set to: ${volume}`)
     }
   }
 
@@ -73,16 +77,22 @@ export function createJackpotVideoOverlay() {
    * Handle click on video to skip
    */
   function handleVideoClick(event) {
+    console.log('🖱️ Video clicked! canSkip:', canSkip, 'isPlaying:', isPlaying)
+
     if (canSkip && isPlaying) {
       console.log('⏭️ Video clicked - skipping')
+      event.preventDefault()
+      event.stopPropagation()
       hide()
+    } else if (!canSkip && isPlaying) {
+      console.log('⏸️ Video clicked but skip not yet enabled (wait 2 seconds)')
     } else {
-      console.log('⏸️ Video clicked but skip not yet enabled')
+      console.log('⏸️ Video clicked but not playing')
     }
   }
 
   /**
-   * Create a simple video element (no preloading, no Howler)
+   * Create a Video.js player optimized for mobile MP4 playback
    */
   function createVideoElement() {
     const videoSrc = ASSETS.videoPaths?.jackpot
@@ -92,35 +102,79 @@ export function createJackpotVideoOverlay() {
       return null
     }
 
-    console.log('📹 Creating video:', videoSrc)
+    console.log('📹 Creating Video.js player:', videoSrc)
 
-    // Simple video element
+    // Create video element
     const video = document.createElement('video')
-    video.src = videoSrc
+    video.className = 'video-js vjs-default-skin'
     video.playsInline = true
-    video.muted = true
-    video.preload = 'auto' // Preload video data
-
-    // Fullscreen styling
-    video.style.position = 'fixed'
-    video.style.top = '0'
-    video.style.left = '0'
-    video.style.width = '100%'
-    video.style.height = '100%'
-    video.style.objectFit = 'contain'
-    video.style.zIndex = '9999'
-    video.style.backgroundColor = 'black'
-    video.style.display = 'none'
-    video.style.cursor = 'pointer'
 
     document.body.appendChild(video)
-    video.addEventListener('click', handleVideoClick)
 
-    // Start loading video data
-    video.load()
+    // Initialize Video.js with mobile-optimized settings
+    const vjsPlayer = videojs(video, {
+      autoplay: 'muted', // Mobile-friendly autoplay
+      preload: 'auto',
+      controls: false, // No controls overlay
+      fluid: false,
+      responsive: true,
+      playsinline: true,
+      muted: true,
+      sources: [{
+        src: videoSrc,
+        type: 'video/mp4'
+      }],
+      html5: {
+        vhs: {
+          withCredentials: false
+        },
+        nativeVideoTracks: true,
+        nativeAudioTracks: true,
+        nativeTextTracks: true
+      }
+    })
 
-    console.log('✅ Video created')
-    return video
+    // Apply fullscreen styling to the Video.js wrapper element
+    const vjsElement = vjsPlayer.el()
+    vjsElement.style.position = 'fixed'
+    vjsElement.style.top = '0'
+    vjsElement.style.left = '0'
+    vjsElement.style.width = '100%'
+    vjsElement.style.height = '100%'
+    vjsElement.style.zIndex = '9999'
+    vjsElement.style.backgroundColor = 'black'
+    vjsElement.style.display = 'none'
+    vjsElement.style.cursor = 'pointer'
+    vjsElement.style.pointerEvents = 'auto' // Ensure clicks work
+    vjsElement.style.touchAction = 'manipulation' // Better touch handling
+
+    // Style the inner video element using querySelector
+    const videoEl = vjsElement.querySelector('video')
+    if (videoEl) {
+      videoEl.style.width = '100%'
+      videoEl.style.height = '100%'
+      videoEl.style.objectFit = 'contain'
+      videoEl.style.pointerEvents = 'none' // Let clicks pass through to parent
+    }
+
+    // Add CSS to hide Video.js UI components
+    const vjsStyle = document.createElement('style')
+    vjsStyle.textContent = `
+      .video-js .vjs-big-play-button { display: none !important; }
+      .video-js .vjs-control-bar { display: none !important; }
+      .video-js .vjs-loading-spinner { display: none !important; }
+      .video-js .vjs-poster { pointer-events: none !important; }
+    `
+    document.head.appendChild(vjsStyle)
+
+    // Handle clicks AND touches for skipping (mobile support)
+    vjsElement.addEventListener('click', handleVideoClick, { capture: true })
+    vjsElement.addEventListener('touchend', handleVideoClick, { capture: true })
+
+    console.log('✅ Click handlers attached to Video.js element')
+
+    console.log('✅ Video.js player created')
+    return { video, player: vjsPlayer }
   }
 
   /**
@@ -141,127 +195,158 @@ export function createJackpotVideoOverlay() {
     // Pause background audio
     audioManager.pause()
 
-    // Clean up old video
+    // Clean up old video and player
+    if (player) {
+      player.dispose()
+      player = null
+    }
     if (videoElement) {
-      videoElement.pause()
       videoElement.removeEventListener('click', handleVideoClick)
-      videoElement.remove()
+      if (videoElement.parentNode) {
+        videoElement.remove()
+      }
       videoElement = null
     }
 
-    // Create new video
-    videoElement = createVideoElement()
-    if (!videoElement) {
+    // Create new Video.js player
+    const result = createVideoElement()
+    if (!result) {
       hide()
       return
     }
+
+    videoElement = result.video
+    player = result.player
 
     // Watch for gameSound changes
     if (!gameSoundWatcher) {
       gameSoundWatcher = watch(
         () => settingsStore.gameSound,
         () => {
-          if (isPlaying && videoElement) {
+          if (isPlaying && player) {
             updateVideoVolume()
           }
         }
       )
     }
 
-    // Event listeners
-    videoElement.addEventListener('ended', () => {
-      console.log('✅ Video ended')
+    // Video.js event listeners
+    player.one('ended', () => {
+      console.log('✅ Video.js: Video ended')
       hide()
-    }, { once: true })
+    })
 
-    videoElement.addEventListener('error', (e) => {
-      console.error('❌ Video error:', e.target.error)
+    player.one('error', () => {
+      const error = player.error()
+      console.error('❌ Video.js error:', error)
       hide()
-    }, { once: true })
+    })
 
     // Monitor buffering/loading issues
-    videoElement.addEventListener('waiting', () => {
-      console.warn('⏸️ Video waiting for data (buffering)...')
+    player.on('waiting', () => {
+      console.warn('⏸️ Video.js: Waiting for data (buffering)...')
     })
 
-    videoElement.addEventListener('stalled', () => {
-      console.warn('⚠️ Video stalled (network issue)')
+    player.on('stalled', () => {
+      console.warn('⚠️ Video.js: Stalled (network issue)')
     })
 
-    videoElement.addEventListener('suspend', () => {
-      console.warn('⏹️ Video suspended (browser paused loading)')
+    player.on('suspend', () => {
+      console.warn('⏹️ Video.js: Suspended (browser paused loading)')
     })
 
-    videoElement.addEventListener('playing', () => {
-      console.log('▶️ Video resumed playing')
+    player.on('playing', () => {
+      console.log('▶️ Video.js: Playing')
     })
 
-    videoElement.addEventListener('pause', () => {
-      console.log('⏸️ Video paused')
+    player.on('pause', () => {
+      console.log('⏸️ Video.js: Paused')
     })
 
-    // Show video
-    videoElement.style.display = 'block'
+    // Show video by displaying the Video.js wrapper element
+    const vjsElement = player.el()
+    vjsElement.style.display = 'block'
 
-    console.log('⏳ Waiting for video to buffer...')
-    console.log('   Video src:', videoElement.src)
-    console.log('   Initial readyState:', videoElement.readyState)
-    console.log('   Initial networkState:', videoElement.networkState)
+    console.log('⏳ Video.js: Waiting for video to buffer...')
+    console.log('   Video src:', player.currentSrc())
+    console.log('   Initial readyState:', player.readyState())
 
-    // Wait for video to have enough data
+    // Wait for video to have enough data using Video.js API
     const waitForData = () => {
-      return new Promise((resolve) => {
-        if (videoElement.readyState >= 3) {
+      return new Promise((resolve, reject) => {
+        if (!player) {
+          reject(new Error('Player not initialized'))
+          return
+        }
+
+        if (player.readyState() >= 3) {
           // HAVE_FUTURE_DATA - enough to play
-          console.log('✅ Video has enough data (readyState: ' + videoElement.readyState + ')')
+          console.log('✅ Video.js has enough data (readyState: ' + player.readyState() + ')')
           resolve()
         } else {
-          console.log('⏳ Waiting for video data (readyState: ' + videoElement.readyState + ')...')
+          console.log('⏳ Video.js waiting for data (readyState: ' + player.readyState() + ')...')
 
           const onCanPlay = () => {
-            console.log('✅ Video can play (readyState: ' + videoElement.readyState + ')')
+            if (!player) return
+            console.log('✅ Video.js can play (readyState: ' + player.readyState() + ')')
             resolve()
           }
 
-          videoElement.addEventListener('canplay', onCanPlay, { once: true })
-          videoElement.addEventListener('canplaythrough', onCanPlay, { once: true })
+          player.one('canplay', onCanPlay)
+          player.one('canplaythrough', onCanPlay)
 
           // Timeout after 5 seconds
           setTimeout(() => {
-            console.warn('⏰ Video wait timeout, trying anyway')
-            videoElement.removeEventListener('canplay', onCanPlay)
-            videoElement.removeEventListener('canplaythrough', onCanPlay)
+            console.warn('⏰ Video.js wait timeout, trying anyway')
+            if (player) {
+              player.off('canplay', onCanPlay)
+              player.off('canplaythrough', onCanPlay)
+            }
             resolve()
           }, 5000)
         }
       })
     }
 
-    // Wait then play
+    // Wait then play using Video.js API
     waitForData().then(() => {
-      console.log('▶️ Playing video')
-      console.log('   Final readyState:', videoElement.readyState)
-      console.log('   Final networkState:', videoElement.networkState)
+      if (!player || !isPlaying) {
+        console.warn('⚠️ Player disposed during wait')
+        return Promise.reject(new Error('Player disposed'))
+      }
 
-      return videoElement.play()
+      console.log('▶️ Video.js: Playing video')
+      console.log('   Final readyState:', player.readyState())
+
+      // Use Video.js play() method which returns a promise
+      return player.play()
     }).then(() => {
-      console.log('✅ Video playing successfully')
-      console.log('   Video duration:', videoElement.duration)
-      console.log('   Video currentTime:', videoElement.currentTime)
+      if (!player || !isPlaying) {
+        console.warn('⚠️ Player disposed during play')
+        return
+      }
+
+      console.log('✅ Video.js: Playing successfully')
+      console.log('   Video duration:', player.duration())
+      console.log('   Video currentTime:', player.currentTime())
 
       // Unmute after playing starts
       setTimeout(() => {
-        if (videoElement && isPlaying) {
-          console.log('🔊 Unmuting video')
+        if (player && isPlaying) {
+          console.log('🔊 Video.js: Unmuting video')
           updateVideoVolume()
         }
       }, 200)
     }).catch(err => {
-      console.error('❌ Video play failed!')
+      console.error('❌ Video.js play failed!')
       console.error('   Error:', err.name, err.message)
-      console.error('   Video readyState:', videoElement.readyState)
-      console.error('   Video networkState:', videoElement.networkState)
-      console.error('   Video error:', videoElement.error)
+      if (player) {
+        console.error('   ReadyState:', player.readyState())
+        const error = player.error()
+        if (error) {
+          console.error('   Video.js error:', error.code, error.message)
+        }
+      }
       hide()
     })
 
@@ -287,13 +372,39 @@ export function createJackpotVideoOverlay() {
       gameSoundWatcher = null
     }
 
-    // Clean up video element completely
-    if (videoElement) {
-      videoElement.pause()
-      videoElement.removeEventListener('click', handleVideoClick)
-      videoElement.remove() // Remove from DOM
-      videoElement = null
+    // Clean up Video.js player
+    if (player) {
+      try {
+        // Hide the video element first
+        const vjsElement = player.el()
+        if (vjsElement) {
+          vjsElement.style.display = 'none'
+          vjsElement.removeEventListener('click', handleVideoClick, { capture: true })
+          vjsElement.removeEventListener('touchend', handleVideoClick, { capture: true })
+        }
+
+        // Remove all event listeners
+        player.off('ended')
+        player.off('error')
+        player.off('waiting')
+        player.off('stalled')
+        player.off('suspend')
+        player.off('playing')
+        player.off('pause')
+        player.off('canplay')
+        player.off('canplaythrough')
+
+        // Dispose of the player (cleans up everything)
+        player.dispose()
+      } catch (err) {
+        console.warn('⚠️ Error during player cleanup:', err)
+      } finally {
+        player = null
+      }
     }
+
+    // Video element cleanup is handled by player.dispose()
+    videoElement = null
 
     // Don't resume music here - let free spin mode handle jackpot music
 
