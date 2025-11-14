@@ -62,13 +62,13 @@ class HowlerAudioManager {
         this.howls[key] = new Howl({
           src: [src],
           preload: true,
-          html5: false, // Use Web Audio API for better mobile support
+          html5: true, // Use HTML5 Audio for better mobile compatibility
           onloaderror: (id, err) => {
             console.warn(`Howler load error for ${key}:`, err)
           },
           onplayerror: (id, err) => {
             console.warn(`Howler play error for ${key}:`, err)
-            // Try to unlock audio context
+            // Try to unlock audio
             this.howls[key].once('unlock', () => {
               this.howls[key].play()
             })
@@ -148,6 +148,27 @@ class HowlerAudioManager {
    */
   isReady() {
     return this.isInitialized
+  }
+
+  /**
+   * Unlock audio context after user gesture (e.g., Start button click)
+   * This is required for mobile browsers
+   */
+  async unlockAudioContext() {
+    try {
+      const ctx = Howler.ctx
+      if (ctx && ctx.state === 'suspended') {
+        console.log('🔓 Unlocking AudioContext...')
+        await ctx.resume()
+        console.log('✅ AudioContext unlocked, state:', ctx.state)
+      } else if (ctx) {
+        console.log('✓ AudioContext already running, state:', ctx.state)
+      } else {
+        console.warn('⚠️ No AudioContext found')
+      }
+    } catch (err) {
+      console.error('❌ Failed to unlock AudioContext:', err)
+    }
   }
 
   /**
