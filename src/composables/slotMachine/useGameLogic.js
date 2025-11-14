@@ -849,7 +849,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
                 }
 
                 if (firstSpinningColumn === -1) {
-                  console.log(`⚠️ No more spinning columns to slow down`)
+                  console.log(`⚠️ No more spinning columns to slow down - deactivating anticipation and completing spin`)
+                  gameStore.deactivateAnticipationMode()
+                  completeSpin()
                 } else {
                   console.log(`🎯 First spinning column after detection: ${firstSpinningColumn}`)
 
