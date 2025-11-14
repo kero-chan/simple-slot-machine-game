@@ -957,13 +957,13 @@ export function useFooter(gameState) {
     particle.fill({ color: 0xffd700, alpha: 0.8 })
     particle.blendMode = 'add'
 
-    // Spawn from just above footer (lower position)
-    particle.x = Math.random() * w
-    particle.y = -5 - Math.random() * 10
+    // Spawn from wider area at center, lower position
+    particle.x = w / 2 + (Math.random() - 0.5) * 200
+    particle.y = 50 + Math.random() * 10
 
-    // Faster falling motion
-    particle.vx = (Math.random() - 0.5) * 0.8
-    particle.vy = 0.5 + Math.random() * 0.8
+    // Falling motion with wider horizontal spread
+    particle.vx = (Math.random() - 0.5) * 3.5  // Much wider spread
+    particle.vy = 0.5 + Math.random() * 1.2
     particle.life = 150 + Math.random() * 100
     particle.maxLife = particle.life
 
