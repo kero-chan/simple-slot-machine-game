@@ -710,9 +710,13 @@ export function useReels(gameState, gridState) {
                 // Position with center anchor
                 sp.x = Math.round(xCell) - BLEED + w / 2
 
-                // Use drop animation Y if tile is dropping, otherwise use normal Y
+                // GSAP OPTIMIZATION: Only set Y if NOT dropping (let GSAP handle dropping sprites)
                 const baseY = yCell - BLEED + h / 2
-                sp.y = dropAnimations.getDropY(cellKey, baseY)
+                if (!isCurrentlyDropping) {
+                    // Not dropping - set position normally
+                    sp.y = baseY
+                }
+                // If dropping, GSAP is animating sprite.y directly - don't touch it!
 
                 // Set z-index for pop-out effect on bonus tiles
                 // Also elevate bonus tiles during anticipation mode

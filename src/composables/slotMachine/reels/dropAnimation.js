@@ -12,6 +12,7 @@ export function createDropAnimationManager() {
 
   /**
    * Start a drop animation for a tile using GSAP
+   * OPTIMIZED: GSAP animates sprite.y directly for butter-smooth 60fps animation
    * @param {string} key - The cellKey (col:visualRow)
    * @param {Sprite} sprite - The sprite to animate
    * @param {number} fromY - Starting Y position
@@ -40,22 +41,13 @@ export function createDropAnimationManager() {
       existingDrop.tween.kill()
     }
 
-    // Create animation object to tween
-    const animObj = {
-      currentY: fromY
-    }
-
-    // Create GSAP tween with linear easing (matching original implementation)
-    const tween = gsap.to(animObj, {
-      currentY: toY,
-      duration: timingStore.DROP_DURATION / 1000, // Convert to seconds
-      ease: 'none', // Linear easing for smoothest, most predictable animation
-      onUpdate: () => {
-        // Update sprite Y position during animation
-        if (sprite && !sprite.destroyed) {
-          sprite.y = animObj.currentY
-        }
-      },
+    // GSAP OPTIMIZATION: Animate sprite.y directly (no intermediate object)
+    // This allows GSAP to use optimized transforms and provides smoothest animation
+    const tween = gsap.to(sprite, {
+      y: toY,
+      duration: timingStore.DROP_DURATION / 1000, // Convert to seconds (default 300ms = 0.3s)
+      ease: 'power1.out', // Subtle deceleration for more natural drop feel (better than linear)
+      overwrite: 'auto', // Automatically kill conflicting tweens
       onComplete: () => {
         // Animation complete - move to completed states to preserve symbol
         completedStates.set(key, {
@@ -69,7 +61,7 @@ export function createDropAnimationManager() {
     dropStates.set(key, {
       fromY,
       toY,
-      currentY: fromY,
+      currentY: fromY, // Updated by getDropY
       tween,
       symbol // Store the symbol for this animation
     })
@@ -96,14 +88,15 @@ export function createDropAnimationManager() {
 
   /**
    * Get the current Y position for a dropping tile
-   * GSAP updates the currentY automatically during the tween
+   * GSAP animates sprite.y directly, so we just return baseY (sprite position is handled by GSAP)
    */
   function getDropY(key, baseY) {
     const drop = dropStates.get(key)
     if (!drop) return baseY
 
-    // Return the current Y value being animated by GSAP
-    return drop.currentY
+    // Since GSAP animates sprite.y directly, return baseY
+    // The sprite's actual Y position is managed by GSAP's tween
+    return baseY
   }
 
   /**

@@ -31,7 +31,7 @@ export const useTimingStore = defineStore('timing', {
     HIGHLIGHT_ANIMATION_DURATION: 2500,  // ms - How long highlight animation runs (can be stopped early)
 
     // Drop/cascade animations
-    DROP_DURATION: 300,           // ms - Tiles falling down during cascade (longer + linear for maximum smoothness)
+    DROP_DURATION: 450,           // ms - Tiles falling down during cascade (GSAP-optimized with power1.out easing)
     DROP_GRACE_PERIOD: 6000,      // ms - Keep dropped symbols stable to prevent flickering
     CASCADE_RESET_WINDOW: 300,    // ms - Window to force sprite resets after cascade
     CASCADE_MAX_WAIT: 5000,       // ms - Max time to wait for cascade animations (safety timeout)
