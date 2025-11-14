@@ -154,9 +154,6 @@ export function createJackpotVideoOverlay() {
     // We'll unmute after playback starts successfully
     video.muted = true
 
-    // Reset to beginning
-    video.currentTime = 0
-
     // Watch for gameSound changes while video is playing
     if (!gameSoundWatcher) {
       gameSoundWatcher = watch(
@@ -173,12 +170,26 @@ export function createJackpotVideoOverlay() {
     const onEnded = () => {
       console.log('✅ Jackpot video completed')
       video.removeEventListener('ended', onEnded)
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('playing', onPlaying)
       hide()
     }
 
-    video.addEventListener('ended', onEnded)
+    // Handle buffering stalls (for heavy videos)
+    const onWaiting = () => {
+      console.log('⏸️ Video buffering...')
+      // Video will automatically resume when buffer fills
+    }
 
-    // Function to start playback
+    const onPlaying = () => {
+      console.log('▶️ Video playing/resumed')
+    }
+
+    video.addEventListener('ended', onEnded)
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('playing', onPlaying)
+
+    // Function to start playback after seeking
     const startPlayback = () => {
       console.log(`📹 Starting video playback (readyState: ${video.readyState})`)
 
@@ -198,39 +209,69 @@ export function createJackpotVideoOverlay() {
         })
     }
 
-    // Check if video has enough data buffered
-    if (video.readyState >= 3) {
-      // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA - ready to play
-      startPlayback()
-    } else {
-      console.log('⏳ Waiting for video to buffer...')
+    // For heavy videos, use progressive playback (play while buffering)
+    // Don't wait for full buffer - start as soon as we have some data
 
-      // Wait for video to have enough data
-      const onCanPlay = () => {
-        console.log('✅ Video buffered and ready')
-        video.removeEventListener('canplay', onCanPlay)
-        video.removeEventListener('canplaythrough', onCanPlay)
+    // Handle seeking with progressive playback
+    const handleSeekAndPlay = () => {
+      const onSeeked = () => {
+        console.log('✅ Video seeked to beginning')
+        video.removeEventListener('seeked', onSeeked)
+
+        // Start playback immediately after seek, even if not fully buffered
+        // Browser will buffer while playing
         startPlayback()
       }
 
-      video.addEventListener('canplay', onCanPlay, { once: true })
-      video.addEventListener('canplaythrough', onCanPlay, { once: true })
+      video.addEventListener('seeked', onSeeked, { once: true })
+      video.currentTime = 0
 
-      // Force load if needed
-      if (video.readyState === 0) {
-        console.log('📹 Triggering video load...')
-        video.load()
-      }
-
-      // Timeout: force start after 2 seconds even if not fully buffered
+      // Timeout in case seeked doesn't fire
       setTimeout(() => {
         if (video.style.display !== 'block') {
-          console.warn('⚠️ Video buffering timeout - forcing playback')
-          video.removeEventListener('canplay', onCanPlay)
-          video.removeEventListener('canplaythrough', onCanPlay)
+          console.warn('⚠️ Seeked timeout, forcing start')
+          video.removeEventListener('seeked', onSeeked)
           startPlayback()
         }
-      }, 2000)
+      }, 500)
+    }
+
+    // Check if video needs seeking
+    if (video.currentTime > 0.1) {
+      // Video is not at beginning, seek to 0
+      console.log(`📹 Video at ${video.currentTime}s, seeking to beginning...`)
+      handleSeekAndPlay()
+    } else {
+      // Already at beginning, check readyState
+      console.log(`📹 Video already at beginning (readyState: ${video.readyState})`)
+
+      if (video.readyState >= 1) {
+        // HAVE_METADATA or higher - start immediately
+        // Browser will buffer while playing (progressive playback)
+        console.log('✅ Starting progressive playback')
+        startPlayback()
+      } else {
+        // Wait for metadata at minimum
+        console.log('⏳ Waiting for video metadata...')
+
+        const onLoadedMetadata = () => {
+          console.log('✅ Metadata loaded, starting playback')
+          startPlayback()
+        }
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
+        video.addEventListener('loadeddata', onLoadedMetadata, { once: true })
+
+        // Timeout: force start
+        setTimeout(() => {
+          if (video.style.display !== 'block') {
+            console.warn('⚠️ Metadata timeout, forcing start')
+            video.removeEventListener('loadedmetadata', onLoadedMetadata)
+            video.removeEventListener('loadeddata', onLoadedMetadata)
+            startPlayback()
+          }
+        }, 500)
+      }
     }
 
     // Enable skip after 2 seconds
