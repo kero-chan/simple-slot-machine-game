@@ -21,19 +21,27 @@
       </div>
 
       <!-- Start Button -->
-      <img
-        v-else
-        src="../assets/images/start_button.png"
-        alt="Start Button"
-        class="start-button"
-        @click="handleStart"
-      />
+      <div v-else class="start-button-container">
+        <img
+          src="../assets/images/start_button.png"
+          alt="Start Button"
+          class="start-button"
+          :class="{ 'button-loading': isUnlockingAudio }"
+          @click="handleStart"
+        />
+
+        <!-- Loading Spinner Overlay -->
+        <div v-if="isUnlockingAudio" class="loading-spinner">
+          <div class="spinner"></div>
+          <div class="loading-text">準備中...</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
 import { howlerAudio } from "../composables/useHowlerAudio";
@@ -57,24 +65,34 @@ const loadingPercent = computed(() => {
   return Math.floor(percent);
 });
 
+const isUnlockingAudio = ref(false);
+
 const handleStart = async () => {
+  if (isUnlockingAudio.value) return; // Prevent double-click
+
   console.log('🎮 Start button clicked');
+  isUnlockingAudio.value = true;
 
-  // Unlock AudioContext (required for mobile browsers)
-  await howlerAudio.unlockAudioContext();
+  try {
+    // Unlock AudioContext (required for mobile browsers)
+    await howlerAudio.unlockAudioContext();
 
-  // Small delay to ensure unlock is fully processed
-  await new Promise(resolve => setTimeout(resolve, 50));
+    // Small delay to ensure unlock is fully processed
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-  // Ensure audioManager knows about gameSound state before starting
-  audioManager.setGameSoundEnabled(settingsStore.gameSound);
+    // Ensure audioManager knows about gameSound state before starting
+    audioManager.setGameSoundEnabled(settingsStore.gameSound);
 
-  // Start background music and game
-  console.log('🎵 Starting background music...');
-  backgroundMusic.start();
+    // Start background music and game
+    console.log('🎵 Starting background music...');
+    backgroundMusic.start();
 
-  console.log('🎮 Hiding start screen...');
-  gameStore.hideStartScreen();
+    console.log('🎮 Hiding start screen...');
+    gameStore.hideStartScreen();
+  } catch (error) {
+    console.error('❌ Failed to start game:', error);
+    isUnlockingAudio.value = false;
+  }
 };
 </script>
 
@@ -240,25 +258,90 @@ const handleStart = async () => {
 }
 
 /* Start Button */
-.start-button {
+.start-button-container {
   position: absolute;
   left: 50%;
   bottom: 20%;
   transform: translateX(-50%);
-  cursor: pointer;
   width: 35%;
   max-width: 300px;
-  height: auto;
-  transition: transform 0.2s ease, filter 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.start-button:hover {
-  transform: translateX(-50%) scale(1.05);
+.start-button {
+  cursor: pointer;
+  width: 100%;
+  height: auto;
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+
+.start-button:hover:not(.button-loading) {
+  transform: scale(1.05);
   filter: brightness(1.1);
 }
 
-.start-button:active {
-  transform: translateX(-50%) scale(0.98);
+.start-button:active:not(.button-loading) {
+  transform: scale(0.98);
   filter: brightness(0.95);
+}
+
+.start-button.button-loading {
+  opacity: 0.6;
+  cursor: wait;
+  pointer-events: none;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid #ff6b4a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  box-shadow: 0 0 20px rgba(255, 107, 74, 0.4);
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  letter-spacing: 1px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 </style>
