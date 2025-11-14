@@ -29,6 +29,8 @@ export function createJackpotVideoOverlay() {
    */
   function updateVideoVolume() {
     if (videoElement) {
+      // Keep muted=true for mobile compatibility, control volume instead
+      videoElement.muted = false // Unmute but control via volume
       videoElement.volume = settingsStore.gameSound ? 1.0 : 0
       console.log(`🔊 Video volume set to: ${videoElement.volume}`)
     }
@@ -144,10 +146,10 @@ export function createJackpotVideoOverlay() {
     // Show the preloaded video
     video.style.display = 'block'
     video.currentTime = 0 // Reset to beginning
-    video.muted = false // Unmute for playback (was muted during preload for mobile compatibility)
 
-    // Set volume based on gameSound state
-    updateVideoVolume()
+    // IMPORTANT: Keep muted during play() for mobile compatibility
+    // We'll unmute after playback starts successfully
+    video.muted = true
 
     // Watch for gameSound changes while video is playing
     if (!gameSoundWatcher) {
@@ -170,11 +172,17 @@ export function createJackpotVideoOverlay() {
 
     video.addEventListener('ended', onEnded)
 
-    // Start playback (should be instant since video is preloaded)
-    video.play().catch(err => {
-      console.error('❌ Failed to play video:', err)
-      hide()
-    })
+    // Start playback while muted (better mobile compatibility)
+    video.play()
+      .then(() => {
+        console.log('✅ Video playback started successfully')
+        // Now that it's playing, unmute and set volume
+        updateVideoVolume()
+      })
+      .catch(err => {
+        console.error('❌ Failed to play video:', err)
+        hide()
+      })
 
     // Enable skip after 2 seconds
     enableSkipAfterDelay()
