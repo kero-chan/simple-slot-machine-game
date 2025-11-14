@@ -51,6 +51,7 @@ import { computed, ref, watch } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
 import { howlerAudio } from "../composables/useHowlerAudio";
+import { Howler } from "howler";
 import { useGameStore } from "../stores/gameStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -114,7 +115,7 @@ const handleStart = async () => {
   console.log('🎮 Start button clicked (Howler ready: ' + howlerAudio.isReady() + ')');
   isUnlockingAudio.value = true;
 
-  // Timeout protection: force unlock after 2 seconds
+  // Timeout protection: force unlock after 3 seconds
   const unlockTimeout = setTimeout(() => {
     if (isUnlockingAudio.value) {
       console.warn('⚠️ Audio unlock timeout - forcing game start');
@@ -124,26 +125,73 @@ const handleStart = async () => {
       backgroundMusic.start();
       gameStore.hideStartScreen();
     }
-  }, 2000);
+  }, 3000);
 
   try {
-    // Unlock AudioContext (required for mobile browsers)
-    console.log('🔓 Starting audio unlock...');
+    // Step 1: Unlock AudioContext (required for mobile browsers)
+    console.log('🔓 Step 1: Starting audio unlock...');
     await howlerAudio.unlockAudioContext();
-    console.log('✅ Audio unlock complete');
+    console.log('✅ Step 1 complete: Audio unlock finished');
+
+    // Step 2: Verify AudioContext is running
+    const ctx = Howler.ctx;
+    if (ctx) {
+      console.log(`📊 AudioContext state after unlock: ${ctx.state}`);
+      if (ctx.state === 'suspended') {
+        console.warn('⚠️ AudioContext still suspended, trying to resume again...');
+        await ctx.resume();
+        console.log(`📊 AudioContext state after retry: ${ctx.state}`);
+      }
+    } else {
+      console.warn('⚠️ No AudioContext found');
+    }
+
+    // Step 3: Additional delay to ensure everything is settled
+    console.log('⏳ Step 2: Waiting for audio to settle...');
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Clear timeout since we succeeded
     clearTimeout(unlockTimeout);
 
-    // Ensure audioManager knows about gameSound state before starting
+    // Step 4: Set audio state
+    console.log('🔊 Step 3: Setting game sound enabled...');
     audioManager.setGameSoundEnabled(settingsStore.gameSound);
 
-    // Start background music and game
-    console.log('🎵 Starting background music...');
-    backgroundMusic.start();
+    // Step 5: Start background music with retry
+    console.log('🎵 Step 4: Starting background music...');
+    let musicStarted = false;
 
-    console.log('🎮 Hiding start screen...');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await backgroundMusic.start();
+
+        if (result) {
+          console.log(`✅ Background music start attempt ${attempt} succeeded`);
+          musicStarted = true;
+          break;
+        } else {
+          console.warn(`⚠️ Background music start attempt ${attempt} returned false`);
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+      } catch (err) {
+        console.warn(`⚠️ Background music start attempt ${attempt} failed:`, err);
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    }
+
+    if (!musicStarted) {
+      console.error('❌ All background music start attempts failed - continuing anyway');
+    }
+
+    // Step 6: Hide start screen
+    console.log('🎮 Step 5: Hiding start screen...');
     gameStore.hideStartScreen();
+
+    console.log('✅ Game start complete');
   } catch (error) {
     console.error('❌ Failed to start game:', error);
 
@@ -153,7 +201,14 @@ const handleStart = async () => {
     // Force start game anyway
     console.log('🔄 Force starting game despite error...');
     audioManager.setGameSoundEnabled(settingsStore.gameSound);
-    backgroundMusic.start();
+
+    // Try to start music anyway
+    try {
+      await backgroundMusic.start();
+    } catch (musicErr) {
+      console.error('❌ Background music also failed:', musicErr);
+    }
+
     gameStore.hideStartScreen();
   }
 };
@@ -366,19 +421,19 @@ const handleStart = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   pointer-events: none;
   z-index: 10;
 }
 
 .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #ff6b4a;
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #ff6b4a;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  box-shadow: 0 0 20px rgba(255, 107, 74, 0.4);
+  box-shadow: 0 0 12px rgba(255, 107, 74, 0.3);
 }
 
 @keyframes spin {
@@ -392,10 +447,10 @@ const handleStart = async () => {
 
 .loading-text {
   color: white;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   animation: pulse 1.5s ease-in-out infinite;
 }
 

@@ -154,10 +154,13 @@ export function useBackgroundMusic() {
   }
 
   // Start playing background music
-  const start = () => {
+  const start = async () => {
     console.log('🎵 Starting background music')
 
-    if (isPlaying.value) return
+    if (isPlaying.value) {
+      console.log('ℹ️ Background music already playing')
+      return true
+    }
 
     // Add visibility listener only once
     if (!visibilityListenerAdded) {
@@ -170,7 +173,7 @@ export function useBackgroundMusic() {
       const audio = getAudio('background_music')
       if (!audio) {
         console.error('❌ Background music not found')
-        return
+        return false
       }
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0
@@ -186,26 +189,36 @@ export function useBackgroundMusic() {
       const playPromise = audio.play()
 
       if (playPromise) {
-        playPromise.then(() => {
-          console.log('✅ Background music playing')
-        }).catch(err => {
+        try {
+          await playPromise
+          console.log('✅ Background music playing successfully')
+          isPlaying.value = true
+
+          // Play game start sound after 2 seconds
+          gameStartTimeout = setTimeout(() => {
+            playGameStartSound()
+          }, 2000)
+
+          // Start background noise loop after 10 seconds
+          noiseStartTimeout = setTimeout(() => {
+            startNoiseLoop()
+          }, 10000) // 10 seconds delay
+
+          return true
+        } catch (err) {
           console.error('❌ Failed to play:', err)
-        })
+          // Still set playing to true so game can continue
+          isPlaying.value = true
+          return false
+        }
+      } else {
+        console.log('ℹ️ No play promise (legacy browser)')
+        isPlaying.value = true
+        return true
       }
-
-      isPlaying.value = true
-
-      // Play game start sound after 2 seconds
-      gameStartTimeout = setTimeout(() => {
-        playGameStartSound()
-      }, 2000)
-
-      // Start background noise loop after 10 seconds
-      noiseStartTimeout = setTimeout(() => {
-        startNoiseLoop()
-      }, 10000) // 10 seconds delay
     } catch (err) {
-      console.error('Error creating audio:', err)
+      console.error('❌ Error creating audio:', err)
+      return false
     }
   }
 
