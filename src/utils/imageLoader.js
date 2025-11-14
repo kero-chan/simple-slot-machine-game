@@ -279,7 +279,12 @@ export async function loadAllAssets(onProgress = null) {
   try {
     const { howlerAudio } = await import('../composables/useHowlerAudio')
     howlerAudio.initialize()
-    console.log('🎵 Howler.js will handle mobile audio playback')
+    console.log('🎵 Howler.js initialized')
+
+    // Wait a bit to ensure Howler instances are fully ready
+    // This prevents race condition where Start button appears before Howler is ready
+    await new Promise(resolve => setTimeout(resolve, 100))
+    console.log('✅ Howler.js ready for playback')
   } catch (err) {
     console.warn('Failed to initialize Howler.js:', err)
   }

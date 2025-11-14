@@ -32,15 +32,16 @@ class HowlerAudioManager {
   /**
    * Resume AudioContext if it got suspended (e.g., after tab switch or AFK)
    */
-  resumeAudioContext() {
+  async resumeAudioContext() {
     const ctx = Howler.ctx
     if (ctx && ctx.state === 'suspended') {
       console.log('🔄 Resuming suspended AudioContext...')
-      ctx.resume().then(() => {
+      try {
+        await ctx.resume()
         console.log('✅ AudioContext resumed')
-      }).catch(err => {
+      } catch (err) {
         console.error('❌ Failed to resume AudioContext:', err)
-      })
+      }
     }
   }
 

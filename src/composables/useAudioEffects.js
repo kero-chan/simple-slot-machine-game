@@ -11,23 +11,29 @@ function getAudio(audioKey) {
   if (howlerAudio.isReady()) {
     const audio = howlerAudio.createAudioElement(audioKey);
     if (audio) {
+      console.log(`🔊 [Effect] Using Howler for: ${audioKey}`);
       return audio;
     }
+    console.warn(`⚠️ [Effect] Howler ready but audio not found: ${audioKey}`);
+  } else {
+    console.log(`⚠️ [Effect] Howler not ready for: ${audioKey}`);
   }
 
   // Fallback: use regular HTMLAudioElement
   const preloadedAudio = ASSETS.loadedAudios?.[audioKey];
   if (preloadedAudio) {
+    console.log(`🔊 [Effect] Using preloaded HTMLAudioElement for: ${audioKey}`);
     return preloadedAudio.cloneNode();
   }
 
   // Last resort: create from path
   const audioPath = ASSETS.audioPaths?.[audioKey];
   if (audioPath) {
+    console.log(`🔊 [Effect] Creating new Audio from path for: ${audioKey}`);
     return new Audio(audioPath);
   }
 
-  console.warn(`Audio "${audioKey}" not found anywhere`);
+  console.warn(`❌ [Effect] Audio "${audioKey}" not found anywhere`);
   return null;
 }
 
@@ -215,24 +221,35 @@ export function useAudioEffects() {
   };
 
   const playEffect = (effect) => {
+    console.log(`🎵 [Effect] Attempting to play: ${effect}`);
     try {
       const audio = getAudio(effect);
       if (!audio) {
-        console.warn(`Effect audio "${effect}" not found`);
+        console.warn(`❌ [Effect] Audio "${effect}" not found`);
         return;
       }
 
-      audio.volume = getVolume(0.6); // 60% volume for effect sounds
+      // Set volume based on effect type
+      // Reel spin sounds need to be louder (90% volume)
+      let baseVolume = 0.6; // Default 60% for most effects
+      if (effect === 'reel_spin' || effect === 'reel_spin_stop') {
+        baseVolume = 2; // 90% volume for reel spin sounds
+      }
+
+      audio.volume = getVolume(baseVolume);
+      console.log(`🔊 [Effect] Volume set to: ${audio.volume} (base: ${baseVolume}) for ${effect}`);
 
       audio.addEventListener("error", (e) => {
-        console.error(`Error playing effect audio (${effect}):`, e);
+        console.error(`❌ [Effect] Error playing "${effect}":`, e);
       });
 
-      audio.play().catch((err) => {
-        console.warn(`Failed to play effect audio (${effect}):`, err);
+      audio.play().then(() => {
+        console.log(`✅ [Effect] Playing: ${effect}`);
+      }).catch((err) => {
+        console.warn(`⚠️ [Effect] Failed to play "${effect}":`, err);
       });
     } catch (err) {
-      console.error("Error creating effect audio:", err);
+      console.error(`❌ [Effect] Error creating audio for "${effect}":`, err);
     }
   };
 

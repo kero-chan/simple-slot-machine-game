@@ -229,7 +229,7 @@ export function createWinOverlay(gameState) {
   /**
    * Show the winning overlay
    */
-  function show(intensity, amount, canvasWidth, canvasHeight) {
+  async function show(intensity, amount, canvasWidth, canvasHeight) {
     currentIntensity = intensity
     const config = getOverlayConfig(intensity)
 
@@ -243,7 +243,7 @@ export function createWinOverlay(gameState) {
 
     // Resume AudioContext in case it was suspended (win announcement can be several seconds long)
     if (howlerAudio.isReady()) {
-      howlerAudio.resumeAudioContext()
+      await howlerAudio.resumeAudioContext()
       console.log('🔓 Audio context resumed before win announcement')
     }
 

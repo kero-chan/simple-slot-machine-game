@@ -367,9 +367,9 @@ export const useGameStore = defineStore('game', {
       this.inFreeSpinMode = true
 
       // Resume AudioContext before free spins (multiple auto-spins can take > 4 seconds)
-      import('../composables/useHowlerAudio').then(({ howlerAudio }) => {
+      import('../composables/useHowlerAudio').then(async ({ howlerAudio }) => {
         if (howlerAudio.isReady()) {
-          howlerAudio.resumeAudioContext()
+          await howlerAudio.resumeAudioContext()
           console.log('🔓 Audio context resumed before free spins')
         }
       })
@@ -409,9 +409,9 @@ export const useGameStore = defineStore('game', {
       this.anticipationMode = true
 
       // Resume AudioContext before anticipation mode (can last 4000ms × number of columns)
-      import('../composables/useHowlerAudio').then(({ howlerAudio }) => {
+      import('../composables/useHowlerAudio').then(async ({ howlerAudio }) => {
         if (howlerAudio.isReady()) {
-          howlerAudio.resumeAudioContext()
+          await howlerAudio.resumeAudioContext()
           console.log('🔓 Audio context resumed before anticipation mode')
         }
       })

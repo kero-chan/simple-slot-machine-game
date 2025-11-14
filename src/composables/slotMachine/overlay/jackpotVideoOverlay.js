@@ -117,7 +117,7 @@ export function createJackpotVideoOverlay() {
   /**
    * Show the video overlay
    */
-  function show(canvasWidth, canvasHeight, onComplete) {
+  async function show(canvasWidth, canvasHeight, onComplete) {
     container.visible = true
     isPlaying = true
     onCompleteCallback = onComplete
@@ -126,7 +126,7 @@ export function createJackpotVideoOverlay() {
 
     // Resume AudioContext in case it was suspended (video can be several seconds long)
     if (howlerAudio.isReady()) {
-      howlerAudio.resumeAudioContext()
+      await howlerAudio.resumeAudioContext()
       console.log('🔓 Audio context resumed before jackpot video')
     }
 
