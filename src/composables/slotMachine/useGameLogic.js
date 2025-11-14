@@ -573,7 +573,7 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
         console.log(`🎯 Column ${targetCol}: Switching to ANTICIPATION SLOWDOWN from position ${currentPosition.toFixed(1)} to ${newTarget}`)
 
         // Track if we've already triggered jackpot during this slowdown
-        let jackpotTriggeredDuringSlowdown = false
+        // let jackpotTriggeredDuringSlowdown = false // DISABLED - early exit removed
 
         // Create NEW tween that takes EXACTLY the configured slowdown time
         const newTween = gsap.to(targetAnimObj, {
@@ -598,6 +598,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             gridState.reelTopIndex[targetCol] = newTopIndex % gridState.reelStrips[targetCol].length
             gridState.spinOffsets[targetCol] = newOffset
             gridState.spinVelocities[targetCol] = Math.max(minVelocity, calculatedVelocity)
+
+            /* EARLY EXIT DISABLED - Allow current column to complete its slowdown
+               Jackpot detection now happens only in onComplete callback (line 687-720)
 
             // CRITICAL: Check EVERY FRAME if jackpot triggered during slowdown
             // This allows us to escape as soon as the 3rd bonus tile appears
@@ -656,13 +659,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
                 completeSpin()
               }
             }
+            */
           },
           onComplete: () => {
-            // Skip if jackpot was already triggered during the slowdown animation
-            if (jackpotTriggeredDuringSlowdown) {
-              console.log(`⏭️ Slowdown onComplete skipped (jackpot already triggered during animation)`)
-              return
-            }
+            // Early exit disabled - jackpot check happens here after column completes
+            // (jackpotTriggeredDuringSlowdown is no longer used)
 
             console.log(`✅ Column ${targetCol} SLOWDOWN COMPLETE at target ${targetAnimObj.targetIndex}`)
 
