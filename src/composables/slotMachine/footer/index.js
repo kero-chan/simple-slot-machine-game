@@ -2,9 +2,11 @@ import { Container, Graphics, Text, Sprite, Texture, Rectangle } from 'pixi.js'
 import { ASSETS } from '../../../config/assets'
 import { SETTINGS } from './config'
 import { useGameStore } from '../../../stores/gameStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 
 export function useFooter(gameState) {
   const gameStore = useGameStore()
+  const settingsStore = useSettingsStore()
 
   const container = new Container()
   let handlers = {
@@ -372,6 +374,17 @@ export function useFooter(gameState) {
             });
           }
           menuSettingContainer.addChild(btnSprite1)
+          
+          // Set initial visibility based on gameSound state
+          if (settingsStore.gameSound) {
+            // gameSound is ON -> show volume open icon
+            btnSprite.visible = true
+            btnSprite1.visible = false
+          } else {
+            // gameSound is OFF -> show volume close icon (muted)
+            btnSprite.visible = false
+            btnSprite1.visible = true
+          }
         }
       }
 

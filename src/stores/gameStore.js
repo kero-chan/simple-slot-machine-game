@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { CONFIG } from '../config/constants'
 import { audioManager } from '../composables/audioManager'
+import { useSettingsStore } from './settingsStore'
 
 // Game state machine states
 export const GAME_STATES = {
@@ -43,7 +44,6 @@ export const useGameStore = defineStore('game', {
 
     freeSpins: 0,
     inFreeSpinMode: false,
-    gameSound: true,
 
     // Anticipation mode (near-miss feature for bonus tiles)
     anticipationMode: false,
@@ -69,6 +69,12 @@ export const useGameStore = defineStore('game', {
 
       const index = Math.min(state.consecutiveWins, multipliers.length - 1)
       return multipliers[index] * CONFIG.game.bettingMultiplierRate
+    },
+
+    // Get gameSound from settingsStore
+    gameSound() {
+      const settingsStore = useSettingsStore()
+      return settingsStore.gameSound
     },
 
     canSpin(state) {
@@ -384,7 +390,8 @@ export const useGameStore = defineStore('game', {
 
     // switch game sound on/off
     toggleGameSound() {
-      this.gameSound = !this.gameSound
+      const settingsStore = useSettingsStore()
+      settingsStore.toggleGameSound()
     },
 
     // Anticipation mode controls
@@ -410,7 +417,6 @@ export const useGameStore = defineStore('game', {
       this.showStartScreen = true
       this.accumulatedWinAmount = 0
       this.lastWinAmount = 0
-      this.gameSound = true
       this.allWinsThisSpin = []
       this.anticipationMode = false
     }

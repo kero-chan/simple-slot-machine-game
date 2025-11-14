@@ -27,6 +27,12 @@ export function useBackgroundMusic() {
   const isPlaying = ref(false)
   const wasPlayingBeforeHidden = ref(false)
   const currentMusicType = ref('normal') // 'normal' or 'jackpot'
+  const gameSoundEnabled = ref(true) // Track game sound state
+  const baseVolume = {
+    music: 0.5,        // Base volume for background music
+    noise: 0.7,        // Base volume for noise
+    gameStart: 0.6     // Base volume for game start sound
+  }
   let visibilityListenerAdded = false
   let gameStartTimeout = null
   let noiseStartTimeout = null
@@ -81,7 +87,7 @@ export function useBackgroundMusic() {
         return
       }
 
-      noiseAudio.volume = 0.7 // 70% volume for background noise
+      noiseAudio.volume = gameSoundEnabled.value ? baseVolume.noise : 0
 
       noiseAudio.addEventListener('error', (e) => {
         console.error('Error playing background noise:', e)
@@ -134,7 +140,7 @@ export function useBackgroundMusic() {
         return
       }
 
-      audio.volume = 0.5 // Set volume to 50%
+      audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
       audio.loop = true // Loop the audio infinitely
 
       currentAudio.value = audio
@@ -174,7 +180,7 @@ export function useBackgroundMusic() {
         return
       }
 
-      gameStartAudio.volume = 0.6 // Slightly louder for effect
+      gameStartAudio.volume = gameSoundEnabled.value ? baseVolume.gameStart : 0
 
       gameStartAudio.addEventListener('error', (e) => {
         console.error('Error playing game start audio:', e)
@@ -264,7 +270,7 @@ export function useBackgroundMusic() {
         return
       }
 
-      audio.volume = 0.5 // Set volume to 50%
+      audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
       audio.loop = true // Loop the audio infinitely
 
       currentAudio.value = audio
@@ -305,7 +311,7 @@ export function useBackgroundMusic() {
         return
       }
 
-      audio.volume = 0.5 // Set volume to 50%
+      audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
       audio.loop = true // Loop the audio infinitely
 
       currentAudio.value = audio
@@ -326,6 +332,16 @@ export function useBackgroundMusic() {
     }
   }
 
+  // Set game sound enabled state
+  const setGameSoundEnabled = (enabled) => {
+    gameSoundEnabled.value = enabled
+    
+    // Update volume for current audio
+    if (currentAudio.value) {
+      currentAudio.value.volume = enabled ? baseVolume.music : 0
+    }
+  }
+
   return {
     isPlaying,
     start,
@@ -334,6 +350,7 @@ export function useBackgroundMusic() {
     resume,
     setVolume,
     switchToJackpotMusic,
-    switchToNormalMusic
+    switchToNormalMusic,
+    setGameSoundEnabled
   }
 }

@@ -7,13 +7,31 @@ import { useBackgroundMusic } from './useBackgroundMusic'
 class AudioManager {
   constructor() {
     this.backgroundMusic = null
+    this.gameSoundEnabled = true // Track game sound state
   }
 
   initialize() {
     if (!this.backgroundMusic) {
       this.backgroundMusic = useBackgroundMusic()
+      // Sync the initial gameSound state with the background music instance
+      this.backgroundMusic.setGameSoundEnabled(this.gameSoundEnabled)
     }
     return this.backgroundMusic
+  }
+
+  // Set game sound enabled state
+  setGameSoundEnabled(enabled) {
+    this.gameSoundEnabled = enabled
+    
+    // Update volume for background music
+    if (this.backgroundMusic) {
+      this.backgroundMusic.setGameSoundEnabled(enabled)
+    }
+  }
+
+  // Get current game sound state
+  isGameSoundEnabled() {
+    return this.gameSoundEnabled
   }
 
   getInstance() {
