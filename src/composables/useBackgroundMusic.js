@@ -1,19 +1,28 @@
 import { ref } from 'vue'
 import { ASSETS } from '../config/assets'
+import { howlerAudio } from './useHowlerAudio'
 
 /**
- * Get preloaded audio or create new one if not preloaded
+ * Get preloaded audio using Howler.js for mobile compatibility
+ * Falls back to HTMLAudioElement if Howler not initialized
  */
 function getAudio(audioKey) {
-  const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
+  // Try Howler first (best for mobile)
+  if (howlerAudio.isReady()) {
+    const audio = howlerAudio.createAudioElement(audioKey)
+    if (audio) {
+      return audio
+    }
+  }
 
+  // Fallback: use regular HTMLAudioElement
+  const preloadedAudio = ASSETS.loadedAudios?.[audioKey]
   if (preloadedAudio) {
-    // Clone the preloaded audio element
     return preloadedAudio.cloneNode()
   }
 
-  // Fallback
-  console.warn(`Audio "${audioKey}" not preloaded, loading from path`)
+  // Last resort: create from path
+  console.warn(`Audio "${audioKey}" not found anywhere`)
   const audioPath = ASSETS.audioPaths?.[audioKey]
   if (audioPath) {
     return new Audio(audioPath)

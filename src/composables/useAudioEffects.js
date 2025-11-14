@@ -1,23 +1,28 @@
 import { ASSETS } from "../config/assets";
 import { audioManager } from "./audioManager";
+import { howlerAudio } from "./useHowlerAudio";
 
 /**
- * Get preloaded audio or create new one if not preloaded
- * Uses blob URL from preloaded audio to avoid network requests
+ * Get preloaded audio using Howler.js for mobile compatibility
+ * Falls back to HTMLAudioElement if Howler not initialized
  */
 function getAudio(audioKey) {
-  // Try to get preloaded audio
-  const preloadedAudio = ASSETS.loadedAudios?.[audioKey];
-
-  if (preloadedAudio) {
-    // Clone the preloaded audio element
-    // This reuses the same blob URL without making network requests
-    const audio = preloadedAudio.cloneNode();
-    return audio;
+  // Try Howler first (best for mobile)
+  if (howlerAudio.isReady()) {
+    const audio = howlerAudio.createAudioElement(audioKey);
+    if (audio) {
+      return audio;
+    }
   }
 
-  // Fallback: create from path (shouldn't happen if preload works)
-  console.warn(`Audio "${audioKey}" not preloaded, loading from path`);
+  // Fallback: use regular HTMLAudioElement
+  const preloadedAudio = ASSETS.loadedAudios?.[audioKey];
+  if (preloadedAudio) {
+    return preloadedAudio.cloneNode();
+  }
+
+  // Last resort: create from path
+  console.warn(`Audio "${audioKey}" not found anywhere`);
   const audioPath = ASSETS.audioPaths?.[audioKey];
   if (audioPath) {
     return new Audio(audioPath);

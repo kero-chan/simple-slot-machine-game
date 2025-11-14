@@ -261,6 +261,16 @@ export async function loadAllAssets(onProgress = null) {
   const audioSuccessCount = Object.values(ASSETS.loadedAudios).filter(a => a).length
   console.log(`✅ Loaded ${successCount}/${entries.length} images, ${videoSuccessCount}/${videoEntries.length} videos, and ${audioSuccessCount}/${audioEntries.length} audio files`)
 
+  // Initialize Howler.js for mobile compatibility
+  // Howler will load audio from original paths (not blob URLs)
+  try {
+    const { howlerAudio } = await import('../composables/useHowlerAudio')
+    howlerAudio.initialize()
+    console.log('🎵 Howler.js will handle mobile audio playback')
+  } catch (err) {
+    console.warn('Failed to initialize Howler.js:', err)
+  }
+
   // Final progress report
   if (onProgress) {
     onProgress(totalAssets, totalAssets)
