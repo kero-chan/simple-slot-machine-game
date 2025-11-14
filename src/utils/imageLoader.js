@@ -185,11 +185,21 @@ export async function loadAllAssets(onProgress = null) {
   // Pixi Assets.load() downloads full images and caches them as textures in memory
   console.log(`📸 Downloading ${entries.length} image(s)...`)
   let loaded = {}
+  let lastReportedProgress = 0
+
   try {
     loaded = await Assets.load(entries.map(([alias]) => alias), (progress) => {
       // Pixi's progress is 0 to 1 for images only
       const imagesLoaded = Math.floor(progress * entries.length)
-      if (onProgress) onProgress(imagesLoaded, totalAssets)
+
+      // Only report if progress actually increased (avoid duplicate reports)
+      if (imagesLoaded > lastReportedProgress) {
+        lastReportedProgress = imagesLoaded
+        if (onProgress) {
+          onProgress(imagesLoaded, totalAssets)
+          console.log(`📊 Loading progress: ${imagesLoaded}/${totalAssets}`)
+        }
+      }
     })
     console.log(`✅ All images downloaded and cached`)
   } catch (error) {
@@ -197,7 +207,6 @@ export async function loadAllAssets(onProgress = null) {
   }
 
   // Normalize and store textures into ASSETS.loadedImages
-  // Don't report progress here since Pixi already reported it above
   for (const [alias, src] of entries) {
     let tex = loaded?.[alias] || null
 
@@ -214,8 +223,12 @@ export async function loadAllAssets(onProgress = null) {
     ASSETS.loadedImages[alias] = tex
   }
 
-  // Set loadedCount to number of images loaded
+  // Set loadedCount to number of images loaded and report
   loadedCount = entries.length
+  if (onProgress) {
+    onProgress(loadedCount, totalAssets)
+    console.log(`📊 Images complete: ${loadedCount}/${totalAssets}`)
+  }
 
   // Load videos
   console.log(`📹 Loading ${videoEntries.length} video(s)...`)

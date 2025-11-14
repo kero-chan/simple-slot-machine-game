@@ -4,6 +4,7 @@ import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
 import { audioManager } from '../../audioManager'
+import { howlerAudio } from '../../useHowlerAudio'
 import { getCounterDuration } from '../../../utils/gameHelpers'
 
 /**
@@ -239,6 +240,12 @@ export function createWinOverlay(gameState) {
     animationStartTime = Date.now()
     targetAmount = amount
     currentDisplayAmount = 0  // Start from 0 for counter animation
+
+    // Resume AudioContext in case it was suspended (win announcement can be several seconds long)
+    if (howlerAudio.isReady()) {
+      howlerAudio.resumeAudioContext()
+      console.log('🔓 Audio context resumed before win announcement')
+    }
 
     // Pause background music and play winning announcement audio (looped)
     audioManager.pause()

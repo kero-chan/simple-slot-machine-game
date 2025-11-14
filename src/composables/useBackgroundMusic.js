@@ -51,27 +51,43 @@ export function useBackgroundMusic() {
   // Handle page visibility change
   const handleVisibilityChange = () => {
     if (document.hidden) {
-      // Page is hidden (user switched tab)
+      // Page is hidden (user switched tab/locks phone)
+      // Don't manually pause music - let browser handle it
+      // Just track state for recovery
       if (currentAudio.value && !currentAudio.value.paused) {
         wasPlayingBeforeHidden.value = true
-        currentAudio.value.pause()
       }
-      // Stop noise interval when tab is hidden
+      // Stop noise interval to save resources
       if (noiseInterval) {
         wasNoisePlayingBeforeHidden.value = true
         clearInterval(noiseInterval)
         noiseInterval = null
       }
     } else {
-      // Page is visible again
-      if (wasPlayingBeforeHidden.value && currentAudio.value && isPlaying.value) {
-        currentAudio.value.play().catch(err => {
-          console.warn('Failed to resume audio:', err)
-        })
+      // Page is visible again - resume everything
+      console.log('👁️ Page visible, resuming audio...')
+
+      // Resume background music if it was playing
+      if (isPlaying.value && currentAudio.value) {
+        // Check if audio is paused (browser might have paused it)
+        if (currentAudio.value.paused) {
+          console.log('🔄 Resuming background music')
+          currentAudio.value.play().catch(err => {
+            console.warn('⚠️ Resume failed, retrying in 100ms:', err)
+            // Retry after a short delay
+            setTimeout(() => {
+              if (currentAudio.value) {
+                currentAudio.value.play().catch(e => console.error('❌ Resume retry failed:', e))
+              }
+            }, 100)
+          })
+        }
         wasPlayingBeforeHidden.value = false
       }
-      // Resume noise interval when tab is visible again
+
+      // Resume noise interval
       if (wasNoisePlayingBeforeHidden.value && isPlaying.value) {
+        console.log('🔄 Resuming background noises')
         startNoiseLoop()
         wasNoisePlayingBeforeHidden.value = false
       }
@@ -292,6 +308,7 @@ export function useBackgroundMusic() {
 
       currentAudio.value = audio
       currentMusicType.value = 'jackpot'
+      isPlaying.value = true  // Ensure playing state is set
 
       // Handle errors
       audio.addEventListener('error', (e) => {
@@ -333,6 +350,7 @@ export function useBackgroundMusic() {
 
       currentAudio.value = audio
       currentMusicType.value = 'normal'
+      isPlaying.value = true  // Ensure playing state is set
 
       // Handle errors
       audio.addEventListener('error', (e) => {

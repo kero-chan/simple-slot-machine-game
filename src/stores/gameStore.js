@@ -365,6 +365,15 @@ export const useGameStore = defineStore('game', {
 
     enterFreeSpinMode() {
       this.inFreeSpinMode = true
+
+      // Resume AudioContext before free spins (multiple auto-spins can take > 4 seconds)
+      import('../composables/useHowlerAudio').then(({ howlerAudio }) => {
+        if (howlerAudio.isReady()) {
+          howlerAudio.resumeAudioContext()
+          console.log('🔓 Audio context resumed before free spins')
+        }
+      })
+
       // Switch to jackpot background music
       audioManager.switchToJackpotMusic()
     },
@@ -398,6 +407,14 @@ export const useGameStore = defineStore('game', {
     // Anticipation mode controls
     activateAnticipationMode() {
       this.anticipationMode = true
+
+      // Resume AudioContext before anticipation mode (can last 4000ms × number of columns)
+      import('../composables/useHowlerAudio').then(({ howlerAudio }) => {
+        if (howlerAudio.isReady()) {
+          howlerAudio.resumeAudioContext()
+          console.log('🔓 Audio context resumed before anticipation mode')
+        }
+      })
     },
 
     deactivateAnticipationMode() {

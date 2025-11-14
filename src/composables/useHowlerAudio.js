@@ -18,12 +18,28 @@ class HowlerAudioManager {
     this.isInitialized = false
     this.isUnlocked = false // Track if audio has been unlocked
 
-    // Reset unlock state on page visibility change (for reliability)
+    // Handle page visibility for mobile power management
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          this.isUnlocked = false
+        if (!document.hidden) {
+          // Page became visible - resume AudioContext if suspended
+          this.resumeAudioContext()
         }
+      })
+    }
+  }
+
+  /**
+   * Resume AudioContext if it got suspended (e.g., after tab switch or AFK)
+   */
+  resumeAudioContext() {
+    const ctx = Howler.ctx
+    if (ctx && ctx.state === 'suspended') {
+      console.log('🔄 Resuming suspended AudioContext...')
+      ctx.resume().then(() => {
+        console.log('✅ AudioContext resumed')
+      }).catch(err => {
+        console.error('❌ Failed to resume AudioContext:', err)
       })
     }
   }

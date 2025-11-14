@@ -3,6 +3,7 @@ import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { audioManager } from '../../audioManager'
+import { howlerAudio } from '../../useHowlerAudio'
 import { watch } from 'vue'
 
 /**
@@ -123,6 +124,12 @@ export function createJackpotVideoOverlay() {
 
     console.log('🎬 Starting jackpot video...')
 
+    // Resume AudioContext in case it was suspended (video can be several seconds long)
+    if (howlerAudio.isReady()) {
+      howlerAudio.resumeAudioContext()
+      console.log('🔓 Audio context resumed before jackpot video')
+    }
+
     // Pause all background audio
     audioManager.pause()
 
@@ -196,8 +203,9 @@ export function createJackpotVideoOverlay() {
       videoElement.currentTime = 0 // Reset for next playback
     }
 
-    // Resume background audio
-    audioManager.resume()
+    // Don't resume music here - let the next state (free spin mode) handle starting jackpot music
+    // If we resume here, it will resume NORMAL music, then free spins will switch to jackpot music
+    // This causes a brief moment of normal music playing before switching
 
     // Trigger completion callback
     if (onCompleteCallback) {
