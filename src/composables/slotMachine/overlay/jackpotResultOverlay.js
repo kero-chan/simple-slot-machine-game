@@ -103,9 +103,9 @@ export function createJackpotResultOverlay(gameState) {
   }
 
   /**
-   * Spawn celebration particles
+   * Spawn celebration particles - enhanced for more excitement!
    */
-  function spawnParticles(canvasWidth, canvasHeight, count = 200) {
+  function spawnParticles(canvasWidth, canvasHeight, count = 250) {
     const goldTexture = ASSETS.loadedImages?.win_gold || ASSETS.imagePaths?.win_gold
     if (!goldTexture) return
 
@@ -116,30 +116,43 @@ export function createJackpotResultOverlay(gameState) {
       particle.anchor.set(0.5)
       particle.blendMode = BLEND_MODES.ADD
 
-      // Random position across top of screen
-      particle.x = Math.random() * canvasWidth
-      particle.y = -50 - Math.random() * canvasHeight * 0.8
+      // Random position - some from top, some from sides for variety
+      if (Math.random() > 0.3) {
+        // Most fall from top
+        particle.x = Math.random() * canvasWidth
+        particle.y = -50 - Math.random() * canvasHeight * 0.8
+      } else {
+        // Some shoot up from bottom
+        particle.x = Math.random() * canvasWidth
+        particle.y = canvasHeight + 50
+      }
 
-      // Random size
-      const size = 10 + Math.random() * 60
+      // Random size with more variety
+      const size = 15 + Math.random() * 70
       particle.width = size
       particle.height = size
 
-      // Falling velocity
+      // Falling/rising velocity
       const speedFactor = size / 40
-      particle.vx = (Math.random() - 0.5) * 2
-      particle.vy = (0.5 + Math.random() * 1.5) * speedFactor
+      particle.vx = (Math.random() - 0.5) * 3
 
-      // Gravity
-      particle.gravity = 0.05
+      if (particle.y < 0) {
+        // Falling from top
+        particle.vy = (0.6 + Math.random() * 2.0) * speedFactor
+        particle.gravity = 0.08
+      } else {
+        // Rising from bottom
+        particle.vy = -(2.0 + Math.random() * 3.0) * speedFactor
+        particle.gravity = 0.12  // Stronger gravity to pull them down
+      }
 
-      // Random rotation speed
-      particle.rotationSpeed = (Math.random() - 0.5) * 0.15
+      // Random rotation speed - faster for more energy
+      particle.rotationSpeed = (Math.random() - 0.5) * 0.25
 
       // Lifetime
-      particle.life = 4000 + Math.random() * 3000
+      particle.life = 5000 + Math.random() * 4000
       particle.born = Date.now()
-      particle.alpha = 0.6 + Math.random() * 0.3
+      particle.alpha = 0.7 + Math.random() * 0.3
 
       particlesContainer.addChild(particle)
       particles.push(particle)
@@ -281,25 +294,55 @@ export function createJackpotResultOverlay(gameState) {
       container.addChild(fallbackBg)
     }
 
-    // Amount text - large and prominent for jackpot with pure gold colors
-    const amountStyle = {
-      fontFamily: 'Impact, sans-serif',
-      fontSize: 150,  // Slightly smaller to prevent cutoff but still very large
-      fontWeight: '900',
-      fill: ['#ffd700', '#ffed4e', '#ffc700'],  // Pure gold gradient
+    // Congratulations title text
+    const titleStyle = {
+      fontFamily: 'Arial Black, sans-serif',
+      fontSize: 64,
+      fontWeight: 'bold',
+      fill: ['#ffff66', '#ffeb3b', '#ffd700'],
       fillGradientStops: [0, 0.5, 1],
-      stroke: { color: '#d4af37', width: 6 },  // Thinner golden border to prevent cutoff
+      stroke: { color: '#8B4513', width: 6 },
       dropShadow: {
-        color: '#8B7500',  // Dark gold shadow
-        blur: 3,
-        angle: Math.PI / 4,
-        distance: 2,
-        alpha: 0.6  // More visible gold shadow
+        color: 0xff6600,
+        blur: 15,
+        angle: Math.PI / 6,
+        distance: 0,
+        alpha: 0.8
       },
       align: 'center',
-      letterSpacing: 6,  // Reduced spacing to prevent cutoff
-      trim: false,  // Don't trim - helps prevent cutoff
-      padding: 15  // Add padding to prevent cutoff
+      letterSpacing: 3
+    }
+
+    titleText = new Text({
+      text: '恭喜获得',  // Congratulations
+      style: titleStyle
+    })
+    titleText.anchor.set(0.5)
+    titleText.x = canvasWidth / 2
+    titleText.y = canvasHeight * 0.30
+    titleText.alpha = 0  // Start invisible
+    titleText.scale.set(0.5)  // Start small
+    container.addChild(titleText)
+
+    // Amount text - large and prominent with glow effect
+    const amountStyle = {
+      fontFamily: 'Impact, sans-serif',
+      fontSize: 140,
+      fontWeight: '900',
+      fill: ['#ffff99', '#ffd700', '#ffed4e'],
+      fillGradientStops: [0, 0.5, 1],
+      stroke: { color: '#d4af37', width: 8 },
+      dropShadow: {
+        color: 0xffd700,  // Gold glow
+        blur: 30,
+        angle: Math.PI / 4,
+        distance: 0,
+        alpha: 0.9
+      },
+      align: 'center',
+      letterSpacing: 6,
+      trim: false,
+      padding: 20
     }
 
     amountText = new Text({
@@ -308,7 +351,9 @@ export function createJackpotResultOverlay(gameState) {
     })
     amountText.anchor.set(0.5)
     amountText.x = canvasWidth / 2
-    amountText.y = canvasHeight / 2 + 50
+    amountText.y = canvasHeight * 0.52
+    amountText.alpha = 0  // Start invisible
+    amountText.scale.set(0.3)  // Start very small
     container.addChild(amountText)
 
     // Add clickable overlay for skip functionality
@@ -317,7 +362,7 @@ export function createJackpotResultOverlay(gameState) {
 
     // Add particles container (on top of clickable overlay)
     container.addChild(particlesContainer)
-    spawnParticles(canvasWidth, canvasHeight, 200)
+    spawnParticles(canvasWidth, canvasHeight, 250)  // More particles for celebration!
     
     // Enable skip after 2 seconds
     enableSkipAfterDelay()
@@ -394,36 +439,71 @@ export function createJackpotResultOverlay(gameState) {
       videoSprite.texture.update()
     }
 
-    // Counter animation (0 to target over 3 seconds)
-    const counterDuration = 3
-    if (elapsed < counterDuration) {
-      const counterProgress = Math.min(elapsed / counterDuration, 1)
-      // Ease-out for smoother counting
+    // === STAGED ENTRANCE ANIMATIONS ===
+
+    // Stage 1: Title entrance (0-0.6s)
+    if (titleText && elapsed < 0.6) {
+      const progress = elapsed / 0.6
+      const easeOut = 1 - Math.pow(1 - progress, 3)
+      titleText.alpha = easeOut
+      titleText.scale.set(0.5 + easeOut * 0.5)  // Scale from 0.5 to 1
+    } else if (titleText && elapsed >= 0.6) {
+      titleText.alpha = 1
+      titleText.scale.set(1)
+      // Gentle pulse after entrance
+      const pulse = 1 + Math.sin((elapsed - 0.6) * 2) * 0.03
+      titleText.scale.set(pulse)
+    }
+
+    // Stage 2: Amount entrance (0.4-1.0s) with dramatic scale-up
+    if (amountText && elapsed >= 0.4 && elapsed < 1.0) {
+      const progress = (elapsed - 0.4) / 0.6
+      const easeOut = 1 - Math.pow(1 - progress, 3)
+      amountText.alpha = easeOut
+      amountText.scale.set(0.3 + easeOut * 0.7)  // Scale from 0.3 to 1
+    } else if (amountText && elapsed >= 1.0) {
+      amountText.alpha = 1
+    }
+
+    // Stage 3: Counter animation (1.0-4.0s) - counts up to target
+    const counterStart = 1.0
+    const counterDuration = 3.0
+    const counterEnd = counterStart + counterDuration
+
+    if (elapsed >= counterStart && elapsed < counterEnd) {
+      const counterElapsed = elapsed - counterStart
+      const counterProgress = counterElapsed / counterDuration
+      // Ease-out cubic for smoother, more exciting counting
       const easeProgress = 1 - Math.pow(1 - counterProgress, 3)
       currentDisplayAmount = Math.floor(targetAmount * easeProgress)
 
       if (amountText) {
         amountText.text = currentDisplayAmount.toLocaleString()
+
+        // Dramatic scaling during counting
+        const countPulse = 1 + Math.sin(counterElapsed * 15) * 0.05
+        amountText.scale.set(countPulse)
       }
-    } else if (currentDisplayAmount !== targetAmount) {
+    } else if (elapsed >= counterEnd) {
       // Ensure final amount is exact
-      currentDisplayAmount = targetAmount
+      if (currentDisplayAmount !== targetAmount) {
+        currentDisplayAmount = targetAmount
+        if (amountText) {
+          amountText.text = targetAmount.toLocaleString()
+        }
+      }
+
+      // Bigger pulse animation after counter finishes
       if (amountText) {
-        amountText.text = targetAmount.toLocaleString()
+        const pulse = 1 + Math.sin((elapsed - counterEnd) * 2.5) * 0.12
+        amountText.scale.set(pulse)
       }
     }
 
     // Update particles every frame
     updateParticles()
 
-    // Video plays automatically, no need for manual animation
-    // The video sprite will update automatically through PIXI's texture system
-
-    // Subtle pulse animation for amount text after counter finishes
-    if (amountText && elapsed >= counterDuration) {
-      const pulse = 1 + Math.sin(elapsed * 3) * 0.08
-      amountText.scale.set(pulse)
-    }
+    // Video plays automatically through PIXI's texture system
 
     // Start fade out after 7 seconds (show only 7 seconds of the 10-second video)
     const displayTime = 7
@@ -453,9 +533,13 @@ export function createJackpotResultOverlay(gameState) {
         const scale = Math.max(scaleX, scaleY)
         videoSprite.scale.set(scale)
       }
+      if (titleText) {
+        titleText.x = canvasWidth / 2
+        titleText.y = canvasHeight * 0.30
+      }
       if (amountText) {
         amountText.x = canvasWidth / 2
-        amountText.y = canvasHeight / 2 + 50
+        amountText.y = canvasHeight * 0.52
       }
     }
   }
