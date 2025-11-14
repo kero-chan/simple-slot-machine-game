@@ -16,7 +16,13 @@
           ></div>
         </div>
         <div class="progress-text">
-          {{ loadingPercent < 100 ? "載入資源中" : "完成" }}
+          {{
+            loadingPercent < 100
+              ? "載入資源中"
+              : !isHowlerReady
+              ? "準備音效系統..."
+              : "完成"
+          }}
         </div>
       </div>
 
@@ -41,7 +47,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
 import { howlerAudio } from "../composables/useHowlerAudio";
@@ -53,9 +59,14 @@ const gameStore = useGameStore();
 const settingsStore = useSettingsStore();
 const backgroundMusic = audioManager.initialize();
 
+const isHowlerReady = ref(false);
+
 const isLoading = computed(() => {
   const progress = gameState.loadingProgress?.value || { loaded: 0, total: 1 };
-  return progress.loaded < progress.total;
+  const assetsLoaded = progress.loaded >= progress.total;
+
+  // Show loading until both assets are loaded AND Howler is ready
+  return !assetsLoaded || !isHowlerReady.value;
 });
 
 const loadingPercent = computed(() => {
@@ -67,18 +78,62 @@ const loadingPercent = computed(() => {
 
 const isUnlockingAudio = ref(false);
 
-const handleStart = async () => {
-  if (isUnlockingAudio.value) return; // Prevent double-click
+// Check if Howler is ready
+const checkHowlerReady = () => {
+  if (howlerAudio.isReady()) {
+    console.log('✅ Howler is ready - showing Start button');
+    isHowlerReady.value = true;
+  } else {
+    console.log('⏳ Waiting for Howler to be ready...');
+    // Keep checking every 100ms until ready
+    setTimeout(checkHowlerReady, 100);
+  }
+};
 
-  console.log('🎮 Start button clicked');
+// Start checking when assets finish loading
+const startHowlerCheck = () => {
+  const progress = gameState.loadingProgress?.value || { loaded: 0, total: 1 };
+  if (progress.loaded >= progress.total && !isHowlerReady.value) {
+    checkHowlerReady();
+  }
+};
+
+// Watch loading progress
+watch(() => gameState.loadingProgress?.value, (newProgress) => {
+  if (newProgress && newProgress.loaded >= newProgress.total) {
+    startHowlerCheck();
+  }
+}, { immediate: true, deep: true });
+
+const handleStart = async () => {
+  if (isUnlockingAudio.value) {
+    console.warn('⚠️ Start button already processing, ignoring click');
+    return;
+  }
+
+  console.log('🎮 Start button clicked (Howler ready: ' + howlerAudio.isReady() + ')');
   isUnlockingAudio.value = true;
+
+  // Timeout protection: force unlock after 2 seconds
+  const unlockTimeout = setTimeout(() => {
+    if (isUnlockingAudio.value) {
+      console.warn('⚠️ Audio unlock timeout - forcing game start');
+
+      // Force start game even if unlock failed
+      audioManager.setGameSoundEnabled(settingsStore.gameSound);
+      backgroundMusic.start();
+      gameStore.hideStartScreen();
+    }
+  }, 2000);
 
   try {
     // Unlock AudioContext (required for mobile browsers)
+    console.log('🔓 Starting audio unlock...');
     await howlerAudio.unlockAudioContext();
+    console.log('✅ Audio unlock complete');
 
-    // Small delay to ensure unlock is fully processed
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Clear timeout since we succeeded
+    clearTimeout(unlockTimeout);
 
     // Ensure audioManager knows about gameSound state before starting
     audioManager.setGameSoundEnabled(settingsStore.gameSound);
@@ -91,7 +146,15 @@ const handleStart = async () => {
     gameStore.hideStartScreen();
   } catch (error) {
     console.error('❌ Failed to start game:', error);
-    isUnlockingAudio.value = false;
+
+    // Clear timeout
+    clearTimeout(unlockTimeout);
+
+    // Force start game anyway
+    console.log('🔄 Force starting game despite error...');
+    audioManager.setGameSoundEnabled(settingsStore.gameSound);
+    backgroundMusic.start();
+    gameStore.hideStartScreen();
   }
 };
 </script>
