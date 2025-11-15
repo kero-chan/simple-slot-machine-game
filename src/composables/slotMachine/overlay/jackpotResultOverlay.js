@@ -4,6 +4,7 @@ import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
 import { getCounterDuration } from '../../../utils/gameHelpers'
+import { getPreloadedVideo } from '../../../utils/videoManager'
 
 /**
  * Creates a jackpot result overlay that displays total wins after all free spins (jackpot mode) complete
@@ -298,122 +299,59 @@ export function createJackpotResultOverlay(gameState) {
     }
     videoSpriteReady = false
 
-    // Create fresh jackpot_result video (no preloading)
-    const videoSrc = ASSETS.videoPaths?.jackpot_result
+    // Get preloaded jackpot_result video for instant playback
+    console.log('📹 Getting preloaded jackpot result video')
 
-    if (videoSrc) {
-      console.log('📹 Creating jackpot result video:', videoSrc)
+    bgVideo = getPreloadedVideo('jackpot_result')
 
-      // Create fresh video element
-      bgVideo = document.createElement('video')
-      bgVideo.src = videoSrc
-      bgVideo.loop = true
-      bgVideo.playsInline = true
-      bgVideo.muted = true
-      bgVideo.preload = 'auto'
-      bgVideo.style.display = 'none'
-      document.body.appendChild(bgVideo)
+    if (bgVideo && bgVideo.videoWidth > 0 && bgVideo.videoHeight > 0) {
+      try {
+        bgVideo.loop = true
+        bgVideo.style.display = 'none'
 
-      // Wait for video to be ready before creating PIXI texture
-      const initVideo = () => {
-        return new Promise((resolve, reject) => {
-          let metadataLoaded = false
-          let dataReady = false
+        console.log('✅ Preloaded video ready:', bgVideo.videoWidth, 'x', bgVideo.videoHeight, '- readyState:', bgVideo.readyState)
 
-          const checkReady = () => {
-            if (metadataLoaded && dataReady) {
-              console.log('✅ Video ready to create texture:', bgVideo.videoWidth, 'x', bgVideo.videoHeight, 'readyState:', bgVideo.readyState)
+        // Create PIXI texture and sprite from preloaded video (already has metadata!)
+        const videoTexture = Texture.from(bgVideo)
+        videoSprite = new Sprite(videoTexture)
+        videoSprite.anchor.set(0.5)
+        videoSprite.x = canvasWidth / 2
+        videoSprite.y = canvasHeight / 2
 
-              // Create PIXI texture and sprite AFTER video has data
-              const videoTexture = Texture.from(bgVideo)
-              videoSprite = new Sprite(videoTexture)
-              videoSprite.anchor.set(0.5)
-              videoSprite.x = canvasWidth / 2
-              videoSprite.y = canvasHeight / 2
+        // Set proper scale with loaded dimensions
+        const scaleX = canvasWidth / bgVideo.videoWidth
+        const scaleY = canvasHeight / bgVideo.videoHeight
+        const scale = Math.max(scaleX, scaleY)
+        videoSprite.scale.set(scale)
 
-              // Set proper scale with loaded dimensions
-              const scaleX = canvasWidth / bgVideo.videoWidth
-              const scaleY = canvasHeight / bgVideo.videoHeight
-              const scale = Math.max(scaleX, scaleY)
-              videoSprite.scale.set(scale)
+        // Add to container at the back
+        container.addChildAt(videoSprite, 0)
+        videoSpriteReady = true
 
-              // Add to container at the back
-              container.addChildAt(videoSprite, 0)
-              videoSpriteReady = true
+        console.log('✅ Video sprite created successfully')
 
-              console.log('✅ Video sprite created and added to container')
-              console.log('   Sprite position:', videoSprite.x, videoSprite.y)
-              console.log('   Sprite scale:', videoSprite.scale.x)
-              console.log('   Sprite visible:', videoSprite.visible)
-              console.log('   Sprite alpha:', videoSprite.alpha)
-              console.log('   Container children count:', container.children.length)
-              resolve()
-            }
-          }
-
-          const onLoadedMetadata = () => {
-            console.log('📹 Video metadata loaded:', bgVideo.videoWidth, 'x', bgVideo.videoHeight)
-            metadataLoaded = true
-            checkReady()
-          }
-
-          const onCanPlay = () => {
-            console.log('📹 Video can play (readyState:', bgVideo.readyState + ')')
-            dataReady = true
-            checkReady()
-          }
-
-          const onError = (err) => {
-            console.error('❌ Video error:', err, bgVideo.error)
-            reject(err)
-          }
-
-          // Check if already loaded
-          if (bgVideo.readyState >= 1) {
-            metadataLoaded = true
-          }
-          if (bgVideo.readyState >= 2) {
-            dataReady = true
-          }
-
-          if (metadataLoaded && dataReady) {
-            checkReady()
-          } else {
-            bgVideo.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
-            bgVideo.addEventListener('canplay', onCanPlay, { once: true })
-            bgVideo.addEventListener('error', onError, { once: true })
-
-            // Timeout after 5 seconds
-            setTimeout(() => {
-              bgVideo.removeEventListener('loadedmetadata', onLoadedMetadata)
-              bgVideo.removeEventListener('canplay', onCanPlay)
-              bgVideo.removeEventListener('error', onError)
-              reject(new Error('Video load timeout'))
-            }, 5000)
-          }
-        })
+        // Start playing (should start instantly since preloaded)
+        bgVideo.play()
+          .then(() => {
+            console.log('✅ Jackpot result video playing')
+          })
+          .catch(err => {
+            console.warn('⚠️ Video play failed:', err)
+          })
+      } catch (error) {
+        console.warn('Failed to setup jackpot result video:', error)
+        bgVideo = null
+        videoSprite = null
       }
+    } else if (bgVideo) {
+      console.warn('⚠️ Video does not have valid dimensions yet:', bgVideo.videoWidth, 'x', bgVideo.videoHeight, '- readyState:', bgVideo.readyState)
+      bgVideo = null
+      videoSprite = null
+    }
 
-      // Initialize video, create texture, then play
-      initVideo()
-        .then(() => {
-          console.log('▶️ Starting video playback')
-          return bgVideo.play()
-        })
-        .then(() => {
-          console.log('✅ Jackpot result video playing')
-        })
-        .catch(err => {
-          console.warn('⚠️ Video initialization/play failed:', err)
-          // Create fallback background if video fails
-          const fallbackBg = new Graphics()
-          fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
-          fallbackBg.fill({ color: 0x1a0a2a, alpha: 0.95 })
-          container.addChildAt(fallbackBg, 0)
-        })
-    } else {
-      console.warn('❌ Jackpot result video source not found')
-      // Create fallback background
+    // If video failed to load, use colored background
+    if (!bgVideo || !videoSprite) {
+      console.warn('⚠️ Using fallback background (video not available)')
       const fallbackBg = new Graphics()
       fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
       fallbackBg.fill({ color: 0x1a0a2a, alpha: 0.95 })
@@ -543,10 +481,8 @@ export function createJackpotResultOverlay(gameState) {
         // Update texture source from video
         videoSprite.texture.update()
       } catch (err) {
-        // Suppress WebGL errors during texture updates
-        if (err.message && !err.message.includes('GL_INVALID_OPERATION')) {
-          console.warn('Video texture update warning:', err.message)
-        }
+        // Suppress errors during texture update to prevent stack overflow
+        console.warn('Video texture update skipped:', err.message)
       }
     }
 

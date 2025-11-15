@@ -120,6 +120,7 @@ export const ASSETS = {
     active_status_bg: new URL('../assets/consecutiveWins/active_status_bg.png', import.meta.url).href,
   },
   loadedImages: {},
+  loadedVideos: {}, // Preloaded video elements (populated during loading phase)
   videoPaths: {
     jackpot: new URL('../assets/videos/jackpot.mp4', import.meta.url).href,
     jackpot_result: new URL('../assets/videos/jackpot_result.mp4', import.meta.url).href

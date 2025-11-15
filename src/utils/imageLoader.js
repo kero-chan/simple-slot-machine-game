@@ -2,14 +2,66 @@ import { Assets, Texture } from 'pixi.js'
 import { ASSETS } from '../config/assets'
 
 /**
- * Skip video preloading - videos will be created on-demand
- * This is simpler and more reliable on mobile
+ * Preload video during loading phase for instant playback later
+ * Creates and caches video element with metadata and initial frames loaded
  */
 async function preloadVideo(src) {
-  // Don't preload videos - just return null
-  // Videos will be created fresh when needed
-  console.log('📹 Skipping video preload (will create on-demand):', src)
-  return null
+  return new Promise((resolve, reject) => {
+    console.log('📹 Preloading video:', src)
+
+    const video = document.createElement('video')
+    video.src = src
+    video.preload = 'auto' // Preload metadata and some data
+    video.playsInline = true
+    video.muted = true // Required for autoplay on mobile
+    video.loop = false
+    video.style.display = 'none'
+
+    // Add to DOM (required for preloading on some browsers)
+    document.body.appendChild(video)
+
+    let resolved = false
+
+    const onLoadedData = () => {
+      if (!resolved) {
+        resolved = true
+        console.log('✅ Video preloaded:', src, '- Size:', video.videoWidth, 'x', video.videoHeight, '- Duration:', video.duration.toFixed(2) + 's')
+        // Keep in DOM but hidden - ready for instant playback
+        resolve(video)
+      }
+    }
+
+    const onError = (err) => {
+      if (!resolved) {
+        resolved = true
+        console.error('❌ Video preload failed:', src, err)
+        if (video.parentNode) {
+          video.remove()
+        }
+        resolve(null)
+      }
+    }
+
+    // Wait for metadata AND some data to be loaded
+    video.addEventListener('loadeddata', onLoadedData, { once: true })
+    video.addEventListener('error', onError, { once: true })
+
+    // Start loading
+    video.load()
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      if (!resolved) {
+        console.warn('⏰ Video preload timeout:', src)
+        video.removeEventListener('loadeddata', onLoadedData)
+        video.removeEventListener('error', onError)
+        if (video.parentNode) {
+          video.remove()
+        }
+        resolve(null)
+      }
+    }, 10000)
+  })
 }
 
 /**
