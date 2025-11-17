@@ -1,7 +1,5 @@
 export const ASSETS = {
   imagePaths: {
-    start_background: new URL('../assets/slotMachine/background/background_start_game.jpg', import.meta.url).href,
-
     // Individual tile images
     tile_bai: new URL('../assets/slotMachine/tiles/tile_bai.png', import.meta.url).href,
     tile_bai_gold: new URL('../assets/slotMachine/tiles/tile_bai_gold.png', import.meta.url).href,
@@ -115,6 +113,7 @@ export const ASSETS = {
     glyph_x10_red: new URL('../assets/slotMachine/glyphs/glyph_x10_red.png', import.meta.url).href,
 
     // Background images
+    background_start_game: new URL('../assets/slotMachine/background/background_start_game.jpg', import.meta.url).href,
     background_marquee_green: new URL('../assets/slotMachine/background/background_marquee_green.png', import.meta.url).href,
     background_marquee_purple: new URL('../assets/slotMachine/background/background_marquee_purple.png', import.meta.url).href,
     background_marquee_red: new URL('../assets/slotMachine/background/background_marquee_red.png', import.meta.url).href,
