@@ -125,6 +125,8 @@ export const ASSETS = {
 
     // Header consecutive wins background
     active_status_bg: new URL('../assets/consecutiveWins/active_status_bg.png', import.meta.url).href,
+    // Jackpot GIFs
+    jackpot_gif: new URL('../assets/videos/jackpot.gif', import.meta.url).href,
   },
   loadedImages: {},
   videoPaths: {
@@ -132,6 +134,7 @@ export const ASSETS = {
     jackpot_result: new URL('../assets/videos/jackpot_result.mp4', import.meta.url).href
   },
   audioPaths: {
+    jackpot_video: new URL('../assets/videos/jackpot.mp3', import.meta.url).href,
     background_music: new URL('../assets/audio/background_music.mp3', import.meta.url).href,
     background_music_jackpot: new URL('../assets/audio/background_music_jackpot.mp3', import.meta.url).href,
     game_start: new URL('../assets/audio/game_start.mp3', import.meta.url).href,
