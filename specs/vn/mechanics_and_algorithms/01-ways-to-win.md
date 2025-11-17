@@ -179,12 +179,12 @@ Ways = 1 × 2 × 2 = 4 ways
 
 Chiến thắng bổ sung cho biểu tượng B:
 Reel 1: B ở row 2
-Reel 2: WILD ở row 2 (đếm như B)
+Reel 2: WILD ở row 1 và row 2 (đếm như B)
 Reel 3: B ở row 2
 
-Ways = 1 × 1 × 1 = 1 way
+Ways = 1 × 2 × 1 = 1 way
 
-Tổng: 4 ways cho A + 1 way cho B = 5 ways tổng cộng
+Tổng: 4 ways cho A + 2 way cho B = 6 ways tổng cộng
 ```
 
 ---

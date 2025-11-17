@@ -179,12 +179,12 @@ Ways = 1 × 2 × 2 = 4 ways
 
 Additional win for symbol B:
 Reel 1: B at row 2
-Reel 2: WILD at row 2 (counts as B)
+Reel 2: WILD at row 1 and 2 (counts as B)
 Reel 3: B at row 2
 
-Ways = 1 × 1 × 1 = 1 way
+Ways = 1 × 2 × 1 = 2 way
 
-Total: 4 ways for A + 1 way for B = 5 ways total
+Total: 4 ways for A + 2 way for B = 6 ways total
 ```
 
 ---
