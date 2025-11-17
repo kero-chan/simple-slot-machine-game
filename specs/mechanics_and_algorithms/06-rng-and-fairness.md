@@ -13,6 +13,7 @@
 ### Player Trust
 
 **Fair Gaming Guarantee:**
+
 ```
 Players must trust that:
 ✓ Outcomes are truly random
@@ -29,6 +30,7 @@ Players must trust that:
 ### Regulatory Compliance
 
 **Gaming Authorities Require:**
+
 - Cryptographically secure RNG
 - Unpredictable outcomes
 - Reproducible results (for auditing)
@@ -43,6 +45,7 @@ Players must trust that:
 ### Mathematical Integrity
 
 **RTP Validity:**
+
 ```
 Without true RNG:
 → Symbol frequencies deviate from configured weights
@@ -64,6 +67,7 @@ With true RNG:
 ### What Makes RNG "Cryptographically Secure"?
 
 **Requirements:**
+
 1. **Unpredictability:** Cannot predict next value from previous values
 2. **Non-Deterministic Seed:** Initial seed from truly random source (hardware entropy)
 3. **Statistical Randomness:** Passes statistical tests for randomness
@@ -76,6 +80,7 @@ With true RNG:
 **✅ CORRECT - Use These:**
 
 **1. Operating System Crypto RNG**
+
 ```
 Go Language:
 import "crypto/rand"
@@ -94,6 +99,7 @@ Quality: Cryptographically secure ✓
 ```
 
 **2. Hardware Random Number Generators (HRNG)**
+
 ```
 Physical sources:
 - CPU RDRAND instruction (Intel/AMD)
@@ -104,6 +110,7 @@ Usage: Supplement OS RNG for additional entropy
 ```
 
 **3. Certified Third-Party RNG Services**
+
 ```
 Examples:
 - Gaming Laboratories International (GLI) certified RNG
@@ -121,6 +128,7 @@ Benefit: Third-party auditing and certification
 **❌ WRONG - NEVER Use These for Gambling:**
 
 **1. Pseudorandom (PRNG) Libraries**
+
 ```
 Go Language - FORBIDDEN:
 import "math/rand"  // ❌ NOT CRYPTOGRAPHICALLY SECURE
@@ -134,6 +142,7 @@ Why forbidden:
 ```
 
 **2. Frontend/Client-Side RNG**
+
 ```javascript
 // JavaScript - NEVER for game logic
 Math.random()  // ❌ Completely unacceptable
@@ -147,6 +156,7 @@ Why forbidden:
 ```
 
 **3. Time-Based Seeds**
+
 ```
 // Predictable seed - FORBIDDEN
 seed := time.Now().UnixNano()  // ❌ Predictable
@@ -159,6 +169,7 @@ Why forbidden:
 ```
 
 **4. Simple Hash Functions**
+
 ```
 // MD5, SHA1 of predictable data - FORBIDDEN
 seed := md5.Sum([]byte(timestamp))  // ❌ Not secure
@@ -179,6 +190,7 @@ Why forbidden:
 **Every Spin Requires Random Decisions:**
 
 **1. Reel Starting Positions (Critical)**
+
 ```
 For each of 5 reels:
 Generate random position from 0 to 99
@@ -272,6 +284,7 @@ All other outcomes are DETERMINISTIC:
 **Definition:** A system where players (or auditors) can independently verify that game outcomes were determined fairly and not manipulated.
 
 **Key Components:**
+
 1. **Transparent Algorithm:** Publicly documented how RNG affects outcomes
 2. **Verifiable Results:** Players can recreate outcomes from seed data
 3. **Tamper-Proof Logging:** Immutable audit trail
@@ -282,6 +295,7 @@ All other outcomes are DETERMINISTIC:
 ### Provably Fair Implementation
 
 **Step 1: Generate and Log Seed**
+
 ```
 Before spin execution:
 
@@ -301,6 +315,7 @@ Before spin execution:
 ```
 
 **Step 2: Deterministic Position Generation**
+
 ```
 From seed, generate 5 reel positions:
 
@@ -315,6 +330,7 @@ Result: Same seed always produces same positions
 ```
 
 **Step 3: Provide Verification Data**
+
 ```
 Return to player (or store for audit):
 
@@ -335,6 +351,7 @@ Player (or auditor) can:
 ```
 
 **Step 4: Independent Verification**
+
 ```
 Verification Process:
 
@@ -397,6 +414,7 @@ CREATE RULE no_delete_rng_audit AS ON DELETE TO rng_audit DO INSTEAD NOTHING;
 ```
 
 **What Gets Logged:**
+
 - Unique spin identifier
 - Player identifier
 - RNG seed used
@@ -409,6 +427,7 @@ CREATE RULE no_delete_rng_audit AS ON DELETE TO rng_audit DO INSTEAD NOTHING;
 - Server identifier
 
 **Immutability Guarantees:**
+
 - No updates allowed (rule prevents modification)
 - No deletions allowed
 - Insert-only table
@@ -423,6 +442,7 @@ CREATE RULE no_delete_rng_audit AS ON DELETE TO rng_audit DO INSTEAD NOTHING;
 **Pre-Deployment Tests:**
 
 **1. Statistical Randomness Tests**
+
 ```
 Industry Standard Test Suites:
 
@@ -443,6 +463,7 @@ All tests must pass with p-value > 0.01
 ```
 
 **2. Distribution Uniformity**
+
 ```
 Test: Generate 1,000,000 random positions (0-99)
 
@@ -459,6 +480,7 @@ Chi-square test: p-value = 0.42 (PASS)
 ```
 
 **3. Independence Tests**
+
 ```
 Test: Verify outcomes are independent
 
@@ -473,6 +495,7 @@ Result: r = 0.0003 (PASS - no correlation)
 ```
 
 **4. Long-Term RTP Convergence**
+
 ```
 Test: Simulate 10,000,000 spins
 
@@ -499,6 +522,7 @@ Within tolerance: Yes (target ± 0.5%)
 **Production RNG Health Checks:**
 
 **1. Daily Statistical Analysis**
+
 ```
 Automated checks every 24 hours:
 
@@ -515,6 +539,7 @@ Alert if:
 ```
 
 **2. Weekly RTP Validation**
+
 ```
 Rolling 7-day RTP calculation:
 
@@ -530,6 +555,7 @@ Trend Analysis:
 ```
 
 **3. Monthly Third-Party Audits**
+
 ```
 Independent auditor:
 
@@ -549,6 +575,7 @@ Required by gaming licenses
 ### RNG Attack Vectors
 
 **Attack 1: Seed Prediction**
+
 ```
 Threat: Attacker tries to predict RNG seed
 
@@ -562,6 +589,7 @@ Result: Computationally infeasible to predict
 ```
 
 **Attack 2: State Observation**
+
 ```
 Threat: Attacker observes RNG state or patterns
 
@@ -575,6 +603,7 @@ Result: Past outcomes reveal nothing about future
 ```
 
 **Attack 3: Client-Side Manipulation**
+
 ```
 Threat: Player modifies client to send favorable outcomes
 
@@ -589,6 +618,7 @@ Result: Client manipulation has zero effect on outcome
 ```
 
 **Attack 4: Replay Attacks**
+
 ```
 Threat: Attacker replays winning spin request
 
@@ -602,6 +632,7 @@ Result: Cannot replay or reuse spin requests
 ```
 
 **Attack 5: Timing Attacks**
+
 ```
 Threat: Attacker times request to influence RNG
 
@@ -796,24 +827,28 @@ func TestRNGIndependence(t *testing.T) {
 **Different jurisdictions have specific RNG requirements:**
 
 **Malta Gaming Authority (MGA):**
+
 - Third-party RNG certification required
 - Monthly statistical reports
 - Audit trail retention: 5 years
 - RTP verification: ±1%
 
 **UK Gambling Commission (UKGC):**
+
 - Approved RNG testing labs (GLI, iTech Labs, etc.)
 - Quarterly audits
 - Player-facing RTP disclosure
 - Technical compliance documentation
 
 **Gibraltar Gambling Commission:**
+
 - ISO 27001 compliance
 - Independent RNG certification
 - Annual statistical verification
 - Provably fair demonstration
 
 **Curaçao eGaming:**
+
 - RNG testing lab certification
 - Monthly RTP reporting
 - Audit log requirements
@@ -867,6 +902,7 @@ func TestRNGIndependence(t *testing.T) {
 ## Summary
 
 **RNG Fundamentals:**
+
 - Cryptographically secure RNG is mandatory (crypto/rand)
 - Never use pseudorandom libraries (math/rand)
 - Server-side only - zero client influence
@@ -874,6 +910,7 @@ func TestRNGIndependence(t *testing.T) {
 - All other outcomes are deterministic
 
 **Provably Fair:**
+
 - Seed-based generation
 - Complete audit trail
 - Independently verifiable
@@ -881,6 +918,7 @@ func TestRNGIndependence(t *testing.T) {
 - Checksum validation
 
 **Security:**
+
 - Isolated from external influence
 - Protected against prediction attacks
 - Nonce-based replay protection
@@ -888,6 +926,7 @@ func TestRNGIndependence(t *testing.T) {
 - Complete tamper protection
 
 **Compliance:**
+
 - Statistical randomness tests
 - Third-party certification
 - Regulatory audit trail
