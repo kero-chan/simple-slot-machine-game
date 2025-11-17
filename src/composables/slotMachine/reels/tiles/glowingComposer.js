@@ -36,13 +36,13 @@ let STAR_TEX = null
 function ensureStarTexture() {
   if (STAR_TEX && STAR_TEX.source?.valid) return STAR_TEX
 
-  const loaded = ASSETS.loadedImages?.tiles_star
+  const loaded = ASSETS.loadedImages?.effect_star
   if (loaded) {
     STAR_TEX = loaded.source ? loaded : Texture.from(loaded)
     return STAR_TEX
   }
 
-  const url = ASSETS.imagePaths?.tiles_star
+  const url = ASSETS.imagePaths?.effect_star
   if (url) {
     STAR_TEX = Texture.from(url)
     return STAR_TEX

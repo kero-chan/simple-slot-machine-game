@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { CONFIG } from '../../config/constants'
-import startBgUrl from '../../assets/start_game_bg.jpg'
+import startBgUrl from '../../assets/slotMachine/background/background_start_game.jpg'
 
 export function useCanvas(canvasRef) {
   const canvas = ref(null)

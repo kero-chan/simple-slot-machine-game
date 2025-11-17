@@ -13,13 +13,13 @@ export function createLightBurstManager() {
   function ensureLightBurstTexture() {
     if (lightBurstTexture && lightBurstTexture.source?.valid) return lightBurstTexture
 
-    const loaded = ASSETS.loadedImages?.golden_light_burst
+    const loaded = ASSETS.loadedImages?.effect_golden_light_burst
     if (loaded) {
       lightBurstTexture = loaded.source ? loaded : Texture.from(loaded)
       return lightBurstTexture
     }
 
-    const url = ASSETS.imagePaths?.golden_light_burst
+    const url = ASSETS.imagePaths?.effect_golden_light_burst
     if (url) {
       lightBurstTexture = Texture.from(url)
       return lightBurstTexture

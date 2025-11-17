@@ -18,7 +18,7 @@ import { useSlotMachine } from "./composables/useSlotMachine";
 import { useSettingsStore } from "./stores/settingsStore";
 import { audioManager } from "./composables/audioManager";
 import StartScreen from "./components/StartScreen.vue";
-import bgUrl from "./assets/background.jpg";
+import bgUrl from "./assets/slotMachine/background/background.jpg";
 
 const canvasRef = ref(null);
 const settingsStore = useSettingsStore();
@@ -83,7 +83,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: url("./assets/background.jpg");
+  background-image: url("./assets/slotMachine/background/background.jpg");
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;

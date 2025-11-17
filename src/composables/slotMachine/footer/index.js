@@ -608,7 +608,7 @@ export function useFooter(gameState) {
       // === VISUAL EFFECTS: Star Glow ===
 
       // 1. Create star glow sprite
-      const starTexture = ASSETS.loadedImages?.tiles_star || ASSETS.imagePaths?.tiles_star
+      const starTexture = ASSETS.loadedImages?.effect_star || ASSETS.imagePaths?.effect_star
       if (starTexture) {
         const texture = starTexture instanceof Texture ? starTexture : Texture.from(starTexture)
         spinGlowStarSprite = new Sprite(texture)

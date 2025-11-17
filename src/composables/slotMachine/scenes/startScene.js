@@ -16,7 +16,7 @@ export function useStartScene(gameState) {
     function build(w, h) {
         container.removeChildren()
 
-        const bgAsset = ASSETS.loadedImages.start_background || ASSETS.imagePaths?.start_background
+        const bgAsset = ASSETS.loadedImages.background_start_game || ASSETS.imagePaths?.background_start_game
         if (bgAsset) {
             const tex = bgAsset instanceof Texture ? bgAsset : Texture.from(bgAsset)
             const bg = new Sprite(tex)

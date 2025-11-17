@@ -16,7 +16,7 @@ export function createBonusOverlay(gameState) {
   container.zIndex = 1100 // Above win overlay
 
   let background = null
-  let bgImage = null  // Fullscreen jackpot_begin_bg image
+  let bgImage = null  // Fullscreen win_jackpot_begin_bg image
   let titleText = null
   let freeSpinsNumberContainer = null  // Container for image-based number sprites
   let messageText = null
@@ -198,10 +198,10 @@ export function createBonusOverlay(gameState) {
     background.fill({ color: 0x000000, alpha: 0.7 })
     container.addChild(background)
 
-    // Use jackpot_begin_bg image as FULLSCREEN background
+    // Use win_jackpot_begin_bg image as FULLSCREEN background
     let bgImageLoaded = false
     try {
-      const imageSrc = ASSETS.loadedImages?.jackpot_begin_bg || ASSETS.imagePaths?.jackpot_begin_bg
+      const imageSrc = ASSETS.loadedImages?.win_jackpot_begin_bg || ASSETS.imagePaths?.win_jackpot_begin_bg
 
       if (imageSrc) {
         const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
@@ -220,10 +220,10 @@ export function createBonusOverlay(gameState) {
         bgImageLoaded = true
         console.log('✅ Jackpot begin fullscreen image loaded')
       } else {
-        console.warn('❌ No imageSrc found for jackpot_begin_bg')
+        console.warn('❌ No imageSrc found for win_jackpot_begin_bg')
       }
     } catch (error) {
-      console.warn('Failed to load jackpot_begin_bg image:', error)
+      console.warn('Failed to load win_jackpot_begin_bg image:', error)
     }
 
     // If image failed to load, use colored background fallback
@@ -456,7 +456,7 @@ export function createBonusOverlay(gameState) {
       background.rect(0, 0, canvasWidth, canvasHeight)
       background.fill({ color: 0x000000, alpha: 0.7 })
 
-      // Reposition and rescale fullscreen jackpot_begin_bg image
+      // Reposition and rescale fullscreen win_jackpot_begin_bg image
       if (bgImage && bgImage.texture) {
         bgImage.x = canvasWidth / 2
         bgImage.y = canvasHeight / 2
