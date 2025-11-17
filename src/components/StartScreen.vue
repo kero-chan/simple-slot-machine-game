@@ -1,7 +1,7 @@
 <template>
   <div v-if="gameState.showStartScreen.value" class="start-screen">
     <img
-      src="../assets/start_game_bg.jpg"
+      src="../assets/slotMachine/background/background_start_game.jpg"
       alt="Background"
       class="background-image"
     />
@@ -29,7 +29,7 @@
       <!-- Start Button -->
       <div v-else class="start-button-container">
         <img
-          src="../assets/images/start_button.png"
+          src="../assets/slotMachine/glyphs/glyph_start_button.png"
           alt="Start Button"
           class="start-button"
           :class="{ 'button-loading': isUnlockingAudio }"

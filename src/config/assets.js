@@ -1,6 +1,6 @@
 export const ASSETS = {
   imagePaths: {
-    start_background: new URL('../assets/start_game_bg.jpg', import.meta.url).href,
+    start_background: new URL('../assets/slotMachine/background/background_start_game.jpg', import.meta.url).href,
 
     // Individual tile images
     tile_bai: new URL('../assets/slotMachine/tiles/tile_bai.png', import.meta.url).href,
