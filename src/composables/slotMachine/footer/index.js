@@ -1169,9 +1169,15 @@ export function useFooter(gameState) {
     }
 
     if (!!gameState.canSpin?.value) {
-      amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value)
+      if (gameState.inFreeSpinMode.value) {
+        amountLabels.win_amount_icon.text = formatNumber(spinWinAmount)
+      } else {
+        amountLabels.win_amount_icon.text = formatNumber(gameState.currentWin.value)
+      }
       if (!showTotalWinAmount) {
-        showWinAmount(formatNumber(formatNumber(gameState.currentWin.value)), true)
+        if (gameState.currentWin.value > 0) {
+          showWinAmount(formatNumber(formatNumber(gameState.currentWin.value)), true)
+        }
         showTotalWinAmount = true
       }
     } else {
