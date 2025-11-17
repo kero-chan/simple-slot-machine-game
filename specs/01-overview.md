@@ -60,13 +60,15 @@ Total Bet = 20 (lines) × Bet Multiplier × Coin Value
 
 4. **Golden Symbol Transformation**
    - Appears on reels 2, 3, 4 only
-   - Visual enhancement (no gameplay impact in MW1)
-   - Transforms to regular symbols after cascade
+   - When part of a winning combination, transforms into Wild symbols after cascade
+   - Transformed Wilds persist for subsequent cascades in the same spin
+   - This is the ONLY way Wild symbols can appear in the game
 
 5. **Wild Substitution**
-   - Substitutes for all symbols except Scatter
-   - Appears on all reels
-   - Can appear as Golden Wild
+   - Substitutes for all symbols except Scatter and Mystery
+   - Does NOT have independent payout (substitution only)
+   - ONLY appears from golden symbol transformation (not directly on reels)
+   - Can only appear on reels 2, 3, 4 (same restriction as golden symbols)
 
 6. **Mystery Symbol**
    - High-value symbol with premium payouts

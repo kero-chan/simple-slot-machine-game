@@ -60,13 +60,15 @@ Tổng Cược = 20 (dòng) × Hệ Số Nhân Cược × Giá Trị Đồng Xu
 
 4. **Chuyển Đổi Biểu Tượng Vàng**
    - Xuất hiện chỉ trên cuộn 2, 3, 4
-   - Cải thiện hình ảnh (không ảnh hưởng gameplay trong MW1)
-   - Chuyển thành biểu tượng thường sau cascade
+   - Khi là một phần của tổ hợp chiến thắng, chuyển thành biểu tượng Wild sau cascade
+   - Wild đã chuyển đổi sẽ tồn tại cho các cascade tiếp theo trong cùng một vòng quay
+   - Đây là cách DUY NHẤT để biểu tượng Wild xuất hiện trong game
 
 5. **Thay Thế Wild**
-   - Thay thế cho tất cả biểu tượng trừ Scatter
-   - Xuất hiện trên tất cả cuộn
-   - Có thể xuất hiện dưới dạng Golden Wild
+   - Thay thế cho tất cả biểu tượng trừ Scatter và Mystery
+   - KHÔNG có thanh toán độc lập (chỉ thay thế)
+   - CHỈ xuất hiện từ chuyển đổi biểu tượng vàng (không xuất hiện trực tiếp trên cuộn)
+   - Chỉ có thể xuất hiện trên cuộn 2, 3, 4 (cùng hạn chế như biểu tượng vàng)
 
 6. **Biểu Tượng Bí Ẩn**
    - Biểu tượng giá trị cao với thanh toán cao cấp

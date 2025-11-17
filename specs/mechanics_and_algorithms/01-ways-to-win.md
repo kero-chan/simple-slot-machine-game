@@ -143,6 +143,11 @@ Reel 5: A
 
 **Wild symbols substitute for any paying symbol** (except Scatter and Mystery).
 
+**IMPORTANT:**
+- Wild symbols CANNOT appear directly on reels
+- Wilds ONLY appear when golden symbols transform after being part of a winning combination
+- Wilds can ONLY appear on reels 2, 3, 4 (same restriction as golden symbols)
+
 ```
 Example with Wild:
         Reel 1   Reel 2   Reel 3   Reel 4
@@ -150,7 +155,7 @@ Row 1:    A       WILD      A        A
 Row 2:    B        B        B        X
 
 Analysis:
-- Reel 2's WILD substitutes for symbol A
+- Reel 2's WILD (transformed from a golden symbol) substitutes for symbol A
 - Creates 4-of-a-kind for symbol A
 - Result: Pays as 4-of-a-kind A
 ```
@@ -333,16 +338,19 @@ Result:
 
 ### Case 4: All Wilds
 
-**Pure Wild combinations pay as the highest symbol.**
+**Pure Wild combinations have NO PAYOUT.**
 
 ```
         Reel 1   Reel 2   Reel 3
 Row 1:   WILD     WILD     WILD
 
 Result:
-- Counted as 3-of-a-kind of highest paying symbol
-- OR use Wild's own paytable value
-- Implementation-specific decision
+- NO PAYOUT (Wild has no paytable entry)
+- Wilds exist only for substitution purposes
+- Pure Wild lines do not award any winnings
+
+Note: This scenario is impossible since Wilds only appear on reels 2, 3, 4
+      and cannot appear on Reel 1, so a pure Wild combination cannot occur
 ```
 
 ---

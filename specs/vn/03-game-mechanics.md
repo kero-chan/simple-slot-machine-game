@@ -365,12 +365,16 @@ func RetriggerFreeSpins(state *FreeSpinsState, scatterCount int) {
 ### Quy Tắc Thay Thế
 
 1. **Xuất Hiện Trên Trục:**
-   - Wild có thể xuất hiện trên TẤT CẢ các trục (1, 2, 3, 4, 5)
+   - Wild CHỈ CÓ THỂ xuất hiện trên cuộn 2, 3, 4
+   - Wild KHÔNG bao giờ xuất hiện trực tiếp từ RNG
+   - Wild CHỈ xuất hiện thông qua phép biến đổi từ biểu tượng Golden
 
-2. **Wild Vàng:**
-   - Có thể xuất hiện với khung Vàng trên trục 2, 3, 4
-   - Chức năng giống hệt Wild thông thường
-   - Chỉ nâng cao về mặt hình ảnh
+2. **Cơ Chế Biến Đổi Golden:**
+   - Khi biểu tượng Golden được sử dụng trong tổ hợp thắng, nó KHÔNG được biến đổi ngay lập tức
+   - Biểu tượng Golden được thanh toán bình thường trong cascade hiện tại
+   - SAU KHI cascade hoàn thành, biểu tượng Golden được chuyển đổi thành Wild
+   - Wilds được chuyển đổi này vẫn tồn tại và hoạt động trong các cascades tiếp theo
+   - Quá trình này có thể lặp lại cho nhiều cascades liên tiếp
 
 3. **Ưu Tiên Thay Thế:**
    - Wild lấp đầy cho các biểu tượng còn thiếu trong các cách thắng tiềm năng
@@ -457,7 +461,7 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 
 ### Tổng Quan
 
-**LƯU Ý QUAN TRỌNG:** Trong Mahjong Ways 1, các biểu tượng Golden chỉ là **HÌNH ẢNH THÔI**. Chúng KHÔNG chuyển đổi thành Wild (đây là tính năng của Mahjong Ways 2).
+**QUAN TRỌNG:** Biểu tượng Golden là CƠ CHẾ BIẾN ĐỔI để tạo ra Wild symbols. Đây là CÁC DUY NHẤT cách Wild có thể xuất hiện trong trò chơi.
 
 ### Hành Vi Biểu Tượng Golden
 
@@ -469,8 +473,8 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 
 #### Biểu Tượng Đủ Điều Kiện
 
-- Biểu tượng Wild có thể xuất hiện dưới dạng Golden Wild
-- Biểu tượng thanh toán thông thường có thể xuất hiện dưới dạng Golden
+- BẤT CỨ biểu tượng thanh toán thông thường có thể xuất hiện dưới dạng Golden
+- Ví dụ: fa_gold, zhong_gold, bai_gold, bawan_gold, wusuo_gold, wutong_gold, liangsuo_gold, liangtong_gold
 
 #### Chỉ Báo Trực Quan
 
@@ -482,30 +486,51 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 
 #### Giai đoạn 1: Xuất Hiện Ban Đầu
 
-1. Biểu tượng hạ cánh với khung/ánh sáng vàng
-2. Chức năng bình thường cho đánh giá thắng
-3. Tham gia vào cơ chế cascade
-4. Được tính cho tính toán thanh toán
+1. Biểu tượng Golden hạ cánh với khung/ánh sáng vàng
+2. Được tính là biểu tượng gốc (VÍ DỤ: fa_gold được tính là fa) cho đánh giá thắng
+3. Tham gia vào cơ chế cascade bình thường
+4. Được thanh toán theo giá trị của biểu tượng gốc
 
 #### Giai đoạn 2: Sau Cascade
 
-1. Sau khi cascade hoàn thành và các biểu tượng mới hạ cánh
-2. Biểu tượng Golden chuyển đổi thành phiên bản thông thường
-3. Ánh sáng/khung vàng được loại bỏ
-4. Biểu tượng giữ nguyên loại (ví dụ: Golden Wild → Wild Thông thường)
-5. **Không ảnh hưởng đến gameplay, chỉ là hình ảnh**
+1. SAU KHI cascade hoàn thành và các biểu tượng mới rơi xuống
+2. Biểu tượng Golden được chuyển đổi thành Wild (CHỈ nếu nó là một phần của tổ hợp thắng)
+3. Wilds được chuyển đổi này vẫn tồn tại trên grid
+4. Wilds này hoạt động bình thường trong các cascades tiếp theo
+
+#### Giai đoạn 3: Cascades Tiếp Theo
+
+1. Wilds được chuyển đổi hoạt động như Wilds thông thường
+2. Chúng có thể tạo thành các tổ hợp thắng mới
+3. Quá trình có thể tiếp tục nếu Wilds này tham gia vào các tổ hợp thắng mới
 
 ### Mục Đích
 
-- Phấn khích và dự đoán về mặt hình ảnh
-- Nâng cao thẩm mỹ trong các chuỗi thắng
-- Sự tham gia của người chơi (không có lợi ích thanh toán thực tế)
+- Biểu tượng Golden là CƠ CHẾ CHÍNH để tạo ra Wild symbols
+- Cho phép sự kết hợp của biểu tượng thực tế với khả năng thay thế
+- Tạo cơ hội cho những cascades dài hơn và thắng lớn hơn
+
+### Ví Dụ
+
+**Ví dụ Golden Transformation:**
+
+```
+Cascade 1: fa_gold xuất hiện và tạo thành tổ hợp thắng
+           Thanh toán: Tính theo fa (biểu tượng gốc)
+
+Sau Cascade 1: fa_gold được chuyển đổi thành wild
+
+Cascade 2: Wild mới có thể tạo thành tổ hợp thắng mới với các biểu tượng khác
+           Thanh toán: Tính theo biểu tượng được thay thế
+
+Cascade 3+: Quá trình tiếp tục nếu có thắng mới
+```
 
 ### Triển Khai
 
 ```go
 type Symbol struct {
-    Type     string // "WILD", "HIGH_FA", v.v.
+    Type     string // "WILD", "HIGH_FA", "fa_gold", v.v.
     IsGolden bool   // Chỉ trạng thái hình ảnh
     Reel     int
     Row      int
@@ -515,17 +540,29 @@ func CanBeGolden(reel int) bool {
     return reel >= 2 && reel <= 4
 }
 
-func TransformGoldenSymbols(grid [][]Symbol) {
+func GetBaseSymbol(symbol string) string {
+    // Xóa hậu tố _gold để lấy biểu tượng gốc
+    if strings.HasSuffix(symbol, "_gold") {
+        return symbol[:len(symbol)-5]
+    }
+    return symbol
+}
+
+func TransformGoldenToWild(grid [][]Symbol, winningPositions map[string]bool) {
+    // Chỉ chuyển đổi biểu tượng Golden nếu nó là một phần của tổ hợp thắng
     for i := range grid {
         for j := range grid[i] {
-            if grid[i][j].IsGolden {
+            key := fmt.Sprintf("%d,%d", i, j)
+            if grid[i][j].IsGolden && winningPositions[key] {
+                // Chuyển đổi Golden thành Wild
+                grid[i][j].Type = "WILD"
                 grid[i][j].IsGolden = false
             }
         }
     }
 }
 
-// Gọi TransformGoldenSymbols sau khi cascade hoàn thành
+// Gọi TransformGoldenToWild sau khi cascade hoàn thành, chỉ cho các vị trí thắng
 ```
 
 ---

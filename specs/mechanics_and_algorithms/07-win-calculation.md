@@ -152,6 +152,8 @@ Reel 4: Looking for ZHONG
 - Wild does NOT substitute for scatter or mystery
 - Wild can create or extend matches
 - Wild counts as the symbol it's substituting for
+- **Wild ONLY appears on reels 2, 3, 4** (transformed from golden symbols)
+- Wild CANNOT appear directly on reels
 
 ---
 
@@ -265,9 +267,9 @@ paytable = {
   wusuo:     { 3: 3,  4: 5,  5: 12 },
   wutong:    { 3: 3,  4: 5,  5: 12 },
   liangsuo:  { 3: 2,  4: 4,  5: 10 },
-  liangtong: { 3: 1,  4: 3,  5: 6  },
-  bonus:     { 3: 1,  4: 3,  5: 6  },  // Scatter
-  wild:      { 3: 1,  4: 3,  5: 6  }   // Wild
+  liangtong: { 3: 1,  4: 3,  5: 6  }
+  // Note: wild and bonus do NOT have paytable entries
+  // Wild: substitution only, bonus: feature trigger only
 }
 ```
 
@@ -689,23 +691,16 @@ If symbol doesn't form 3+ consecutive matches:
 
 **Answer:**
 ```
-Grid:
-Reel 1: WILD
-Reel 2: WILD
-Reel 3: WILD
+This scenario is IMPOSSIBLE because:
+1. Wilds ONLY appear on reels 2, 3, 4
+2. Wilds CANNOT appear on Reel 1
+3. A winning combination must start from Reel 1
+4. Therefore, a pure Wild combination cannot occur
 
-Paytable shows:
-wild: { 3: 1, 4: 3, 5: 6 }
-
-Pure wild 3-of-a-kind:
-Payout = 1x (from paytable)
-Ways = 1 (assuming 1 position each)
-Multiplier = Current cascade multiplier
-Bet Per Way = Total_Bet / 20
-
-Win = 1 × 1 × Multiplier × Bet_Per_Way
-
-Wilds have their own payout value
+If hypothetically Wilds were on all reels:
+- NO PAYOUT (Wild has no paytable entry)
+- Wilds exist only for substitution
+- Pure Wild lines do not award any winnings
 ```
 
 ---
@@ -767,24 +762,24 @@ Best Practice:
 
 **Answer:**
 ```
-Yes, scatters have dual function:
+NO, scatters do NOT have a paytable entry.
+
+Scatters have ONLY one function:
 
 1. Trigger Function:
-   3+ scatters → Trigger free spins
+   3+ scatters ANYWHERE (not necessarily adjacent) → Trigger free spins
+   - 3 scatters: 12 free spins
+   - 4 scatters: 14 free spins
+   - 5 scatters: 16 free spins
 
-2. Symbol Payout:
-   bonus: { 3: 1, 4: 3, 5: 6 }
-
-   Scatters forming 3+ consecutive matches
-   → Pay according to paytable
-   → PLUS trigger free spins if applicable
-
-Both rewards apply simultaneously!
+2. NO Symbol Payout:
+   Scatters do NOT pay according to ways-to-win
+   They only trigger the free spins feature
 
 Example:
 4 scatters in base game:
-- Pays: 3x × ways × multiplier × bet_per_way
-- PLUS: Triggers 14 free spins
+- Pays: 0 (no line payout)
+- Triggers: 14 free spins
 ```
 
 ---

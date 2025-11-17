@@ -36,19 +36,19 @@ This document defines all symbols used in the Mahjong Ways slot machine game, ba
 - Does NOT substitute for bonus (scatter)
 - Does NOT substitute for gold (mystery)
 
-**Payout:** No independent payout (substitution only)
+**Payout:** Wild symbols do NOT have a paytable. They exist ONLY for substitution purposes and do not award independent payouts.
 
-**Paytable Entry:**
+**Appearance:**
 
-```javascript
-wild: { 3: 1, 4: 3, 5: 6 }
-```
+- Wild symbols CANNOT appear directly on the reels
+- Wilds ONLY appear when gold symbols from a previous win in the same spin are transformed into Wilds
+- Wilds can ONLY appear on reels 2, 3, and 4 (same restriction as gold symbols)
 
-*Note: These values apply when wild forms its own winning line*
+**Transformation Mechanic:**
 
-**Appearance:** All reels (1-5)
-
-**Golden Variant:** Can appear as `wild_gold` on reels 2, 3, 4
+- After a cascade with winning symbols, any gold symbols that were part of the win transform into Wild symbols
+- These transformed Wilds remain for subsequent cascades in the same spin
+- Wilds created this way follow the same reel restrictions (2, 3, 4 only)
 
 ---
 
@@ -80,13 +80,7 @@ wild: { 3: 1, 4: 3, 5: 6 }
 
 **Formula:** `12 + (2 × (bonus_count - 3))`
 
-**Paytable Entry:**
-
-```javascript
-bonus: { 3: 1, 4: 3, 5: 6 }
-```
-
-*Note: Bonus triggers free spins; line wins are secondary*
+**Payout:** Scatter symbols do NOT have a paytable. They exist ONLY to trigger Free Spins and do not award line payouts.
 
 **Retrigger:**
 
@@ -361,9 +355,9 @@ paytable: {
   wusuo:     { 3: 3,  4: 5,  5: 12 },
   wutong:    { 3: 3,  4: 5,  5: 12 },
   liangsuo:  { 3: 2,  4: 4,  5: 10 },
-  liangtong: { 3: 1,  4: 3,  5: 6  },
-  bonus:     { 3: 1,  4: 3,  5: 6  },
-  wild:      { 3: 1,  4: 3,  5: 6  }
+  liangtong: { 3: 1,  4: 3,  5: 6  }
+  // Note: wild and bonus do NOT have paytable entries
+  // They exist only for substitution (wild) and feature trigger (bonus)
 }
 ```
 
@@ -372,9 +366,9 @@ paytable: {
 | Symbol | Type | 5-of-a-kind | 4-of-a-kind | 3-of-a-kind | Notes |
 |--------|------|-------------|-------------|-------------|-------|
 | **Special** |
-| wild | Special | 6x | 3x | 1x | Substitutes all except bonus/gold |
-| bonus | Special | 6x | 3x | 1x | Triggers Free Spins (3+) |
-| gold | Special | 500x* | 100x* | 10x* | Mystery symbol (*proposed) |
+| wild | Special | - | - | - | NO PAYOUT - Substitutes only; appears from gold transformation |
+| bonus | Special | - | - | - | NO PAYOUT - Triggers Free Spins (3+) only |
+| gold | Special | 500x* | 100x* | 10x* | Mystery symbol (*proposed); transforms to Wild after win |
 | **High-Value** |
 | fa | High | 50x | 25x | 10x | Green "发" |
 | zhong | High | 40x | 20x | 8x | Red "中" |
@@ -394,12 +388,13 @@ paytable: {
 
 ### Behavior (MW1)
 
-**CRITICAL:** In Mahjong Ways 1, golden symbols are **VISUAL ONLY**.
+**CRITICAL:** In Mahjong Ways 1, golden symbols have a special transformation mechanic.
 
-- ❌ Do NOT convert to Wild (MW2 feature)
 - ✅ Appear only on reels 2, 3, 4
-- ✅ Same payout as regular symbol
-- ✅ Transform to regular after cascade
+- ✅ Same payout as regular symbol when part of a win
+- ✅ **Transform to Wild after cascade:** When a gold symbol is part of a winning combination, it transforms into a Wild symbol after the cascade
+- ✅ Transformed Wilds persist for subsequent cascades in the same spin
+- ✅ This is the ONLY way Wild symbols can appear in the game
 
 ### Symbol Format
 
@@ -537,9 +532,8 @@ var Paytable = map[string]map[int]int{
     "wutong":    {3: 3,  4: 5,  5: 12},
     "liangsuo":  {3: 2,  4: 4,  5: 10},
     "liangtong": {3: 1,  4: 3,  5: 6},
-    "bonus":     {3: 1,  4: 3,  5: 6},
-    "wild":      {3: 1,  4: 3,  5: 6},
-    "gold":      {3: 10, 4: 100, 5: 500}, // Add mystery symbol
+    "gold":      {3: 10, 4: 100, 5: 500}, // Mystery symbol
+    // Note: wild and bonus do NOT have paytable entries
 }
 
 var SpecialSymbols = map[string]bool{
@@ -585,9 +579,9 @@ CREATE TABLE symbols (
 
 -- Insert symbols
 INSERT INTO symbols (symbol_id, symbol_name, symbol_type, payout_3, payout_4, payout_5, is_wild, is_scatter) VALUES
-('wild', 'Wild', 'SPECIAL', 1, 3, 6, TRUE, FALSE),
-('bonus', 'Bonus Scatter', 'SPECIAL', 1, 3, 6, FALSE, TRUE),
-('gold', 'Gold Mystery', 'SPECIAL', 10, 100, 500, FALSE, FALSE),
+('wild', 'Wild', 'SPECIAL', NULL, NULL, NULL, TRUE, FALSE),  -- No payout, substitution only
+('bonus', 'Bonus Scatter', 'SPECIAL', NULL, NULL, NULL, FALSE, TRUE),  -- No payout, triggers feature only
+('gold', 'Gold Mystery', 'SPECIAL', 10, 100, 500, FALSE, FALSE),  -- Transforms to Wild after win
 ('fa', 'Green Fa', 'HIGH_VALUE', 10, 25, 50, FALSE, FALSE),
 ('zhong', 'Red Zhong', 'HIGH_VALUE', 8, 20, 40, FALSE, FALSE),
 ('bai', 'White Bai', 'HIGH_VALUE', 6, 15, 30, FALSE, FALSE),
@@ -640,10 +634,14 @@ star.png            // (Additional asset)
 
 - [ ] All symbols load correctly
 - [ ] Paytable values match specification
+- [ ] Wild has NO paytable entry (substitution only)
+- [ ] Bonus has NO paytable entry (feature trigger only)
 - [ ] Wild substitution works for all symbols except bonus/gold
-- [ ] Bonus triggers free spins at 3+ count
+- [ ] Bonus triggers free spins at 3+ count (no line payout)
 - [ ] Gold symbol has correct payouts
-- [ ] Golden variants appear only on reels 2, 3, 4
-- [ ] Golden variants convert to regular after cascade
+- [ ] Golden symbols appear only on reels 2, 3, 4
+- [ ] Golden symbols transform to Wild after being part of a winning combination
+- [ ] Wilds ONLY appear from gold transformation (not directly)
+- [ ] Wilds only appear on reels 2, 3, 4
 - [ ] Win calculation matches expected values
 - [ ] Maximum win cap enforced (25,000x)

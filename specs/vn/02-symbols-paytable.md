@@ -36,19 +36,17 @@ Tài liệu này định nghĩa tất cả biểu tượng được sử dụng 
 - KHÔNG thay thế cho bonus (scatter)
 - KHÔNG thay thế cho gold (mystery)
 
-**Thanh Toán:** Không có thanh toán độc lập (chỉ thay thế)
+**Thanh Toán:** KHÔNG CÓ thanh toán độc lập (chỉ tồn tại để thay thế)
+
+**Xuất Hiện:** KHÔNG thể xuất hiện trực tiếp. Wild CHỈ CÓ THỂ xuất hiện trên cuộn 2, 3, 4 nhưng CHỈ thông qua phép biến đổi từ biểu tượng Golden khi chúng là một phần của tổ hợp thắng.
+
+*Lưu ý: Wild KHÔNG có mục bảng trả thưởng riêng. Nó chỉ hoạt động như thay thế, không có giá trị payout độc lập.*
 
 **Mục Bảng Trả Thưởng:**
 
-```javascript
-wild: { 3: 1, 4: 3, 5: 6 }
-```
+- KHÔNG CÓ (Wild không có thanh toán độc lập)
 
-*Lưu ý: Các giá trị này áp dụng khi wild tạo thành dòng thắng riêng*
-
-**Xuất Hiện:** Tất cả cuộn (1-5)
-
-**Biến Thể Vàng:** Có thể xuất hiện dưới dạng `wild_gold` trên cuộn 2, 3, 4
+**Biến Thể Vàng:** Không có (Wild chỉ xuất hiện thông qua phép biến đổi Golden)
 
 ---
 
@@ -62,7 +60,7 @@ wild: { 3: 1, 4: 3, 5: 6 }
 
 - `bonus.png`
 
-**Chức Năng:** Kích hoạt tính năng Vòng Quay Miễn Phí
+**Chức Năng:** Kích hoạt tính năng Vòng Quay Miễn Phí (KHÔNG có thanh toán hàng)
 
 **Quy Tắc Kích Hoạt:**
 
@@ -82,11 +80,9 @@ wild: { 3: 1, 4: 3, 5: 6 }
 
 **Mục Bảng Trả Thưởng:**
 
-```javascript
-bonus: { 3: 1, 4: 3, 5: 6 }
-```
+- KHÔNG CÓ (Bonus chỉ kích hoạt Free Spins, không có thanh toán hàng độc lập)
 
-*Lưu ý: Bonus kích hoạt vòng quay miễn phí; thắng trên dòng là thứ yếu*
+*Lưu ý: Bonus kích hoạt vòng quay miễn phí; nó KHÔNG tham gia vào thanh toán theo dòng.*
 
 **Kích Hoạt Lại:**
 
@@ -362,8 +358,8 @@ paytable: {
   wutong:    { 3: 3,  4: 5,  5: 12 },
   liangsuo:  { 3: 2,  4: 4,  5: 10 },
   liangtong: { 3: 1,  4: 3,  5: 6  },
-  bonus:     { 3: 1,  4: 3,  5: 6  },
-  wild:      { 3: 1,  4: 3,  5: 6  }
+  // bonus không có thanh toán (chỉ kích hoạt Free Spins)
+  // wild không có thanh toán (chỉ thay thế, xuất hiện thông qua phép biến đổi Golden)
 }
 ```
 
@@ -372,8 +368,8 @@ paytable: {
 | Biểu Tượng | Loại | 5-cùng-loại | 4-cùng-loại | 3-cùng-loại | Ghi Chú |
 |------------|------|-------------|-------------|-------------|---------|
 | **Đặc Biệt** |
-| wild | Đặc biệt | 6x | 3x | 1x | Thay thế tất cả trừ bonus/gold |
-| bonus | Đặc biệt | 6x | 3x | 1x | Kích hoạt Vòng Quay Miễn Phí (3+) |
+| wild | Đặc biệt | KHÔNG | KHÔNG | KHÔNG | Chỉ thay thế, xuất hiện qua biến đổi Golden |
+| bonus | Đặc biệt | KHÔNG | KHÔNG | KHÔNG | Kích hoạt Vòng Quay Miễn Phí (3+), không thanh toán hàng |
 | gold | Đặc biệt | 500x* | 100x* | 10x* | Biểu tượng bí ẩn (*đề xuất) |
 | **Giá Trị Cao** |
 | fa | Cao | 50x | 25x | 10x | "发" màu xanh |
@@ -386,20 +382,30 @@ paytable: {
 | liangsuo | Thấp | 10x | 4x | 2x | 2 que tre |
 | liangtong | Thấp | 6x | 3x | 1x | 2 chấm |
 
-**Lưu ý:** Thanh toán biểu tượng Gold được đề xuất và cần được thêm vào cấu hình backend.
+**Lưu ý:** Thanh toán biểu tượng Gold được đề xuất và cần được thêm vào cấu hình backend. Wild và Bonus không có mục bảng trả thưởng.
 
 ---
 
 ## Biến Thể Biểu Tượng Vàng
 
-### Hành Vi (MW1)
+### Hành Vi
 
-**QUAN TRỌNG:** Trong Mahjong Ways 1, biểu tượng vàng **CHỈ LÀ HÌNH ẢNH**.
+**QUAN TRỌNG:** Biểu tượng Golden là CƠ CHẾ BIẾN ĐỔI để tạo ra Wild symbols.
 
-- ❌ KHÔNG chuyển thành Wild (tính năng MW2)
+#### Quy Tắc Biến Đổi
+
+- ✅ Khi biểu tượng Golden là một phần của tổ hợp thắng, nó được biến đổi thành Wild AFTER cascade
 - ✅ Chỉ xuất hiện trên cuộn 2, 3, 4
-- ✅ Thanh toán giống như biểu tượng thường
-- ✅ Chuyển thành thường sau cascade
+- ✅ Biểu tượng gốc thanh toán bình thường trong cascade hiện tại
+- ✅ Sau khi cascade hoàn thành, biểu tượng Golden được chuyển đổi thành Wild
+- ✅ Wilds được chuyển đổi này vẫn tồn tại trong các cascades tiếp theo
+- ✅ CÓ THỂ có nhiều cascades liên tiếp với các Wilds được chuyển đổi
+
+#### Wild Chỉ Xuất Hiện Thông Qua Phép Biến Đổi
+
+- ❌ Wild KHÔNG bao giờ xuất hiện trực tiếp từ RNG
+- ❌ Wild KHÔNG bao giờ rơi từ trên xuống
+- ✅ Wild CHỈ xuất hiện khi biểu tượng Golden là một phần của tổ hợp thắng và được biến đổi
 
 ### Định Dạng Biểu Tượng
 
@@ -537,9 +543,9 @@ var Paytable = map[string]map[int]int{
     "wutong":    {3: 3,  4: 5,  5: 12},
     "liangsuo":  {3: 2,  4: 4,  5: 10},
     "liangtong": {3: 1,  4: 3,  5: 6},
-    "bonus":     {3: 1,  4: 3,  5: 6},
-    "wild":      {3: 1,  4: 3,  5: 6},
-    "gold":      {3: 10, 4: 100, 5: 500}, // Thêm biểu tượng bí ẩn
+    // bonus: không có thanh toán (chỉ kích hoạt Free Spins)
+    // wild: không có thanh toán (chỉ xuất hiện thông qua phép biến đổi Golden)
+    "gold":      {3: 10, 4: 100, 5: 500}, // Biểu tượng bí ẩn
 }
 
 var SpecialSymbols = map[string]bool{
@@ -562,6 +568,14 @@ func GetBaseSymbol(symbol string) string {
 
 func IsGoldenVariant(symbol string) bool {
     return strings.HasSuffix(symbol, "_gold")
+}
+
+func TransformGoldenToWild(symbol string) string {
+    // Biến đổi biểu tượng Golden thành Wild sau khi cascade
+    if IsGoldenVariant(symbol) {
+        return "wild"
+    }
+    return symbol
 }
 ```
 

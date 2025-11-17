@@ -365,12 +365,15 @@ func RetriggerFreeSpins(state *FreeSpinsState, scatterCount int) {
 ### Substitution Rules
 
 1. **Reel Appearance:**
-   - Wild can appear on ALL reels (1, 2, 3, 4, 5)
+   - Wild CANNOT appear directly on reels
+   - Wild ONLY appears from golden symbol transformation
+   - Wild can ONLY appear on reels 2, 3, 4 (same restriction as golden symbols)
 
-2. **Golden Wild:**
-   - Can appear with Golden frame on reels 2, 3, 4
-   - Functions identically to regular Wild
-   - Visual enhancement only
+2. **Golden Wild Transformation:**
+   - When a golden symbol (on reels 2, 3, or 4) is part of a winning combination
+   - After the cascade, that golden symbol transforms into a Wild
+   - The transformed Wild persists for subsequent cascades in the same spin
+   - This is the ONLY way Wilds can appear
 
 3. **Substitution Priority:**
    - Wild fills in for missing symbols in potential winning ways
@@ -378,20 +381,23 @@ func RetriggerFreeSpins(state *FreeSpinsState, scatterCount int) {
    - Wild counted as whichever symbol creates maximum payout
 
 4. **No Independent Payout:**
-   - Wild has NO payout value by itself
+   - Wild has NO payout value (no paytable entry)
    - Only functions as substitute
+   - Does NOT pay out even when forming its own winning line
 
 ### Wild in Combinations
 
 **Pure Wild Lines:**
 
 - If all symbols in a winning line are Wild
-- Counted as the highest-value paying symbol for payout
+- NO PAYOUT (Wilds have no paytable entry)
+- Wilds exist only for substitution, not independent wins
 
 **Multiple Wilds:**
 
-- Multiple Wilds significantly increase ways count
+- Multiple Wilds significantly increase ways count when substituting
 - Each Wild position multiplies the ways calculation
+- Only pays when substituting for regular symbols
 
 ### Examples
 
@@ -457,7 +463,7 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 
 ### Overview
 
-**CRITICAL NOTE:** In Mahjong Ways 1, Golden symbols are **VISUAL ONLY**. They do NOT convert to Wild (this is a Mahjong Ways 2 feature).
+**CRITICAL NOTE:** In Mahjong Ways 1, Golden symbols have a special transformation mechanic. They transform into Wild symbols after being part of a winning combination.
 
 ### Golden Symbol Behavior
 
@@ -469,8 +475,8 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 
 #### Eligible Symbols
 
-- Wild symbols can appear as Golden Wild
-- Regular paying symbols can appear as Golden
+- Regular paying symbols can appear as Golden (e.g., fa_gold, zhong_gold, etc.)
+- Golden symbols have the same payout as their regular counterparts
 
 #### Visual Indicators
 
@@ -478,28 +484,37 @@ func CountMatchingSymbols(reel []Symbol, targetSymbol string) int {
 - Shimmering animation
 - Distinct from regular symbol appearance
 
-### Phase Behavior
+### Transformation Mechanic
 
 #### Phase 1: Initial Appearance
 
-1. Symbol lands with golden frame/glow
-2. Functions normally for win evaluation
-3. Participates in cascade mechanics
-4. Counted for payout calculation
+1. Golden symbol lands on reels 2, 3, or 4
+2. Functions as regular symbol for win evaluation
+3. Has same payout value as regular symbol
+4. Participates in cascade mechanics normally
 
-#### Phase 2: Post-Cascade
+#### Phase 2: Post-Cascade Transformation
 
-1. After cascade completes and new symbols land
-2. Golden symbol transforms to regular version
-3. Golden glow/frame removed
-4. Symbol retains same type (e.g., Golden Wild → Regular Wild)
-5. **No gameplay impact, purely visual**
+**When a golden symbol is part of a winning combination:**
+
+1. After the cascade completes (symbols removed, new symbols drop)
+2. The golden symbol position transforms into a Wild symbol
+3. Golden glow/frame removed, replaced with Wild symbol
+4. **The Wild persists for subsequent cascades in the same spin**
+5. This is the ONLY way Wild symbols can appear in the game
+
+**When a golden symbol is NOT part of a winning combination:**
+
+1. Golden symbol remains as golden
+2. Does not transform
+3. Can potentially transform in a future cascade if it becomes part of a win
 
 ### Purpose
 
-- Visual excitement and anticipation
-- Aesthetic enhancement during winning sequences
-- Player engagement (no actual payout benefit)
+- Creates strategic gameplay through Wild generation
+- Rewards consecutive cascades with more Wilds
+- Increases win potential in multi-cascade sequences
+- Golden symbols are valuable because they can become Wilds
 
 ### Implementation
 
@@ -515,17 +530,23 @@ func CanBeGolden(reel int) bool {
     return reel >= 2 && reel <= 4
 }
 
-func TransformGoldenSymbols(grid [][]Symbol) {
-    for i := range grid {
-        for j := range grid[i] {
-            if grid[i][j].IsGolden {
-                grid[i][j].IsGolden = false
+func TransformGoldenSymbolsToWilds(grid [][]Symbol, winningPositions []Position) {
+    // Transform golden symbols that were part of winning combinations
+    for _, pos := range winningPositions {
+        symbol := grid[pos.Reel][pos.Row]
+        if symbol.IsGolden && (pos.Reel >= 2 && pos.Reel <= 4) {
+            // Transform golden symbol to Wild
+            grid[pos.Reel][pos.Row] = Symbol{
+                Type:     "WILD",
+                IsGolden: false,
+                Reel:     pos.Reel,
+                Row:      pos.Row,
             }
         }
     }
 }
 
-// Call TransformGoldenSymbols after cascade completes
+// Call TransformGoldenSymbolsToWilds after cascade completes with winning positions
 ```
 
 ---
