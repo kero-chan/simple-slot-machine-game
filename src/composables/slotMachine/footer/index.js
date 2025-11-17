@@ -10,8 +10,9 @@ const SPIN_BUTTON_EFFECT_DURATION = 1
 const SPIN_BUTTON_EFFECT_FADEOUT = 0.3  // Fade out duration in seconds
 
 // CONFIGURABLE: Notification text scaling (percentage of notification bar height)
-const NOTIFICATION_TEXT_SCALE = 0.7  // Adjust this to make all notification texts bigger/smaller
-const BIG_WIN_TEXT_SCALE = 0.3  // Smaller scale for big win notifications (x10+ multiplier)
+const NOTIFICATION_TEXT_SCALE = 0.7  // Adjust this to make all notification texts bigger/smaller\
+const WIN_TEXT_SCALE = 0.6  // Adjust this to make win amount texts bigger/smaller
+const BIG_WIN_TEXT_SCALE = 0.42  // Smaller scale for big win notifications (x10+ multiplier)
 
 // CONFIGURABLE: Punctuation (period and comma) positioning in win amount displays
 const PUNCTUATION_SCALE_FACTOR = 0.5  // Scale multiplier for period and comma (0.5 = half the size of numbers)
@@ -183,7 +184,7 @@ export function useFooter(gameState) {
     }
 
     // Calculate target height for consistent sizing
-    const scaleToUse = (bgToShow === notiBgSprite2) ? BIG_WIN_TEXT_SCALE : NOTIFICATION_TEXT_SCALE
+    const scaleToUse = (bgToShow === notiBgSprite2) ? BIG_WIN_TEXT_SCALE : WIN_TEXT_SCALE
     const targetHeight = bgToShow.height * scaleToUse
 
     const digits = String(value).split('');
@@ -213,7 +214,8 @@ export function useFooter(gameState) {
 
         const sprite = new Sprite(texture)
         // Apply configurable punctuation scale and position
-        const spriteScale = (targetHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
+        let spriteScale = (targetHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
+        if (d === ',') spriteScale = spriteScale * 0.7
         sprite.scale.set(spriteScale)
         sprite.x = offsetX - sprite.width * 0.1
         // Use different Y positions for period vs comma
@@ -245,10 +247,9 @@ export function useFooter(gameState) {
     // Center the container in the background
     // For big win frame (notiBgSprite2), shift down more to align better
     // For small amounts, raise baseline higher
-    const verticalOffset = (bgToShow === notiBgSprite2) ? 0.25 : 0.6
+    const verticalOffset = (bgToShow === notiBgSprite2) ? 0.5 : 0.6
     winAmounContainer.x = bgToShow.x - winAmounContainer.width * 0.5
-    winAmounContainer.y = bgToShow.y - winAmounContainer.height * verticalOffset + 2
-
+    winAmounContainer.y = bgToShow.y - winAmounContainer.height * verticalOffset
     winAmounContainer.alpha = 0;
     gsap.to(winAmounContainer, { alpha: 1, duration: 1, ease: "power2.out" });
   }
@@ -856,7 +857,7 @@ export function useFooter(gameState) {
           fill: amountColor,
         }
       })
-      fitTextToBox(label, pillHeight, 0.45)  // Reduced from 0.6 to 0.45 (45% of height)
+      fitTextToBox(label, pillHeight, 0.5)  // Reduced from 0.6 to 0.5 (50% of height)
       label.anchor.set(0.5)
       label.position.set(startX + i*(pillWidth+pillGap) + pillWidth*0.6, bgRect.height/2)
       amountLabels[key] = label
@@ -1176,7 +1177,7 @@ export function useFooter(gameState) {
       }
       if (!showTotalWinAmount) {
         if (gameState.currentWin.value > 0) {
-          showWinAmount(formatNumber(formatNumber(gameState.currentWin.value)), true)
+          showWinAmount(formatNumber(gameState.currentWin.value), true)
         }
         showTotalWinAmount = true
       }
