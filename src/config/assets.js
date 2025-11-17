@@ -27,14 +27,14 @@ export const ASSETS = {
     effect_golden_light_burst: new URL('../assets/slotMachine/effects/effect_golden_light_burst.png', import.meta.url).href,
 
     // Winning announcements
-    win_bg: new URL('../assets/slotMachine/winAnnouncements/bg.png', import.meta.url).href,
-    win_small: new URL('../assets/slotMachine/winAnnouncements/small.png', import.meta.url).href,
-    win_grand: new URL('../assets/slotMachine/winAnnouncements/grand.png', import.meta.url).href,
-    win_mega: new URL('../assets/slotMachine/winAnnouncements/mega.png', import.meta.url).href,
-    win_megagrand: new URL('../assets/slotMachine/winAnnouncements/mega_grand.png', import.meta.url).href,
-    win_jackpot: new URL('../assets/slotMachine/winAnnouncements/jackpot.png', import.meta.url).href,
-    jackpot_begin_bg: new URL('../assets/slotMachine/winAnnouncements/jackpot_begin_bg.png', import.meta.url).href,
-    win_gold: new URL('../assets/slotMachine/winAnnouncements/gold.png', import.meta.url).href,
+    win_bg: new URL('../assets/slotMachine/winAnnouncements/win_bg.png', import.meta.url).href,
+    win_small: new URL('../assets/slotMachine/winAnnouncements/win_small.png', import.meta.url).href,
+    win_grand: new URL('../assets/slotMachine/winAnnouncements/win_grand.png', import.meta.url).href,
+    win_mega: new URL('../assets/slotMachine/winAnnouncements/win_mega.png', import.meta.url).href,
+    win_megagrand: new URL('../assets/slotMachine/winAnnouncements/win_mega_grand.png', import.meta.url).href,
+    win_jackpot: new URL('../assets/slotMachine/winAnnouncements/win_jackpot.png', import.meta.url).href,
+    win_jackpot_begin_bg: new URL('../assets/slotMachine/winAnnouncements/win_jackpot_begin_bg.png', import.meta.url).href,
+    win_gold: new URL('../assets/slotMachine/winAnnouncements/win_gold.png', import.meta.url).href,
 
     // New icons
     icon_plus: new URL('../assets/slotMachine/icons/icon_plus.png', import.meta.url).href,
