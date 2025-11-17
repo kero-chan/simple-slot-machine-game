@@ -17,7 +17,7 @@ const BIG_WIN_TEXT_SCALE = 0.42  // Smaller scale for big win notifications (x10
 // CONFIGURABLE: Punctuation (period and comma) positioning in win amount displays
 const PUNCTUATION_SCALE_FACTOR = 0.5  // Scale multiplier for period and comma (0.5 = half the size of numbers)
 const PERIOD_Y_POSITION = 1.0   // Vertical position multiplier for period (1.0 = aligned with bottom of numbers)
-const COMMA_Y_POSITION = 0.65   // Vertical position multiplier for comma (0.65 = slightly above mid-height)
+const COMMA_Y_POSITION = 0.6   // Vertical position multiplier for comma (0.65 = slightly above mid-height)
 
 export function useFooter(gameState) {
   const gameStore = useGameStore()
@@ -113,7 +113,7 @@ export function useFooter(gameState) {
     notiTextSprite.scale.set(1)
     notiTextSprite.scale.set(NOTIFICATION_TEXT_SCALE * notiBgSprite.height / notiTextSprite.height)
     notiMask.clear()
-    if (notiTextSprite.width > notiBgSprite.width * 0.6) {
+    if (notiTextSprite.width > notiBgSprite.width * 0.85) {
       const visibleWidth = notiBgSprite.width * 0.8
       const visibleHeight = notiBgSprite.height
       notiMask.rect(
@@ -215,7 +215,7 @@ export function useFooter(gameState) {
         const sprite = new Sprite(texture)
         // Apply configurable punctuation scale and position
         let spriteScale = (targetHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR
-        if (d === ',') spriteScale = spriteScale * 0.7
+        if (d === ',') spriteScale = spriteScale * 0.8
         sprite.scale.set(spriteScale)
         sprite.x = offsetX - sprite.width * 0.1
         // Use different Y positions for period vs comma
@@ -247,9 +247,8 @@ export function useFooter(gameState) {
     // Center the container in the background
     // For big win frame (notiBgSprite2), shift down more to align better
     // For small amounts, raise baseline higher
-    const verticalOffset = (bgToShow === notiBgSprite2) ? 0.5 : 0.6
     winAmounContainer.x = bgToShow.x - winAmounContainer.width * 0.5
-    winAmounContainer.y = bgToShow.y - winAmounContainer.height * verticalOffset
+    winAmounContainer.y = bgToShow.y - winAmounContainer.height * 0.5
     winAmounContainer.alpha = 0;
     gsap.to(winAmounContainer, { alpha: 1, duration: 1, ease: "power2.out" });
   }
