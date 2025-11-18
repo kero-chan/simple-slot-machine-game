@@ -752,6 +752,9 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
       // Each column stops AFTER the previous one for clear visual sequence
       for (let col = 0; col < cols; col++) {
         const animObj = animObjects[col]
+        
+        // Track if we've already played the stop sound for this column
+        let hasPlayedStopSound = false
 
         // SEQUENTIAL STOP: Each column has progressively longer duration
         // This ensures columns stop one after another in clear sequence
@@ -790,6 +793,13 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
             gridState.reelTopIndex[col] = newTopIndex % gridState.reelStrips[col].length
             gridState.spinOffsets[col] = newOffset
             gridState.spinVelocities[col] = Math.max(minVelocity, calculatedVelocity)
+            
+            // Play reel stop sound when very close to stopping (distanceRemaining < 0.1)
+            // This triggers the sound slightly before visual stop for better sync
+            if (!hasPlayedStopSound && distanceRemaining < 0.1) {
+              hasPlayedStopSound = true
+              playEffect('reel_spin_stop')
+            }
           },
           onComplete: () => {
             // Column stopped - finalize position
