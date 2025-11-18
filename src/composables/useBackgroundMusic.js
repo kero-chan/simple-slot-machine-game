@@ -119,8 +119,10 @@ export function useBackgroundMusic() {
         return
       }
 
-      noiseAudio.volume = gameSoundEnabled.value ? baseVolume.noise : 0
-      noiseAudio.muted = !gameSoundEnabled.value
+      // Set volume to 0 if in jackpot mode or game sound is disabled
+      const shouldMute = !gameSoundEnabled.value || currentMusicType.value === 'jackpot'
+      noiseAudio.volume = shouldMute ? 0 : baseVolume.noise
+      noiseAudio.muted = shouldMute
 
       noiseAudio.addEventListener('error', (e) => {
         console.error('Error playing background noise:', e)
