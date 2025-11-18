@@ -65,6 +65,12 @@ class HowlerAudioManager {
     // Get audio paths and flatten arrays (like background_noises)
     const audioEntries = []
     Object.entries(ASSETS.audioPaths).forEach(([key, value]) => {
+      // Skip background_music - load on demand only
+      if (key === 'background_music' || key === 'background_music_jackpot') {
+        console.log(`⏩ Skipping preload for: ${key}`)
+        return
+      }
+
       if (Array.isArray(value)) {
         // Handle arrays (e.g., background_noises)
         value.forEach((path, index) => {
@@ -116,10 +122,58 @@ class HowlerAudioManager {
   }
 
   /**
+   * Load audio on-demand (for background music that wasn't preloaded)
+   */
+  loadOnDemand(audioKey) {
+    // Check if already loaded
+    if (this.howls[audioKey]) {
+      console.log(`ℹ️ ${audioKey} already loaded`)
+      return this.howls[audioKey]
+    }
+
+    // Get path from ASSETS
+    const src = ASSETS.audioPaths[audioKey]
+    if (!src) {
+      console.error(`❌ No path found for: ${audioKey}`)
+      return null
+    }
+
+    console.log(`📥 Loading on-demand: ${audioKey}`)
+
+    try {
+      // Create Howl instance
+      const isLongAudio = audioKey.includes('background_music')
+      this.howls[audioKey] = new Howl({
+        src: [src],
+        preload: true,
+        html5: isLongAudio,
+        pool: 2,
+        onloaderror: (id, err) => {
+          console.warn(`Howler load error for ${audioKey}:`, err)
+        },
+        onplayerror: (id, err) => {
+          console.warn(`Howler play error for ${audioKey}:`, err)
+        }
+      })
+
+      console.log(`✅ Loaded on-demand: ${audioKey}`)
+      return this.howls[audioKey]
+    } catch (err) {
+      console.error(`❌ Failed to load ${audioKey}:`, err)
+      return null
+    }
+  }
+
+  /**
    * Get a Howl instance (or create a new one for simultaneous playback)
    */
   getHowl(audioKey) {
-    const howl = this.howls[audioKey]
+    let howl = this.howls[audioKey]
+
+    // If not found, try loading on-demand (for background music)
+    if (!howl && (audioKey === 'background_music' || audioKey === 'background_music_jackpot')) {
+      howl = this.loadOnDemand(audioKey)
+    }
 
     if (!howl) {
       console.warn(`Howl not found: ${audioKey}`)
@@ -205,9 +259,9 @@ class HowlerAudioManager {
         console.warn('   ⚠️ No AudioContext found')
       }
 
-      // Step 2: Unlock only critical sounds - Howler will unlock others automatically
-      // This makes unlock instant instead of taking 2 seconds
-      const criticalSounds = ['background_music', 'background_music_jackpot', 'game_start']
+      // Step 2: Unlock only critical sounds that are preloaded
+      // Background music is loaded on-demand, so skip it
+      const criticalSounds = ['game_start']
       let unlockedCount = 0
 
       for (const key of criticalSounds) {
