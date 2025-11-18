@@ -120,6 +120,7 @@ export const ASSETS = {
     background_vertical_coins: new URL('../assets/slotMachine/background/background_vertical_coins.png', import.meta.url).href,
     background_coins: new URL('../assets/slotMachine/background/background_coins.png', import.meta.url).href,
     background_vertical_wood: new URL('../assets/slotMachine/background/background_vertical_wood.png', import.meta.url).href,
+    background_reel: new URL('../assets/slotMachine/background/background_reel.png', import.meta.url).href,
     background_top_icons: new URL('../assets/slotMachine/background/background_top_icons.png', import.meta.url).href,
     background_bottom: new URL('../assets/slotMachine/background/background_bottom.png', import.meta.url).href,
 
