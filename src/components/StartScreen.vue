@@ -58,6 +58,9 @@ import { useSettingsStore } from "../stores/settingsStore";
 const gameState = useGameState();
 const gameStore = useGameStore();
 const settingsStore = useSettingsStore();
+
+audioManager.setGameSoundEnabled(settingsStore.gameSound);
+
 const backgroundMusic = audioManager.initialize();
 
 const isHowlerReady = ref(false);
@@ -105,6 +108,11 @@ watch(() => gameState.loadingProgress?.value, (newProgress) => {
     startHowlerCheck();
   }
 }, { immediate: true, deep: true });
+
+// Watch gameSound setting changes and sync with audioManager
+watch(() => settingsStore.gameSound, (newValue) => {
+  audioManager.setGameSoundEnabled(newValue);
+});
 
 const handleStart = async () => {
   if (isUnlockingAudio.value) {

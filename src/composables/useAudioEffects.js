@@ -51,6 +51,11 @@ export function useAudioEffects() {
 
   // Play winning announcement sound (looped) for win overlay
   const playWinningAnnouncement = () => {
+    // Don't play if game sound is disabled
+    if (!audioManager.isGameSoundEnabled()) {
+      return;
+    }
+
     // Stop any existing announcement first
     stopWinningAnnouncement();
 
@@ -92,6 +97,11 @@ export function useAudioEffects() {
   // Play win sound for specific symbol combinations
   const playWinSound = (wins) => {
     if (!wins || wins.length === 0) return;
+    
+    // Don't play if game sound is disabled
+    if (!audioManager.isGameSoundEnabled()) {
+      return;
+    }
 
     // Determine which win sound to play based on symbol type
     // Priority: jackpot > all_boy/all_girl > specific symbol
@@ -170,6 +180,11 @@ export function useAudioEffects() {
 
   // Play consecutive wins sound based on multiplier
   const playConsecutiveWinSound = (consecutiveWins, isFreeSpin = false) => {
+    // Don't play if game sound is disabled
+    if (!audioManager.isGameSoundEnabled()) {
+      return;
+    }
+    
     let audioKey = null;
 
     // Map consecutive wins to audio file based on mode
@@ -221,6 +236,11 @@ export function useAudioEffects() {
   };
 
   const playEffect = (effect) => {
+    // Don't play if game sound is disabled
+    if (!audioManager.isGameSoundEnabled()) {
+      return;
+    }
+    
     console.log(`🎵 [Effect] Attempting to play: ${effect}`);
     try {
       const audio = getAudio(effect);
@@ -255,6 +275,11 @@ export function useAudioEffects() {
 
   // Play winning highlight sound when winning frames appear
   const playWinningHighlight = () => {
+    // Don't play if game sound is disabled
+    if (!audioManager.isGameSoundEnabled()) {
+      return;
+    }
+    
     try {
       const audio = getAudio("winning_highlight");
       if (!audio) {
