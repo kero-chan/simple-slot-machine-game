@@ -53,6 +53,7 @@ export function useBackgroundMusic() {
   let noiseStartTimeout = null
   let noiseInterval = null
   const wasNoisePlayingBeforeHidden = ref(false)
+  let isStarting = false // Flag to prevent multiple simultaneous starts
 
   // Handle page visibility change
   const handleVisibilityChange = () => {
@@ -163,6 +164,14 @@ export function useBackgroundMusic() {
       return true
     }
 
+    // Prevent multiple simultaneous starts
+    if (isStarting) {
+      console.log('ℹ️ Background music already starting, ignoring duplicate call')
+      return true
+    }
+
+    isStarting = true
+
     // Add visibility listener only once
     if (!visibilityListenerAdded) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -181,11 +190,9 @@ export function useBackgroundMusic() {
       const audio = getAudio('background_music')
       if (!audio) {
         console.error('❌ Background music not found')
+        isStarting = false
         return false
       }
-
-      // Set playing immediately AFTER we have audio
-      isPlaying.value = true
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0
       audio.muted = !gameSoundEnabled.value
@@ -197,6 +204,7 @@ export function useBackgroundMusic() {
       audio.addEventListener('error', (e) => {
         console.error('❌ Audio error:', e)
         isPlaying.value = false
+        isStarting = false
       })
 
       // Only play audio if game sound is enabled
@@ -206,6 +214,10 @@ export function useBackgroundMusic() {
         if (playPromise) {
           try {
             await playPromise
+
+            // Set playing state AFTER audio successfully starts
+            isPlaying.value = true
+            isStarting = false
 
             // Play game start sound after 2 seconds
             gameStartTimeout = setTimeout(() => {
@@ -221,18 +233,24 @@ export function useBackgroundMusic() {
           } catch (err) {
             console.error('❌ Failed to play:', err)
             isPlaying.value = false
+            isStarting = false
             return false
           }
         } else {
+          isPlaying.value = true
+          isStarting = false
           return true
         }
       } else {
         // Don't play music or game start sound when muted
+        isPlaying.value = true
+        isStarting = false
         return true
       }
     } catch (err) {
       console.error('❌ Error creating audio:', err)
       isPlaying.value = false
+      isStarting = false
       return false
     }
   }
@@ -265,6 +283,7 @@ export function useBackgroundMusic() {
   // Stop playing background music
   const stop = () => {
     isPlaying.value = false
+    isStarting = false // Reset starting flag
     
     // Clear the game start timeout if it hasn't triggered yet
     if (gameStartTimeout) {
