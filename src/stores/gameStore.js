@@ -402,6 +402,11 @@ export const useGameStore = defineStore('game', {
     toggleGameSound() {
       const settingsStore = useSettingsStore()
       settingsStore.toggleGameSound()
+      
+      // Sync with audioManager
+      import('../composables/audioManager').then(({ audioManager }) => {
+        audioManager.setGameSoundEnabled(settingsStore.gameSound)
+      })
     },
 
     // Anticipation mode controls

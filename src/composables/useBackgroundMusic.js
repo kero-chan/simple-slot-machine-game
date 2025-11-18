@@ -119,6 +119,7 @@ export function useBackgroundMusic() {
       }
 
       noiseAudio.volume = gameSoundEnabled.value ? baseVolume.noise : 0
+      noiseAudio.muted = !gameSoundEnabled.value
 
       noiseAudio.addEventListener('error', (e) => {
         console.error('Error playing background noise:', e)
@@ -187,6 +188,7 @@ export function useBackgroundMusic() {
       isPlaying.value = true
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0
+      audio.muted = !gameSoundEnabled.value
       audio.loop = true
 
       currentAudio.value = audio
@@ -197,31 +199,35 @@ export function useBackgroundMusic() {
         isPlaying.value = false
       })
 
-      const playPromise = audio.play()
+      // Only play audio if game sound is enabled
+      if (gameSoundEnabled.value) {
+        const playPromise = audio.play()
 
-      if (playPromise) {
-        try {
-          await playPromise
-          console.log('✅ Background music playing successfully')
+        if (playPromise) {
+          try {
+            await playPromise
 
-          // Play game start sound after 2 seconds
-          gameStartTimeout = setTimeout(() => {
-            playGameStartSound()
-          }, 2000)
+            // Play game start sound after 2 seconds
+            gameStartTimeout = setTimeout(() => {
+              playGameStartSound()
+            }, 2000)
 
-          // Start background noise loop after 10 seconds
-          noiseStartTimeout = setTimeout(() => {
-            startNoiseLoop()
-          }, 10000) // 10 seconds delay
+            // Start background noise loop after 10 seconds
+            noiseStartTimeout = setTimeout(() => {
+              startNoiseLoop()
+            }, 10000) // 10 seconds delay
 
+            return true
+          } catch (err) {
+            console.error('❌ Failed to play:', err)
+            isPlaying.value = false
+            return false
+          }
+        } else {
           return true
-        } catch (err) {
-          console.error('❌ Failed to play:', err)
-          isPlaying.value = false
-          return false
         }
       } else {
-        console.log('ℹ️ No play promise (legacy browser)')
+        // Don't play music or game start sound when muted
         return true
       }
     } catch (err) {
@@ -242,6 +248,7 @@ export function useBackgroundMusic() {
       }
 
       gameStartAudio.volume = gameSoundEnabled.value ? baseVolume.gameStart : 0
+      gameStartAudio.muted = !gameSoundEnabled.value
 
       gameStartAudio.addEventListener('error', (e) => {
         console.error('Error playing game start audio:', e)
@@ -332,6 +339,7 @@ export function useBackgroundMusic() {
       }
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
+      audio.muted = !gameSoundEnabled.value // Set muted state
       audio.loop = true // Loop the audio infinitely
 
       currentAudio.value = audio
@@ -343,11 +351,14 @@ export function useBackgroundMusic() {
         console.error('Error playing jackpot music:', e)
       })
 
-      audio.play().catch(err => {
-        console.warn('Failed to play jackpot music:', err)
-      })
-
-      console.log('✅ Jackpot music playing')
+      // Only play if game sound is enabled
+      if (gameSoundEnabled.value) {
+        audio.play().catch(err => {
+          console.warn('Failed to play jackpot music:', err)
+        })
+      } else {
+        console.log('🔇 Jackpot music loaded but not playing (game sound disabled)')
+      }
     } catch (err) {
       console.error('Error creating jackpot music:', err)
     }
@@ -374,6 +385,7 @@ export function useBackgroundMusic() {
       }
 
       audio.volume = gameSoundEnabled.value ? baseVolume.music : 0 // Set volume based on game sound state
+      audio.muted = !gameSoundEnabled.value // Set muted state
       audio.loop = true // Loop the audio infinitely
 
       currentAudio.value = audio
@@ -385,11 +397,14 @@ export function useBackgroundMusic() {
         console.error('Error playing normal music:', e)
       })
 
-      audio.play().catch(err => {
-        console.warn('Failed to play normal music:', err)
-      })
-
-      console.log('✅ Normal music playing')
+      // Only play if game sound is enabled
+      if (gameSoundEnabled.value) {
+        audio.play().catch(err => {
+          console.warn('Failed to play normal music:', err)
+        })
+      } else {
+        console.log('🔇 Normal music loaded but not playing (game sound disabled)')
+      }
     } catch (err) {
       console.error('Error creating normal music:', err)
     }
@@ -399,9 +414,74 @@ export function useBackgroundMusic() {
   const setGameSoundEnabled = (enabled) => {
     gameSoundEnabled.value = enabled
     
-    // Update volume for current audio
+    // Update volume AND muted state for current audio
     if (currentAudio.value) {
-      currentAudio.value.volume = enabled ? baseVolume.music : 0
+      if (enabled) {
+        // Check if audio is using Howler wrapper (has _howl property)
+        const isHowlerWrapper = currentAudio.value._howl !== undefined
+        console.log(`🔊 [useBackgroundMusic] Is Howler wrapper: ${isHowlerWrapper}`)
+        
+        // If audio was never played (created while muted), recreate it
+        if (isHowlerWrapper && currentAudio.value.paused === false && currentAudio.value._volume === 0) {
+          console.log(`🔊 [useBackgroundMusic] Audio was created while muted, recreating...`)
+          
+          // Save current music type
+          const musicType = currentMusicType.value
+          
+          // Pause and clear current audio
+          try {
+            currentAudio.value.pause()
+          } catch (e) {
+            // Ignore errors
+          }
+          currentAudio.value = null
+          
+          // Recreate audio
+          const audioKey = musicType === 'jackpot' ? 'background_music_jackpot' : 'background_music'
+          const audio = getAudio(audioKey)
+          if (audio) {
+            audio.volume = baseVolume.music
+            audio.muted = false
+            audio.loop = true
+            currentAudio.value = audio
+            
+            console.log(`🔊 [useBackgroundMusic] Starting recreated audio`)
+            audio.play().then(() => {
+              console.log(`✅ [useBackgroundMusic] Recreated audio playing successfully`)
+            }).catch(err => {
+              console.error('❌ Failed to play recreated audio:', err)
+            })
+          }
+        } else {
+          // Normal case - unmute and play existing audio
+          currentAudio.value.volume = baseVolume.music
+          currentAudio.value.muted = false
+          
+          console.log(`🔊 [useBackgroundMusic] Audio state - paused: ${currentAudio.value.paused}, readyState: ${currentAudio.value.readyState}`)
+          
+          // Play/resume audio if it's paused or not playing
+          if (currentAudio.value.paused) {
+            currentAudio.value.play().then(() => {
+              console.log(`✅ [useBackgroundMusic] Audio playing successfully`)
+            }).catch(err => {
+              console.error('❌ Failed to play/resume audio:', err)
+            })
+          } else {
+            console.log(`ℹ️ [useBackgroundMusic] Audio already playing`)
+          }
+        }
+      } else {
+        // Mute - pause the audio completely
+        currentAudio.value.volume = 0
+        currentAudio.value.muted = true
+        
+        // Pause audio to ensure it stops
+        if (!currentAudio.value.paused) {
+          currentAudio.value.pause()
+        }
+      }
+    } else {
+      console.log(`🔊 [useBackgroundMusic] No current audio to update`)
     }
   }
 

@@ -262,16 +262,42 @@ class HowlerAudioManager {
       _howl: howl,
       _volume: 1.0,
       _loop: false,
+      _muted: false,
 
       set volume(val) {
         this._volume = val
         if (soundId !== null) {
-          howl.volume(val, soundId)
+          // Apply volume only if not muted
+          const actualVolume = this._muted ? 0 : val
+          howl.volume(actualVolume, soundId)
+          howl.volume(actualVolume) // Also set global
+        } else {
+          // Set global volume even if no soundId yet
+          const actualVolume = this._muted ? 0 : val
+          howl.volume(actualVolume)
         }
       },
 
       get volume() {
         return this._volume
+      },
+
+      set muted(val) {
+        this._muted = val
+        if (soundId !== null) {
+          // If muted, set volume to 0, otherwise use stored volume
+          const actualVolume = val ? 0 : this._volume
+          howl.volume(actualVolume, soundId)
+          howl.volume(actualVolume) // Also set global
+        } else {
+          // Set global volume even if no soundId yet
+          const actualVolume = val ? 0 : this._volume
+          howl.volume(actualVolume)
+        }
+      },
+
+      get muted() {
+        return this._muted
       },
 
       set loop(val) {
@@ -318,8 +344,13 @@ class HowlerAudioManager {
         // Play new instance
         soundId = howl.play()
 
-        // Apply settings
-        howl.volume(this._volume, soundId)
+        // Apply settings (volume respects muted state)
+        const actualVolume = this._muted ? 0 : this._volume
+        
+        // Set volume on both the specific sound AND the global Howl
+        howl.volume(actualVolume, soundId)
+        howl.volume(actualVolume) // Also set global volume for this Howl
+        
         howl.loop(this._loop, soundId)
 
         isPaused = false
