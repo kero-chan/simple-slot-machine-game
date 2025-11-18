@@ -2,12 +2,12 @@ export function applyTileVisuals(sprite, alpha = 1, highlight = false, hasHighli
     if (!sprite) return
     sprite.alpha = alpha
 
-    // Apply golden tint when highlighted
+    // Apply bright white tint when highlighted (for green background)
     if (highlight) {
-        sprite.tint = 0xffffaa // Bright golden tint
+        sprite.tint = 0xffffff // Bright white tint for winning tiles
     } else if (hasHighlights) {
-        // Dark mask for non-winning tiles when there are winning tiles (80% darkness)
-        sprite.tint = 0x333333
+        // Light dim for non-winning tiles when there are winning tiles (40% brightness for green background)
+        sprite.tint = 0x999999 // Light gray instead of dark gray
     } else {
         sprite.tint = 0xffffff // White (normal)
     }
