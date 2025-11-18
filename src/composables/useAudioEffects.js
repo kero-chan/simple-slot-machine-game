@@ -1,6 +1,7 @@
 import { ASSETS } from "../config/assets";
 import { audioManager } from "./audioManager";
 import { howlerAudio } from "./useHowlerAudio";
+import { getAudioVolume } from "../config/audioVolumes";
 
 /**
  * Get preloaded audio using Howler.js for mobile compatibility
@@ -66,7 +67,7 @@ export function useAudioEffects() {
         return;
       }
 
-      winningAnnouncementAudio.volume = getVolume(0.7); // 70% volume
+      winningAnnouncementAudio.volume = getVolume(getAudioVolume('winning_announcement'));
       winningAnnouncementAudio.loop = true; // Loop the audio
 
       winningAnnouncementAudio.addEventListener("error", (e) => {
@@ -163,7 +164,7 @@ export function useAudioEffects() {
           return;
         }
 
-        audio.volume = getVolume(0.9); // 90% volume for win sounds
+        audio.volume = getVolume(getAudioVolume(audioKey));
 
         audio.addEventListener("error", (e) => {
           console.error(`Error playing win audio (${audioKey}):`, e);
@@ -194,7 +195,7 @@ export function useAudioEffects() {
         audioKey = "consecutive_wins_4x";
       } else if (consecutiveWins === 2) {
         audioKey = "consecutive_wins_6x";
-      } else if (consecutiveWins === 3) {
+      } else if (consecutiveWins >= 3) {
         audioKey = "consecutive_wins_10x";
       }
     } else {
@@ -218,7 +219,7 @@ export function useAudioEffects() {
         return;
       }
 
-      audio.volume = getVolume(0.6); // 60% volume for effect sounds
+      audio.volume = getVolume(getAudioVolume(audioKey));
 
       audio.addEventListener("error", (e) => {
         console.error(`Error playing consecutive wins audio (${audioKey}):`, e);
@@ -249,12 +250,8 @@ export function useAudioEffects() {
         return;
       }
 
-      // Set volume based on effect type
-      // Reel spin sounds need to be louder (90% volume)
-      let baseVolume = 0.6; // Default 60% for most effects
-      if (effect === 'reel_spin' || effect === 'reel_spin_stop') {
-        baseVolume = 2; // 90% volume for reel spin sounds
-      }
+      // Set volume based on effect type using centralized config
+      const baseVolume = getAudioVolume(effect);
 
       audio.volume = getVolume(baseVolume);
       console.log(`🔊 [Effect] Volume set to: ${audio.volume} (base: ${baseVolume}) for ${effect}`);
@@ -287,7 +284,7 @@ export function useAudioEffects() {
         return;
       }
 
-      audio.volume = getVolume(0.5); // 50% volume for subtle highlight sound
+      audio.volume = getVolume(getAudioVolume('winning_highlight'));
 
       audio.addEventListener("error", (e) => {
         console.error("Error playing winning highlight audio:", e);

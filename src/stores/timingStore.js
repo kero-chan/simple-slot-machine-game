@@ -41,7 +41,7 @@ export const useTimingStore = defineStore('timing', {
 
     // ========== SPIN TIMING ==========
     SPIN_BASE_DURATION: 2000,     // ms - Base duration for first reel (GSAP-optimized sequential stops)
-    SPIN_REEL_STAGGER: 200,       // ms - Delay between each reel (creates clear sequential stop effect)
+    SPIN_REEL_STAGGER: 80,       // ms - Delay between each reel (creates clear sequential stop effect)
 
     // ========== ANTICIPATION MODE TIMING ==========
     ANTICIPATION_SLOWDOWN_PER_COLUMN: 4000,  // ms - Exact time each column takes to slow down and stop during anticipation
