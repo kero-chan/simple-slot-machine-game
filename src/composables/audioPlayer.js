@@ -364,10 +364,15 @@ class AudioPlayer {
         }
 
         soundId = howl.play()
+        
+        // Apply loop setting immediately after play
+        if (this._loop) {
+          howl.loop(true, soundId)
+        }
+        
         const actualVolume = this._muted ? 0 : this._volume
         howl.volume(actualVolume, soundId)
         howl.volume(actualVolume)
-        howl.loop(this._loop, soundId)
         isPaused = false
 
         return Promise.resolve()
@@ -686,9 +691,10 @@ class AudioPlayer {
         return
       }
 
+      // IMPORTANT: Set loop BEFORE setting volume and playing
+      audio.loop = true
       audio.volume = this.gameSoundEnabled ? this.baseVolumes.music : 0
       audio.muted = !this.gameSoundEnabled
-      audio.loop = true
 
       this.currentMusicAudio = audio
       this.currentMusicType = 'jackpot'
@@ -702,6 +708,7 @@ class AudioPlayer {
         audio.play().catch(err => {
           console.warn('Failed to play jackpot music:', err)
         })
+        console.log('🔁 Jackpot music playing with loop enabled')
       } else {
         console.log('🔇 Jackpot music loaded but not playing (game sound disabled)')
       }

@@ -27,8 +27,7 @@ class VideoPlayer {
     this.preloadedPlayers = new Map() // Cache preloaded players
     
     // Bind methods
-    this.handleVideoClick = this.handleVideoClick.bind(this)
-    this.handleVideoTouch = this.handleVideoTouch.bind(this)
+    this.handleVideoSkip = this.handleVideoSkip.bind(this)
     
     // Setup event listeners
     this.setupEventListeners()
@@ -139,6 +138,7 @@ class VideoPlayer {
     video.style.cursor = 'pointer'
     video.style.objectFit = 'contain'
     video.style.backgroundColor = 'transparent'
+    video.style.pointerEvents = 'auto'
     
     // Force hardware acceleration for iOS Safari
     video.style.webkitTransform = 'translateZ(0)'
@@ -178,6 +178,7 @@ class VideoPlayer {
       playerEl.style.height = '100%'
       playerEl.style.display = 'none'
       playerEl.style.backgroundColor = 'transparent'
+      playerEl.style.pointerEvents = 'auto'
       
       // Force hardware acceleration for iOS Safari
       playerEl.style.webkitTransform = 'translateZ(0)'
@@ -193,11 +194,16 @@ class VideoPlayer {
       type: this.getVideoType(videoSrc)
     })
 
-    // Add click and touch handlers for both desktop and mobile
-    player.on('click', this.handleVideoClick)
+    // Add event listeners for both desktop and mobile
+    // Using multiple event types to ensure compatibility
+    video.addEventListener('click', this.handleVideoSkip, false)
+    video.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
     
-    // Add touch handler directly to video element for better mobile support
-    video.addEventListener('touchend', this.handleVideoTouch, { passive: false })
+    // Also add to player wrapper for better coverage
+    if (playerEl) {
+      playerEl.addEventListener('click', this.handleVideoSkip, false)
+      playerEl.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
+    }
 
     this.videoElement = video
     console.log('✅ Video.js player created')
@@ -216,29 +222,20 @@ class VideoPlayer {
   }
 
   /**
-   * Handle click on video to skip
+   * Handle click/touch on video to skip (works for both desktop and mobile)
    */
-  handleVideoClick(event) {
-    if (this.canSkip && this.isPlaying) {
-      console.log('⏭️ Video clicked - skipping')
-      this.skip()
-    } else {
-      console.log('⏸️ Video clicked but skip not yet enabled')
+  handleVideoSkip(event) {
+    // Prevent default and stop propagation for touch events
+    if (event.type === 'touchstart') {
+      event.preventDefault()
+      event.stopPropagation()
     }
-  }
-
-  /**
-   * Handle touch on video to skip (mobile)
-   */
-  handleVideoTouch(event) {
-    event.preventDefault()
-    event.stopPropagation()
     
     if (this.canSkip && this.isPlaying) {
-      console.log('⏭️ Video touched - skipping (mobile)')
+      console.log(`⏭️ Video ${event.type} event - skipping`)
       this.skip()
     } else {
-      console.log('⏸️ Video touched but skip not yet enabled')
+      console.log(`⏸️ Video ${event.type} event but skip not yet enabled`)
     }
   }
 
@@ -580,9 +577,19 @@ class VideoPlayer {
 
     // Clean up video element
     if (this.videoElement) {
-      this.videoElement.removeEventListener('touchend', this.handleVideoTouch)
+      this.videoElement.removeEventListener('click', this.handleVideoSkip)
+      this.videoElement.removeEventListener('touchstart', this.handleVideoSkip)
       this.videoElement.remove()
       this.videoElement = null
+    }
+    
+    // Clean up player wrapper event listeners
+    if (this.player) {
+      const playerEl = this.player.el()
+      if (playerEl) {
+        playerEl.removeEventListener('click', this.handleVideoSkip)
+        playerEl.removeEventListener('touchstart', this.handleVideoSkip)
+      }
     }
 
     // Resume background music
