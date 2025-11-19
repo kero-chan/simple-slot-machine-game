@@ -286,11 +286,12 @@ class VideoPlayer {
       if (this.currentVideoKey === 'jackpot_result') {
         this.player.muted(true)
         this.player.volume(0)
-        console.log(`🔇 Jackpot result video is muted`)
+        console.log(`🔇 Jackpot result video is always muted`)
       } else {
+        // Other videos (including jackpot) follow gameSound setting
         this.player.muted(false)
         this.player.volume(this.volumeEnabled ? 1.0 : 0)
-        console.log(`🔊 Video volume set to: ${this.player.volume()}`)
+        console.log(`🔊 Video volume set to: ${this.player.volume()} (volumeEnabled: ${this.volumeEnabled})`)
       }
     }
   }

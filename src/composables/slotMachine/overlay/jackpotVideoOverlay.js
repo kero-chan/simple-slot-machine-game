@@ -30,6 +30,9 @@ export function createJackpotVideoOverlay() {
 
     console.log('🎬 Starting jackpot video via event system')
 
+    // Set initial volume based on current gameSound setting
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_SET_VOLUME, { volume: settingsStore.gameSound })
+
     // Watch for gameSound changes and update video volume
     if (!gameSoundWatcher) {
       gameSoundWatcher = watch(
