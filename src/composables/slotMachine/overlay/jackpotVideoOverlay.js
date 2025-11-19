@@ -1,17 +1,15 @@
 import { Container } from 'pixi.js'
-import { ASSETS } from '../../../config/assets'
-import { useGameStore } from '../../../stores/gameStore'
+import { videoEvents, VIDEO_EVENTS } from '../../videoEventBus'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { audioManager } from '../../audioManager'
-import { howlerAudio } from '../../useHowlerAudio'
 import { watch } from 'vue'
 
 /**
  * Creates a jackpot video overlay that plays the jackpot.mp4 video
  * Shows immediately after bonus tiles are detected, before the free spins announcement
+ * 
+ * This now uses the event-driven video architecture
  */
 export function createJackpotVideoOverlay() {
-  const gameStore = useGameStore()
   const settingsStore = useSettingsStore()
   const container = new Container()
   container.visible = false
@@ -19,109 +17,8 @@ export function createJackpotVideoOverlay() {
 
   let isPlaying = false
   let onCompleteCallback = null
-  let videoElement = null
-  let canSkip = false // Flag to allow skipping after 2 seconds
-  let skipEnableTimeout = null
-  let gameSoundWatcher = null // Store watcher to cleanup later
-  let currentVideoSrc = null // Track current video source
-
-  /**
-   * Update video volume based on gameSound state
-   */
-  function updateVideoVolume() {
-    if (videoElement) {
-      // Keep muted=true for mobile compatibility, control volume instead
-      videoElement.muted = false // Unmute but control via volume
-      videoElement.volume = settingsStore.gameSound ? 1.0 : 0
-      console.log(`🔊 Video volume set to: ${videoElement.volume}`)
-    }
-  }
-
-  /**
-   * Enable skip after 2 seconds
-   */
-  function enableSkipAfterDelay() {
-    // Clear any existing timeout
-    if (skipEnableTimeout) {
-      clearTimeout(skipEnableTimeout)
-    }
-    
-    canSkip = false
-    
-    // Enable skip after 2 seconds
-    skipEnableTimeout = setTimeout(() => {
-      if (isPlaying) {
-        canSkip = true
-        console.log('✅ Video can now be skipped by clicking')
-      }
-    }, 2000) // 2 seconds
-  }
-
-  /**
-   * Disable skip and clear timeout
-   */
-  function disableSkip() {
-    canSkip = false
-    
-    if (skipEnableTimeout) {
-      clearTimeout(skipEnableTimeout)
-      skipEnableTimeout = null
-    }
-  }
-
-  /**
-   * Handle click on video to skip
-   */
-  function handleVideoClick(event) {
-    if (canSkip && isPlaying) {
-      console.log('⏭️ Video clicked - skipping')
-      hide()
-    } else {
-      console.log('⏸️ Video clicked but skip not yet enabled')
-    }
-  }
-
-  /**
-   * Create a simple video element (no preloading, no Howler)
-   */
-  function createVideoElement() {
-    const videoSrc = ASSETS.videoPaths?.jackpot
-
-    if (!videoSrc) {
-      console.error('❌ Jackpot video source not found')
-      return null
-    }
-
-    console.log('📹 Creating video:', videoSrc)
-
-    // Simple video element
-    const video = document.createElement('video')
-    video.src = videoSrc
-    video.playsInline = true
-    video.muted = true
-    video.preload = 'auto' // Preload video data
-
-    // Fullscreen styling
-    video.style.position = 'fixed'
-    video.style.top = '0'
-    video.style.left = '0'
-    video.style.width = '100%'
-    video.style.height = '100%'
-    video.style.objectFit = 'contain'
-    video.style.zIndex = '9999'
-    video.style.backgroundColor = 'black'
-    video.style.display = 'none'
-    video.style.cursor = 'pointer'
-
-    document.body.appendChild(video)
-    video.addEventListener('click', handleVideoClick)
-
-    // Start loading video data
-    video.load()
-
-    console.log('✅ Video created')
-    return video
-  }
+  let gameSoundWatcher = null
+  let videoEndedUnsubscribe = null
 
   /**
    * Show the video overlay
@@ -131,142 +28,33 @@ export function createJackpotVideoOverlay() {
     isPlaying = true
     onCompleteCallback = onComplete
 
-    console.log('🎬 Starting jackpot video')
+    console.log('🎬 Starting jackpot video via event system')
 
-    // Resume AudioContext
-    if (howlerAudio.isReady()) {
-      await howlerAudio.resumeAudioContext()
-    }
+    // Set initial volume based on current gameSound setting
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_SET_VOLUME, { volume: settingsStore.gameSound })
 
-    // Pause background audio
-    audioManager.pause()
-
-    // Clean up old video
-    if (videoElement) {
-      videoElement.pause()
-      videoElement.removeEventListener('click', handleVideoClick)
-      videoElement.remove()
-      videoElement = null
-    }
-
-    // Create new video
-    videoElement = createVideoElement()
-    if (!videoElement) {
-      hide()
-      return
-    }
-
-    // Watch for gameSound changes
+    // Watch for gameSound changes and update video volume
     if (!gameSoundWatcher) {
       gameSoundWatcher = watch(
         () => settingsStore.gameSound,
-        () => {
-          if (isPlaying && videoElement) {
-            updateVideoVolume()
+        (enabled) => {
+          if (isPlaying) {
+            videoEvents.emit(VIDEO_EVENTS.VIDEO_SET_VOLUME, { volume: enabled })
           }
         }
       )
     }
 
-    // Event listeners
-    videoElement.addEventListener('ended', () => {
-      console.log('✅ Video ended')
-      hide()
-    }, { once: true })
-
-    videoElement.addEventListener('error', (e) => {
-      console.error('❌ Video error:', e.target.error)
-      hide()
-    }, { once: true })
-
-    // Monitor buffering/loading issues
-    videoElement.addEventListener('waiting', () => {
-      console.warn('⏸️ Video waiting for data (buffering)...')
-    })
-
-    videoElement.addEventListener('stalled', () => {
-      console.warn('⚠️ Video stalled (network issue)')
-    })
-
-    videoElement.addEventListener('suspend', () => {
-      console.warn('⏹️ Video suspended (browser paused loading)')
-    })
-
-    videoElement.addEventListener('playing', () => {
-      console.log('▶️ Video resumed playing')
-    })
-
-    videoElement.addEventListener('pause', () => {
-      console.log('⏸️ Video paused')
-    })
-
-    // Show video
-    videoElement.style.display = 'block'
-
-    console.log('⏳ Waiting for video to buffer...')
-    console.log('   Video src:', videoElement.src)
-    console.log('   Initial readyState:', videoElement.readyState)
-    console.log('   Initial networkState:', videoElement.networkState)
-
-    // Wait for video to have enough data
-    const waitForData = () => {
-      return new Promise((resolve) => {
-        if (videoElement.readyState >= 3) {
-          // HAVE_FUTURE_DATA - enough to play
-          console.log('✅ Video has enough data (readyState: ' + videoElement.readyState + ')')
-          resolve()
-        } else {
-          console.log('⏳ Waiting for video data (readyState: ' + videoElement.readyState + ')...')
-
-          const onCanPlay = () => {
-            console.log('✅ Video can play (readyState: ' + videoElement.readyState + ')')
-            resolve()
-          }
-
-          videoElement.addEventListener('canplay', onCanPlay, { once: true })
-          videoElement.addEventListener('canplaythrough', onCanPlay, { once: true })
-
-          // Timeout after 5 seconds
-          setTimeout(() => {
-            console.warn('⏰ Video wait timeout, trying anyway')
-            videoElement.removeEventListener('canplay', onCanPlay)
-            videoElement.removeEventListener('canplaythrough', onCanPlay)
-            resolve()
-          }, 5000)
-        }
-      })
-    }
-
-    // Wait then play
-    waitForData().then(() => {
-      console.log('▶️ Playing video')
-      console.log('   Final readyState:', videoElement.readyState)
-      console.log('   Final networkState:', videoElement.networkState)
-
-      return videoElement.play()
-    }).then(() => {
-      console.log('✅ Video playing successfully')
-      console.log('   Video duration:', videoElement.duration)
-      console.log('   Video currentTime:', videoElement.currentTime)
-
-      // Unmute after playing starts
-      setTimeout(() => {
-        if (videoElement && isPlaying) {
-          console.log('🔊 Unmuting video')
-          updateVideoVolume()
-        }
-      }, 200)
-    }).catch(err => {
-      console.error('❌ Video play failed!')
-      console.error('   Error:', err.name, err.message)
-      console.error('   Video readyState:', videoElement.readyState)
-      console.error('   Video networkState:', videoElement.networkState)
-      console.error('   Video error:', videoElement.error)
+    // Listen for video ended event
+    videoEndedUnsubscribe = videoEvents.on(VIDEO_EVENTS.VIDEO_ENDED, () => {
       hide()
     })
 
-    // Enable skip after 2 seconds
-    enableSkipAfterDelay()
+    // Emit event to play video
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_PLAY, {
+      videoKey: 'jackpot',
+      skipDelay: 2000 // Allow skip after 2 seconds
+    })
   }
 
   /**
@@ -278,24 +66,17 @@ export function createJackpotVideoOverlay() {
 
     console.log('🔽 Hiding jackpot video')
 
-    // Disable skip functionality
-    disableSkip()
-
     // Stop watching gameSound changes
     if (gameSoundWatcher) {
       gameSoundWatcher()
       gameSoundWatcher = null
     }
 
-    // Clean up video element completely
-    if (videoElement) {
-      videoElement.pause()
-      videoElement.removeEventListener('click', handleVideoClick)
-      videoElement.remove() // Remove from DOM
-      videoElement = null
+    // Unsubscribe from video events
+    if (videoEndedUnsubscribe) {
+      videoEndedUnsubscribe()
+      videoEndedUnsubscribe = null
     }
-
-    // Don't resume music here - let free spin mode handle jackpot music
 
     // Trigger completion callback
     if (onCompleteCallback) {
@@ -308,11 +89,11 @@ export function createJackpotVideoOverlay() {
    * Update (not needed for video, but kept for consistency)
    */
   function update(timestamp) {
-    // Video playback is handled by the browser
+    // Video playback is handled by the video player module
   }
 
   /**
-   * Build/rebuild for canvas resize (not needed for fullscreen video)
+   * Build/rebuild for canvas resize (not needed for event-driven video)
    */
   function build(canvasWidth, canvasHeight) {
     // Video is always fullscreen via CSS

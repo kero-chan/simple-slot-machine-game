@@ -178,6 +178,15 @@ export async function loadAllAssets(onProgress = null) {
     console.warn('Failed to initialize audio system:', err)
   }
 
+  // Initialize video system (VideoPlayer module)
+  try {
+    // Import videoPlayer to ensure it's initialized and listening to events
+    await import('../composables/videoPlayer')
+    console.log('📹 Video system initialized')
+  } catch (err) {
+    console.warn('Failed to initialize video system:', err)
+  }
+
   // Final progress report
   if (onProgress) {
     onProgress(totalAssets, totalAssets)

@@ -4,6 +4,7 @@ import { getTileBaseSymbol, isTileWildcard, isBonusTile, isTileGolden } from '..
 import { useAudioEffects } from '../useAudioEffects'
 import { useGameStore } from '../../stores/gameStore'
 import { useTimingStore } from '../../stores/timingStore'
+import { videoEvents, VIDEO_EVENTS } from '../videoEventBus'
 import { gsap } from 'gsap'
 
 /**
@@ -1152,6 +1153,11 @@ export function useGameLogic(gameState, gridState, render, showWinOverlayFn, ree
   const spin = async () => {
     const started = gameStore.startSpinCycle()
     if (!started) return
+
+    // Preload jackpot videos during user interaction to maintain mobile autoplay context
+    // This is critical for mobile - videos must be loaded while user gesture is active
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_PRELOAD, { videoKey: 'jackpot' })
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_PRELOAD, { videoKey: 'jackpot_result' })
 
     playEffect("lot")
     playEffect("reel_spin")
