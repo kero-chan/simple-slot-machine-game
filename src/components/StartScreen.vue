@@ -50,7 +50,6 @@
 import { computed, ref, watch } from "vue";
 import { useGameState } from "../composables/slotMachine/useGameState";
 import { audioManager } from "../composables/audioManager";
-import { howlerAudio } from "../composables/useHowlerAudio";
 import { Howler } from "howler";
 import { useGameStore } from "../stores/gameStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -82,13 +81,13 @@ const loadingPercent = computed(() => {
 
 const isUnlockingAudio = ref(false);
 
-// Check if Howler is ready
+// Check if audio player is ready
 const checkHowlerReady = () => {
-  if (howlerAudio.isReady()) {
-    console.log('✅ Howler is ready - showing Start button');
+  if (audioManager.isAudioReady()) {
+    console.log('✅ Audio player is ready - showing Start button');
     isHowlerReady.value = true;
   } else {
-    console.log('⏳ Waiting for Howler to be ready...');
+    console.log('⏳ Waiting for audio player to be ready...');
     // Keep checking every 100ms until ready
     setTimeout(checkHowlerReady, 100);
   }
@@ -120,7 +119,7 @@ const handleStart = async () => {
     return;
   }
 
-  console.log('🎮 Start button clicked (Howler ready: ' + howlerAudio.isReady() + ')');
+  console.log('🎮 Start button clicked (Audio ready: ' + audioManager.isAudioReady() + ')');
   isUnlockingAudio.value = true;
 
   // Timeout protection: force unlock after 3 seconds
@@ -138,7 +137,7 @@ const handleStart = async () => {
   try {
     // Step 1: Unlock AudioContext (required for mobile browsers)
     console.log('🔓 Step 1: Starting audio unlock...');
-    await howlerAudio.unlockAudioContext();
+    await audioManager.unlockAudioContext();
     console.log('✅ Step 1 complete: Audio unlock finished');
 
     // Step 2: Verify AudioContext is running

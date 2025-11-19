@@ -165,19 +165,17 @@ export async function loadAllAssets(onProgress = null) {
   const audioSuccessCount = Object.values(ASSETS.loadedAudios).filter(a => a).length
   console.log(`✅ Loaded ${successCount}/${entries.length} images, ${videoSuccessCount}/${videoEntries.length} videos, and ${audioSuccessCount}/${audioEntries.length} audio files`)
 
-  // Initialize Howler.js for mobile compatibility
-  // Howler will load audio from original paths (not blob URLs)
+  // Initialize audio system (AudioPlayer module) for mobile compatibility
   try {
-    const { howlerAudio } = await import('../composables/useHowlerAudio')
-    howlerAudio.initialize()
-    console.log('🎵 Howler.js initialized')
+    const { audioManager } = await import('../composables/audioManager')
+    audioManager.initialize()
+    console.log('🎵 Audio system initialized')
 
-    // Wait a bit to ensure Howler instances are fully ready
-    // This prevents race condition where Start button appears before Howler is ready
+    // Wait a bit to ensure audio system is fully ready
     await new Promise(resolve => setTimeout(resolve, 100))
-    console.log('✅ Howler.js ready for playback')
+    console.log('✅ Audio system ready for playback')
   } catch (err) {
-    console.warn('Failed to initialize Howler.js:', err)
+    console.warn('Failed to initialize audio system:', err)
   }
 
   // Final progress report
