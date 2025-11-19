@@ -20,6 +20,8 @@ class VideoPlayer {
     this.isPlaying = false
     this.canSkip = false
     this.skipEnableTimeout = null
+    this.maxDurationTimeout = null
+    this.currentVideoKey = null
     this.onCompleteCallback = null
     this.volumeEnabled = true
     this.preloadedPlayers = new Map() // Cache preloaded players
@@ -83,10 +85,16 @@ class VideoPlayer {
       // Cache the player
       this.preloadedPlayers.set(videoKey, { player, videoElement: this.videoElement })
       
-      // Hide the preloaded video
+      // Hide the preloaded video - both wrapper and video element
       const playerEl = player.el()
       if (playerEl) {
         playerEl.style.display = 'none'
+      }
+      
+      // Hide the actual video element inside
+      const videoEl = player.tech(true).el()
+      if (videoEl) {
+        videoEl.style.display = 'none'
       }
       
       console.log(`✅ Video preloaded successfully: ${videoKey}`)
@@ -262,6 +270,11 @@ class VideoPlayer {
       clearTimeout(this.skipEnableTimeout)
       this.skipEnableTimeout = null
     }
+    
+    if (this.maxDurationTimeout) {
+      clearTimeout(this.maxDurationTimeout)
+      this.maxDurationTimeout = null
+    }
   }
 
   /**
@@ -269,9 +282,16 @@ class VideoPlayer {
    */
   updateVideoVolume() {
     if (this.player) {
-      this.player.muted(false)
-      this.player.volume(this.volumeEnabled ? 1.0 : 0)
-      console.log(`🔊 Video volume set to: ${this.player.volume()}`)
+      // jackpot_result video is always muted
+      if (this.currentVideoKey === 'jackpot_result') {
+        this.player.muted(true)
+        this.player.volume(0)
+        console.log(`🔇 Jackpot result video is muted`)
+      } else {
+        this.player.muted(false)
+        this.player.volume(this.volumeEnabled ? 1.0 : 0)
+        console.log(`🔊 Video volume set to: ${this.player.volume()}`)
+      }
     }
   }
 
@@ -353,6 +373,7 @@ class VideoPlayer {
     }
 
     this.isPlaying = true
+    this.currentVideoKey = videoKey
     this.onCompleteCallback = onComplete
 
     console.log(`🎬 Starting video: ${videoKey}`)
@@ -376,13 +397,18 @@ class VideoPlayer {
       // Setup event listeners
       this.setupVideoEventListeners(this.player)
       
-      // Show video
+      // Show video - both wrapper and video element
       const playerEl = this.player.el()
       if (playerEl) {
         playerEl.style.display = 'block'
+        console.log('✅ Player wrapper display set to block')
       }
-      if (this.videoElement) {
-        this.videoElement.style.display = 'block'
+      
+      // Also show the actual video element inside
+      const videoEl = this.player.tech(true).el()
+      if (videoEl) {
+        videoEl.style.display = 'block'
+        console.log('✅ Video element display set to block')
       }
       
       try {
@@ -407,6 +433,17 @@ class VideoPlayer {
 
         // Enable skip after delay
         this.enableSkipAfterDelay(skipDelay)
+        
+        // Set max duration timeout for jackpot_result video (7 seconds)
+        if (videoKey === 'jackpot_result') {
+          console.log('⏱️ Setting 7-second max duration for jackpot_result video')
+          this.maxDurationTimeout = setTimeout(() => {
+            if (this.isPlaying && this.currentVideoKey === 'jackpot_result') {
+              console.log('⏰ Jackpot result video reached 7-second limit, stopping')
+              this.handleVideoEnd()
+            }
+          }, 7000) // 7 seconds
+        }
       } catch (err) {
         console.error('❌ Video play failed!')
         console.error('   Error:', err.name, err.message)
@@ -470,6 +507,17 @@ class VideoPlayer {
 
       // Enable skip after delay
       this.enableSkipAfterDelay(skipDelay)
+      
+      // Set max duration timeout for jackpot_result video (7 seconds)
+      if (videoKey === 'jackpot_result') {
+        console.log('⏱️ Setting 7-second max duration for jackpot_result video')
+        this.maxDurationTimeout = setTimeout(() => {
+          if (this.isPlaying && this.currentVideoKey === 'jackpot_result') {
+            console.log('⏰ Jackpot result video reached 7-second limit, stopping')
+            this.handleVideoEnd()
+          }
+        }, 7000) // 7 seconds
+      }
     } catch (err) {
       console.error('❌ Video play failed!')
       console.error('   Error:', err.name, err.message)
@@ -510,6 +558,7 @@ class VideoPlayer {
    */
   handleVideoEnd() {
     this.isPlaying = false
+    this.currentVideoKey = null
 
     console.log('🔽 Ending video playback')
 

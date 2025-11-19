@@ -4,27 +4,28 @@ import { ASSETS } from '../../../config/assets'
 import { useGameStore } from '../../../stores/gameStore'
 import { useAudioEffects } from '../../useAudioEffects'
 import { getCounterDuration } from '../../../utils/gameHelpers'
+import { videoEvents, VIDEO_EVENTS } from '../../videoEventBus'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import { watch } from 'vue'
 
 /**
  * Creates a jackpot result overlay that displays total wins after all free spins (jackpot mode) complete
- * Shows congratulatory message and total accumulated amount with jackpot image background
+ * Shows congratulatory message and total accumulated amount with jackpot_result video background
+ * 
+ * This now uses the event-driven video architecture
  */
 export function createJackpotResultOverlay(gameState) {
   const gameStore = useGameStore()
+  const settingsStore = useSettingsStore()
   const { playEffect } = useAudioEffects()
   const container = new Container()
   container.visible = false
   container.zIndex = 1000 // On top
 
-  let background = null
-  let bgImage = null
-  let bgVideo = null // HTML video element for background
-  let videoSprite = null // PIXI Sprite for video
   let clickOverlay = null // Graphics overlay for click detection
   let canSkip = false // Flag to allow skipping video after 2 seconds
   let skipEnableTimeout = null
   let titleText = null
-  let messageText = null
   let amountContainer = null  // Container for image-based number sprites
   let animationStartTime = 0
   let isAnimating = false
@@ -33,6 +34,8 @@ export function createJackpotResultOverlay(gameState) {
   let canvasWidth = 600
   let canvasHeight = 800
   let isFadingOut = false
+  let gameSoundWatcher = null
+  let videoEndedUnsubscribe = null
 
   // Particle system for celebration
   const particlesContainer = new Container()
@@ -274,10 +277,9 @@ export function createJackpotResultOverlay(gameState) {
     targetAmount = totalAmount
     currentDisplayAmount = 0
 
-    // Play a special sound for free spin completion (different from normal wins)
-    // You can add a specific sound file for this, e.g., 'free_spin_complete'
+    // Play a special sound for free spin completion
     if (totalAmount > 0) {
-      playEffect('jackpot_finalize')  // Reuse bonus sound, or add a new 'free_spin_complete' sound
+      playEffect('jackpot_finalize')
     }
 
     console.log('🎉 FREE SPIN RESULT OVERLAY - Total:', totalAmount)
@@ -285,74 +287,30 @@ export function createJackpotResultOverlay(gameState) {
     // Clear previous content
     container.removeChildren()
 
-    // Clean up previous video if exists
-    if (bgVideo) {
-      bgVideo.pause()
-      bgVideo.remove()
-      bgVideo = null
-    }
-    if (videoSprite) {
-      videoSprite.destroy(true)
-      videoSprite = null
-    }
-
-    // Create fresh jackpot_result video (no preloading)
-    let bgVideoLoaded = false
-    try {
-      const videoSrc = ASSETS.videoPaths?.jackpot_result
-
-      if (videoSrc) {
-        console.log('📹 Creating jackpot result video:', videoSrc)
-
-        // Create fresh video element
-        bgVideo = document.createElement('video')
-        bgVideo.src = videoSrc
-        bgVideo.loop = true
-        bgVideo.playsInline = true
-        bgVideo.muted = true
-        bgVideo.style.display = 'none'
-        document.body.appendChild(bgVideo)
-
-        // Create PIXI texture and sprite
-        const videoTexture = Texture.from(bgVideo)
-        videoSprite = new Sprite(videoTexture)
-        videoSprite.anchor.set(0.5)
-        videoSprite.x = canvasWidth / 2
-        videoSprite.y = canvasHeight / 2
-
-        // Set proper scale
-        const scaleX = canvasWidth / (bgVideo.videoWidth || 1280)
-        const scaleY = canvasHeight / (bgVideo.videoHeight || 720)
-        const scale = Math.max(scaleX, scaleY)
-        videoSprite.scale.set(scale)
-
-        // Add to container
-        container.addChildAt(videoSprite, 0)
-
-        // Start playing
-        bgVideo.play()
-          .then(() => {
-            console.log('✅ Jackpot result video playing')
-          })
-          .catch(err => {
-            console.warn('⚠️ Video play failed:', err)
-          })
-
-        bgVideoLoaded = true
-      } else {
-        console.warn('❌ Jackpot result video source not found')
-      }
-    } catch (error) {
-      console.warn('Failed to create jackpot result video:', error)
+    // Watch for gameSound changes and update video volume
+    if (!gameSoundWatcher) {
+      gameSoundWatcher = watch(
+        () => settingsStore.gameSound,
+        (enabled) => {
+          if (isAnimating) {
+            videoEvents.emit(VIDEO_EVENTS.VIDEO_SET_VOLUME, { volume: enabled })
+          }
+        }
+      )
     }
 
-    // If video failed to load, use colored background
-    if (!bgVideoLoaded) {
-      const fallbackBg = new Graphics()
-      fallbackBg.rect(0, 0, canvasWidth, canvasHeight)
-      fallbackBg.fill({ color: 0x1a0a2a, alpha: 0.95 })
-      container.addChild(fallbackBg)
-    }
+    // Listen for video ended event (optional - video loops, but we handle fadeout ourselves)
+    videoEndedUnsubscribe = videoEvents.on(VIDEO_EVENTS.VIDEO_ENDED, () => {
+      console.log('📹 Jackpot result video ended')
+    })
+
+    // Emit event to play jackpot_result video
+    videoEvents.emit(VIDEO_EVENTS.VIDEO_PLAY, {
+      videoKey: 'jackpot_result',
+      skipDelay: 2000 // Allow skip after 2 seconds
+    })
+
+    console.log('🎬 Starting jackpot_result video via event system')
 
     // Congratulations title text
     const titleStyle = {
@@ -435,16 +393,19 @@ export function createJackpotResultOverlay(gameState) {
       clickOverlay = null
     }
 
-    // Clean up video completely
-    if (bgVideo) {
-      bgVideo.pause()
-      bgVideo.remove() // Remove from DOM
-      bgVideo = null
+    // Stop watching gameSound changes
+    if (gameSoundWatcher) {
+      gameSoundWatcher()
+      gameSoundWatcher = null
     }
-    if (videoSprite) {
-      videoSprite.destroy(true)
-      videoSprite = null
+
+    // Unsubscribe from video events
+    if (videoEndedUnsubscribe) {
+      videoEndedUnsubscribe()
+      videoEndedUnsubscribe = null
     }
+
+    console.log('🔽 Hiding jackpot result overlay')
 
     // Notify state machine that overlay is complete
     gameStore.completeWinOverlay()
@@ -470,10 +431,7 @@ export function createJackpotResultOverlay(gameState) {
       return
     }
 
-    // Update video texture if video is playing
-    if (videoSprite && bgVideo && !bgVideo.paused) {
-      videoSprite.texture.update()
-    }
+    // Video playback is handled by the video player module
 
     // === STAGED ENTRANCE ANIMATIONS ===
 
@@ -565,7 +523,7 @@ export function createJackpotResultOverlay(gameState) {
     // Update particles every frame
     updateParticles()
 
-    // Video plays automatically through PIXI's texture system
+    // Video playback is handled by the video player module
 
     // Start fade out 2 seconds after counting finishes (counterEnd is at 4.0s, so 4 + 2 = 6)
     const displayTime = counterEnd + 2
@@ -575,7 +533,7 @@ export function createJackpotResultOverlay(gameState) {
   }
 
   /**
-   * Build/rebuild for canvas resize
+   * Build/rebuild for canvas resize (not needed for event-driven video)
    */
   function build(canvasWidth, canvasHeight) {
     if (container.visible) {
@@ -586,15 +544,7 @@ export function createJackpotResultOverlay(gameState) {
         clickOverlay.fill({ color: 0x000000, alpha: 0.001 })
       }
 
-      // Reposition and rescale video sprite
-      if (videoSprite && bgVideo) {
-        videoSprite.x = canvasWidth / 2
-        videoSprite.y = canvasHeight / 2
-        const scaleX = canvasWidth / bgVideo.videoWidth
-        const scaleY = canvasHeight / bgVideo.videoHeight
-        const scale = Math.max(scaleX, scaleY)
-        videoSprite.scale.set(scale)
-      }
+      // Video is always fullscreen via CSS
       if (titleText) {
         titleText.x = canvasWidth / 2
         titleText.y = canvasHeight * 0.30
