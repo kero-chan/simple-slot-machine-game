@@ -368,7 +368,7 @@ export function useFooter(gameState) {
       for (const d of digits) {
         if (d === '.') {
         } else if (d === ',') {
-          const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+          const imageSrc = ASSETS.loadedImages?.glyph_comma_gold_large || ASSETS.imagePaths?.glyph_comma_gold_large
           if (!imageSrc) continue
           const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
           const sprite = new Sprite(texture);
@@ -379,7 +379,7 @@ export function useFooter(gameState) {
 
           offsetX += sprite.width * 0.7;
         } else {
-          const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+          const imageSrc = ASSETS.loadedImages?.[`glyph_${d}_gold_large`] || ASSETS.imagePaths?.[`glyph_${d}_gold_large`]
           if (!imageSrc) continue
           const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
           const sprite = new Sprite(texture);
