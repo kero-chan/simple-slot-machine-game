@@ -15,8 +15,6 @@ import { audioEvents, AUDIO_EVENTS } from './audioEventBus'
 
 class VideoPlayer {
   constructor() {
-    this.player = null
-    this.videoElement = null
     this.isPlaying = false
     this.canSkip = false
     this.skipEnableTimeout = null
@@ -24,7 +22,7 @@ class VideoPlayer {
     this.currentVideoKey = null
     this.onCompleteCallback = null
     this.volumeEnabled = true
-    this.preloadedPlayers = new Map() // Cache preloaded players
+    this.players = new Map() // Persistent video players, never disposed
     
     // Bind methods
     this.handleVideoSkip = this.handleVideoSkip.bind(this)
@@ -58,20 +56,16 @@ class VideoPlayer {
   async preloadVideo(data) {
     const { videoKey } = data
     
-    // Don't preload if already preloaded
-    if (this.preloadedPlayers.has(videoKey)) {
-      console.log(`✅ Video already preloaded: ${videoKey}`)
+    // Check if already exists
+    if (this.players.has(videoKey)) {
+      console.log(`✅ Video already loaded: ${videoKey}`)
       return
     }
 
     console.log(`🔄 Preloading video: ${videoKey}`)
     
-    const player = this.createVideoPlayer(videoKey)
-    if (!player) return
-
     try {
-      // Load video metadata
-      await this.waitForVideoData(player)
+      const player = await this.getOrCreatePlayer(videoKey)
       
       // Start playing muted to establish user interaction context
       player.muted(true)
@@ -80,31 +74,58 @@ class VideoPlayer {
       
       // Immediately pause after starting (keeps interaction context)
       player.pause()
-      
-      // Cache the player
-      this.preloadedPlayers.set(videoKey, { player, videoElement: this.videoElement })
-      
-      // Hide the preloaded video - both wrapper and video element
-      const playerEl = player.el()
-      if (playerEl) {
-        playerEl.style.display = 'none'
-      }
-      
-      // Hide the actual video element inside
-      const videoEl = player.tech(true).el()
-      if (videoEl) {
-        videoEl.style.display = 'none'
-      }
+      player.currentTime(0)
       
       console.log(`✅ Video preloaded successfully: ${videoKey}`)
       videoEvents.emit(VIDEO_EVENTS.VIDEO_READY, { videoKey })
     } catch (err) {
       console.warn(`⚠️ Failed to preload video: ${videoKey}`, err)
-      // Clean up failed preload
-      if (player) {
-        player.dispose()
+    }
+  }
+
+  /**
+   * Get existing player or create new one (persistent, never disposed)
+   */
+  async getOrCreatePlayer(videoKey) {
+    // Return existing player if available
+    if (this.players.has(videoKey)) {
+      const playerData = this.players.get(videoKey)
+      
+      // Verify player is still valid
+      if (playerData.player && playerData.videoElement && document.body.contains(playerData.videoElement)) {
+        return playerData.player
+      }
+      
+      // Player was corrupted, remove it
+      console.warn(`⚠️ Player for ${videoKey} was corrupted, recreating...`)
+      this.players.delete(videoKey)
+      if (playerData.player) {
+        try {
+          playerData.player.dispose()
+        } catch (err) {
+          console.warn('Failed to dispose corrupted player:', err)
+        }
       }
     }
+    
+    // Create new player
+    const player = this.createVideoPlayer(videoKey)
+    if (!player) {
+      throw new Error(`Failed to create player for ${videoKey}`)
+    }
+    
+    const videoElement = player.tech(true).el()
+    
+    // Store in persistent cache
+    this.players.set(videoKey, { player, videoElement })
+    
+    // Setup event listeners once
+    this.setupVideoEventListeners(player)
+    
+    // Wait for video data
+    await this.waitForVideoData(player)
+    
+    return player
   }
 
   /**
@@ -128,17 +149,19 @@ class VideoPlayer {
     video.preload = 'auto'
 
     // Fullscreen styling with iOS Safari optimization
+    // Start hidden but keep in render tree
     video.style.position = 'fixed'
     video.style.top = '0'
     video.style.left = '0'
     video.style.width = '100%'
     video.style.height = '100%'
-    video.style.zIndex = '999999999'
-    video.style.display = 'none'
+    video.style.zIndex = '-9999' // Hidden in background
+    video.style.opacity = '0'
+    video.style.visibility = 'hidden'
+    video.style.pointerEvents = 'none'
     video.style.cursor = 'pointer'
     video.style.objectFit = 'contain'
     video.style.backgroundColor = 'transparent'
-    video.style.pointerEvents = 'auto'
     
     // Force hardware acceleration for iOS Safari
     video.style.webkitTransform = 'translateZ(0)'
@@ -168,17 +191,19 @@ class VideoPlayer {
     })
 
     // Apply z-index and iOS optimization to Video.js wrapper (created after initialization)
+    // Start hidden in background
     const playerEl = player.el()
     if (playerEl) {
-      playerEl.style.zIndex = '999999999'
+      playerEl.style.zIndex = '-9999' // Hidden in background
       playerEl.style.position = 'fixed'
       playerEl.style.top = '0'
       playerEl.style.left = '0'
       playerEl.style.width = '100%'
       playerEl.style.height = '100%'
-      playerEl.style.display = 'none'
+      playerEl.style.opacity = '0'
+      playerEl.style.visibility = 'hidden'
+      playerEl.style.pointerEvents = 'none'
       playerEl.style.backgroundColor = 'transparent'
-      playerEl.style.pointerEvents = 'auto'
       
       // Force hardware acceleration for iOS Safari
       playerEl.style.webkitTransform = 'translateZ(0)'
@@ -194,18 +219,6 @@ class VideoPlayer {
       type: this.getVideoType(videoSrc)
     })
 
-    // Add event listeners for both desktop and mobile
-    // Using multiple event types to ensure compatibility
-    video.addEventListener('click', this.handleVideoSkip, false)
-    video.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
-    
-    // Also add to player wrapper for better coverage
-    if (playerEl) {
-      playerEl.addEventListener('click', this.handleVideoSkip, false)
-      playerEl.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
-    }
-
-    this.videoElement = video
     console.log('✅ Video.js player created')
     return player
   }
@@ -275,21 +288,71 @@ class VideoPlayer {
   }
 
   /**
+   * Show video (bring to foreground)
+   */
+  showVideo(player) {
+    const playerEl = player.el()
+    const videoEl = player.tech(true).el()
+    
+    if (playerEl) {
+      playerEl.style.zIndex = '9999'
+      playerEl.style.opacity = '1'
+      playerEl.style.visibility = 'visible'
+      playerEl.style.pointerEvents = 'auto'
+    }
+    
+    if (videoEl) {
+      videoEl.style.opacity = '1'
+      videoEl.style.visibility = 'visible'
+    }
+    
+    // Force reflow
+    if (videoEl) {
+      void videoEl.offsetHeight
+    }
+  }
+  
+  /**
+   * Hide video (send to background)
+   */
+  hideVideo(player) {
+    const playerEl = player.el()
+    const videoEl = player.tech(true).el()
+    
+    if (playerEl) {
+      playerEl.style.zIndex = '-9999'
+      playerEl.style.opacity = '0'
+      playerEl.style.visibility = 'hidden'
+      playerEl.style.pointerEvents = 'none'
+    }
+    
+    if (videoEl) {
+      videoEl.style.opacity = '0'
+      videoEl.style.visibility = 'hidden'
+    }
+  }
+
+  /**
    * Update video volume
    */
   updateVideoVolume() {
-    if (this.player) {
-      // jackpot_result video is always muted
-      if (this.currentVideoKey === 'jackpot_result') {
-        this.player.muted(true)
-        this.player.volume(0)
-        console.log(`🔇 Jackpot result video is always muted`)
-      } else {
-        // Other videos (including jackpot) follow gameSound setting
-        this.player.muted(false)
-        this.player.volume(this.volumeEnabled ? 1.0 : 0)
-        console.log(`🔊 Video volume set to: ${this.player.volume()} (volumeEnabled: ${this.volumeEnabled})`)
-      }
+    if (!this.currentVideoKey) return
+    
+    const playerData = this.players.get(this.currentVideoKey)
+    if (!playerData) return
+    
+    const player = playerData.player
+    
+    // jackpot_result video is always muted
+    if (this.currentVideoKey === 'jackpot_result') {
+      player.muted(true)
+      player.volume(0)
+      console.log(`🔇 Jackpot result video is always muted`)
+    } else {
+      // Other videos (including jackpot) follow gameSound setting
+      player.muted(false)
+      player.volume(this.volumeEnabled ? 1.0 : 0)
+      console.log(`🔊 Video volume set to: ${player.volume()} (volumeEnabled: ${this.volumeEnabled})`)
     }
   }
 
@@ -325,10 +388,24 @@ class VideoPlayer {
   }
 
   /**
-   * Setup video event listeners
+   * Setup video event listeners (called once per player)
    */
   setupVideoEventListeners(player) {
-    player.one('ended', () => {
+    const videoElement = player.tech(true).el()
+    const playerEl = player.el()
+    
+    // Add click/touch handlers for skip functionality
+    if (videoElement) {
+      videoElement.addEventListener('click', this.handleVideoSkip, false)
+      videoElement.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
+    }
+    if (playerEl) {
+      playerEl.addEventListener('click', this.handleVideoSkip, false)
+      playerEl.addEventListener('touchstart', this.handleVideoSkip, { passive: false })
+    }
+    
+    // Video playback events
+    player.on('ended', () => {
       console.log('✅ Video ended')
       this.handleVideoEnd()
     })
@@ -379,125 +456,36 @@ class VideoPlayer {
     // Pause background music
     audioEvents.emit(AUDIO_EVENTS.MUSIC_PAUSE)
 
-    // Check if video is preloaded
-    const preloaded = this.preloadedPlayers.get(videoKey)
-    
-    if (preloaded) {
-      console.log(`✅ Using preloaded video: ${videoKey}`)
-      
-      // Use preloaded player
-      this.player = preloaded.player
-      this.videoElement = preloaded.videoElement
-      
-      // Remove from cache
-      this.preloadedPlayers.delete(videoKey)
-      
-      // Setup event listeners
-      this.setupVideoEventListeners(this.player)
-      
-      // Show video - both wrapper and video element
-      const playerEl = this.player.el()
-      if (playerEl) {
-        playerEl.style.display = 'block'
-        console.log('✅ Player wrapper display set to block')
-      }
-      
-      // Also show the actual video element inside
-      const videoEl = this.player.tech(true).el()
-      if (videoEl) {
-        videoEl.style.display = 'block'
-        console.log('✅ Video element display set to block')
-      }
-      
-      try {
-        console.log('▶️ Playing preloaded video')
-        
-        // Reset to beginning
-        this.player.currentTime(0)
-        
-        // Play video (will work because interaction context is preserved)
-        await this.player.play()
-        
-        console.log('✅ Video playing successfully')
-        videoEvents.emit(VIDEO_EVENTS.VIDEO_STARTED, { videoKey })
-
-        // Unmute after playing starts
-        setTimeout(() => {
-          if (this.player && this.isPlaying) {
-            console.log('🔊 Unmuting video')
-            this.updateVideoVolume()
-          }
-        }, 200)
-
-        // Enable skip after delay
-        this.enableSkipAfterDelay(skipDelay)
-        
-        // Set max duration timeout for jackpot_result video (7 seconds)
-        if (videoKey === 'jackpot_result') {
-          console.log('⏱️ Setting 7-second max duration for jackpot_result video')
-          this.maxDurationTimeout = setTimeout(() => {
-            if (this.isPlaying && this.currentVideoKey === 'jackpot_result') {
-              console.log('⏰ Jackpot result video reached 7-second limit, stopping')
-              this.handleVideoEnd()
-            }
-          }, 7000) // 7 seconds
-        }
-      } catch (err) {
-        console.error('❌ Video play failed!')
-        console.error('   Error:', err.name, err.message)
-        videoEvents.emit(VIDEO_EVENTS.VIDEO_ERROR, { error: err })
-        this.handleVideoEnd()
-      }
-      
-      return
-    }
-
-    // Fallback: Create new player if not preloaded
-    console.log('⚠️ Video not preloaded, creating new player')
-    
-    // Clean up old player
-    if (this.player) {
-      this.player.pause()
-      this.player.dispose()
-      this.player = null
-    }
-
-    // Create new Video.js player
-    this.player = this.createVideoPlayer(videoKey)
-    if (!this.player) {
-      this.handleVideoEnd()
-      return
-    }
-
-    // Setup event listeners
-    this.setupVideoEventListeners(this.player)
-
-    // Show video - both wrapper and video element
-    const playerEl = this.player.el()
-    if (playerEl) {
-      playerEl.style.display = 'block'
-    }
-    if (this.videoElement) {
-      this.videoElement.style.display = 'block'
-    }
-
-    console.log('⏳ Waiting for video to buffer...')
-
     try {
-      // Wait for video data
-      await this.waitForVideoData(this.player)
-
+      // Get or create player
+      const player = await this.getOrCreatePlayer(videoKey)
+      
+      // Reset to beginning
+      player.currentTime(0)
+      
+      // Show video
+      this.showVideo(player)
+      
       console.log('▶️ Playing video')
       
       // Play video
-      await this.player.play()
+      await player.play()
+      
+      // Wait a bit to ensure play has started
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Check if play was successful
+      if (player.paused()) {
+        console.warn('⚠️ Video still paused after play, retrying...')
+        await player.play()
+      }
       
       console.log('✅ Video playing successfully')
       videoEvents.emit(VIDEO_EVENTS.VIDEO_STARTED, { videoKey })
 
       // Unmute after playing starts
       setTimeout(() => {
-        if (this.player && this.isPlaying) {
+        if (this.isPlaying && this.currentVideoKey === videoKey) {
           console.log('🔊 Unmuting video')
           this.updateVideoVolume()
         }
@@ -519,6 +507,7 @@ class VideoPlayer {
     } catch (err) {
       console.error('❌ Video play failed!')
       console.error('   Error:', err.name, err.message)
+      console.error('   Stack:', err.stack)
       videoEvents.emit(VIDEO_EVENTS.VIDEO_ERROR, { error: err })
       this.handleVideoEnd()
     }
@@ -528,8 +517,11 @@ class VideoPlayer {
    * Pause video
    */
   pause() {
-    if (this.player && this.isPlaying) {
-      this.player.pause()
+    if (!this.currentVideoKey || !this.isPlaying) return
+    
+    const playerData = this.players.get(this.currentVideoKey)
+    if (playerData) {
+      playerData.player.pause()
       console.log('⏸️ Video paused')
     }
   }
@@ -555,6 +547,8 @@ class VideoPlayer {
    * Handle video end (natural or forced)
    */
   handleVideoEnd() {
+    const videoKey = this.currentVideoKey
+    
     this.isPlaying = false
     this.currentVideoKey = null
 
@@ -563,32 +557,20 @@ class VideoPlayer {
     // Disable skip functionality
     this.disableSkip()
 
-    // Clean up player
-    if (this.player) {
-      // Hide before disposing
-      const playerEl = this.player.el()
-      if (playerEl) {
-        playerEl.style.display = 'none'
-      }
-      this.player.pause()
-      this.player.dispose()
-      this.player = null
-    }
-
-    // Clean up video element
-    if (this.videoElement) {
-      this.videoElement.removeEventListener('click', this.handleVideoSkip)
-      this.videoElement.removeEventListener('touchstart', this.handleVideoSkip)
-      this.videoElement.remove()
-      this.videoElement = null
-    }
-    
-    // Clean up player wrapper event listeners
-    if (this.player) {
-      const playerEl = this.player.el()
-      if (playerEl) {
-        playerEl.removeEventListener('click', this.handleVideoSkip)
-        playerEl.removeEventListener('touchstart', this.handleVideoSkip)
+    // Hide player (keep in background, don't dispose)
+    if (videoKey) {
+      const playerData = this.players.get(videoKey)
+      if (playerData) {
+        const player = playerData.player
+        
+        // Pause and reset
+        player.pause()
+        player.currentTime(0)
+        
+        // Hide video
+        this.hideVideo(player)
+        
+        console.log(`✅ Video ${videoKey} hidden and reset`)
       }
     }
 
@@ -626,6 +608,24 @@ class VideoPlayer {
    */
   isVideoPlaying() {
     return this.isPlaying
+  }
+  
+  /**
+   * Clean up all players (call on app unmount)
+   */
+  dispose() {
+    console.log('🧹 Disposing all video players')
+    
+    for (const [videoKey, playerData] of this.players.entries()) {
+      try {
+        playerData.player.dispose()
+        console.log(`✅ Disposed player: ${videoKey}`)
+      } catch (err) {
+        console.warn(`Failed to dispose player ${videoKey}:`, err)
+      }
+    }
+    
+    this.players.clear()
   }
 }
 
