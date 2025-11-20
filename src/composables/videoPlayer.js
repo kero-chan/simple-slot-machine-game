@@ -58,16 +58,35 @@ class VideoPlayer {
   async preloadVideo(data) {
     const { videoKey } = data
     
-    // Don't preload if already preloaded
+    // Check if already preloaded and still in DOM
     if (this.preloadedPlayers.has(videoKey)) {
-      console.log(`✅ Video already preloaded: ${videoKey}`)
-      return
+      const cached = this.preloadedPlayers.get(videoKey)
+      // Verify the video element is still in the DOM
+      if (cached.videoElement && document.body.contains(cached.videoElement)) {
+        console.log(`✅ Video already preloaded: ${videoKey}`)
+        return
+      } else {
+        // Video element was removed, need to recreate
+        console.log(`⚠️ Video was preloaded but element removed, recreating: ${videoKey}`)
+        this.preloadedPlayers.delete(videoKey)
+        // Clean up the orphaned player
+        if (cached.player) {
+          try {
+            cached.player.dispose()
+          } catch (err) {
+            console.warn(`Failed to dispose orphaned player: ${videoKey}`, err)
+          }
+        }
+      }
     }
 
     console.log(`🔄 Preloading video: ${videoKey}`)
     
     const player = this.createVideoPlayer(videoKey)
     if (!player) return
+
+    // Capture the video element immediately after creation to avoid reference issues
+    const videoElement = this.videoElement
 
     try {
       // Load video metadata
@@ -81,8 +100,8 @@ class VideoPlayer {
       // Immediately pause after starting (keeps interaction context)
       player.pause()
       
-      // Cache the player
-      this.preloadedPlayers.set(videoKey, { player, videoElement: this.videoElement })
+      // Cache the player with its own video element reference
+      this.preloadedPlayers.set(videoKey, { player, videoElement })
       
       // Hide the preloaded video - both wrapper and video element
       const playerEl = player.el()
@@ -133,7 +152,7 @@ class VideoPlayer {
     video.style.left = '0'
     video.style.width = '100%'
     video.style.height = '100%'
-    video.style.zIndex = '999999999'
+    video.style.zIndex = '9999'
     video.style.display = 'none'
     video.style.cursor = 'pointer'
     video.style.objectFit = 'contain'
@@ -170,7 +189,7 @@ class VideoPlayer {
     // Apply z-index and iOS optimization to Video.js wrapper (created after initialization)
     const playerEl = player.el()
     if (playerEl) {
-      playerEl.style.zIndex = '999999999'
+      playerEl.style.zIndex = '9999'
       playerEl.style.position = 'fixed'
       playerEl.style.top = '0'
       playerEl.style.left = '0'
@@ -565,10 +584,12 @@ class VideoPlayer {
 
     // Clean up player
     if (this.player) {
-      // Hide before disposing
+      // Clean up player wrapper event listeners first (before disposing)
       const playerEl = this.player.el()
       if (playerEl) {
         playerEl.style.display = 'none'
+        playerEl.removeEventListener('click', this.handleVideoSkip)
+        playerEl.removeEventListener('touchstart', this.handleVideoSkip)
       }
       this.player.pause()
       this.player.dispose()
@@ -581,15 +602,6 @@ class VideoPlayer {
       this.videoElement.removeEventListener('touchstart', this.handleVideoSkip)
       this.videoElement.remove()
       this.videoElement = null
-    }
-    
-    // Clean up player wrapper event listeners
-    if (this.player) {
-      const playerEl = this.player.el()
-      if (playerEl) {
-        playerEl.removeEventListener('click', this.handleVideoSkip)
-        playerEl.removeEventListener('touchstart', this.handleVideoSkip)
-      }
     }
 
     // Resume background music
