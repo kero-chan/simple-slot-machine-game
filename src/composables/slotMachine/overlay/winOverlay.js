@@ -115,7 +115,7 @@ export function createWinOverlay(gameState) {
   }
 
   /**
-   * Create image-based number display using i40_XX sprites
+   * Create image-based number display using glyph_X_gold_large sprites
    * Scales numbers to fit within 70% of canvas width
    */
   function createNumberDisplay(amount, canvasWidth) {
@@ -132,7 +132,7 @@ export function createWinOverlay(gameState) {
     let referenceHeight = 0
     for (const d of digits) {
       if (d >= '0' && d <= '9') {
-        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        const imageSrc = ASSETS.loadedImages?.[`glyph_${d}_gold_large`] || ASSETS.imagePaths?.[`glyph_${d}_gold_large`]
         if (imageSrc) {
           const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
           const tempSprite = new Sprite(texture)
@@ -148,8 +148,9 @@ export function createWinOverlay(gameState) {
       let sprite
 
       if (d === ',' || d === '.') {
-        // Use i40_10 for comma, handle period if present
-        const imageSrc = ASSETS.loadedImages?.i40_10 || ASSETS.imagePaths?.i40_10
+        // Use glyph_comma_gold_large for comma, glyph_dot_gold_large for period
+        const glyphKey = d === ',' ? 'glyph_comma_gold_large' : 'glyph_dot_gold_large'
+        const imageSrc = ASSETS.loadedImages?.[glyphKey] || ASSETS.imagePaths?.[glyphKey]
         if (!imageSrc) continue
         const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
         sprite = new Sprite(texture)
@@ -164,8 +165,8 @@ export function createWinOverlay(gameState) {
         numberContainer.addChild(sprite)
         offsetX += sprite.width * 0.7  // Tighter spacing for punctuation
       } else if (d >= '0' && d <= '9') {
-        // Use i40_0X for digits
-        const imageSrc = ASSETS.loadedImages?.[`i40_0${d}`] || ASSETS.imagePaths?.[`i40_0${d}`]
+        // Use glyph_X_gold_large for digits
+        const imageSrc = ASSETS.loadedImages?.[`glyph_${d}_gold_large`] || ASSETS.imagePaths?.[`glyph_${d}_gold_large`]
         if (!imageSrc) continue
         const texture = imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc)
         sprite = new Sprite(texture)
