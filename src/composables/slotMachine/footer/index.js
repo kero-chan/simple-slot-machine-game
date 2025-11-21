@@ -777,7 +777,10 @@ export function useFooter(gameState) {
     container.addChild(bgSprite)
 
     const bgBarSprite = new Sprite(subTex('footer_bar'))
-    bgBarSprite.scale.set(0.6 * setRectHeight / bgBarSprite.height)
+    // Scale to match canvas width and maintain proportional height
+    const barScaleX = w / bgBarSprite.width
+    const barScaleY = 0.6 * setRectHeight / bgBarSprite.height
+    bgBarSprite.scale.set(barScaleX, barScaleY)
     bgBarSprite.anchor.set(0.5)
     bgBarSprite.position.set(centerX, y + h * 0.052)
     container.addChild(bgBarSprite)
