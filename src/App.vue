@@ -93,7 +93,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-color: rgb(255 0 0 / 20%);
+  background-color: rgb(0 255 253 / 20%);
   backdrop-filter: blur(5px);
   z-index: 1;
 }
