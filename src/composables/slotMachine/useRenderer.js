@@ -4,6 +4,7 @@ import { useHeader } from './header'
 import { useReels } from './reels'
 import { useFooter } from './footer'
 import { ASSETS } from '../../config/assets'
+import { CONFIG } from '../../config/constants'
 import { useGlowOverlay } from './reels/tiles/glowingComposer'
 import { createWinOverlay } from './overlay/winOverlay'
 import { createBonusOverlay } from './overlay/bonusOverlay'
@@ -53,17 +54,25 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
 
     function computeLayout(w, h) {
         const headerH = Math.round(h * 0.15)
-
-        // Tile width from canvas width; tile height from required ratio
-        const tileW = (w - MARGIN_X * 2) / COLS
-        const TILE_RATIO_H_OVER_W = 610 / 600  // Actual tile image ratio
-        const tileH = tileW * TILE_RATIO_H_OVER_W
-
         const visibleRowsSpan = ROWS_FULL + TOP_PARTIAL + 0.35  // Increased bottom visibility from 0.15 to 0.35
-        // Ceil + 1px guard so the bottom row is more visible
-        const mainH = Math.ceil(tileH * visibleRowsSpan) + 1
-
+        
+        // Keep proportions: calculate mainH to maintain header/main/footer ratio
+        // Main area gets the space needed for visible rows
+        const mainH = Math.ceil(h * 0.60) // ~60% for main area (adjust as needed)
         const footerH = Math.max(0, h - headerH - mainH)
+
+        // Calculate tile size to fit within the fixed main area
+        // Tile width from canvas width
+        const tileW = (w - MARGIN_X * 2) / COLS
+        
+        // Tile height: scale from main area height to fit visible rows
+        // Also respect the tile aspect ratio from constants
+        const TILE_RATIO_H_OVER_W = CONFIG.reels.tileHeight / CONFIG.reels.tileWidth  // Actual tile image ratio from constants
+        const tileHFromRatio = tileW * TILE_RATIO_H_OVER_W
+        const tileHFromMainHeight = (mainH - 1) / visibleRowsSpan
+        
+        // Use the smaller of the two to ensure tiles fit both width and height constraints
+        const tileH = Math.min(tileHFromRatio, tileHFromMainHeight)
 
         return {
             headerRect: { x: 0, y: 0, w, h: headerH },

@@ -11,6 +11,8 @@ export const CONFIG = {
     stripLength: 100, // Longer strip = smoother spin animation, prevents gaps
     symbolSize: 70,
     spacing: 8,
+    tileHeight: 600, // Base tile height in pixels (adjustable)
+    tileWidth: 481, // Base tile width in pixels (adjustable)// Actual tile image ratio (height/width)
 
     // WINNING CHECK ROWS - Single source of truth for all winning/bonus/effect calculations
     // These are the GRID row indices used for checking wins (adjusted for strip layout fix)
