@@ -46,6 +46,19 @@ export function createMassiveWinAnimation(reelsRef) {
   const tileSprites = [];
 
   /**
+   * Calculate responsive scale factor based on canvas size
+   * Returns a scale factor between 0.4 (very small mobile) and 1.0 (desktop)
+   */
+  function getResponsiveScale(canvasWidth, canvasHeight) {
+    const minDimension = Math.min(canvasWidth, canvasHeight);
+    // Mobile portrait: ~400px, Mobile landscape: ~700px, Desktop: 1000+px
+    if (minDimension < 500) return 0.4; // Very small mobile
+    if (minDimension < 700) return 0.6; // Mobile
+    if (minDimension < 900) return 0.8; // Tablet
+    return 1.0; // Desktop
+  }
+
+  /**
    * Create a crystal particle that flies out from tiles
    */
   function createCrystal(x, y, delay = 0) {
@@ -194,31 +207,33 @@ export function createMassiveWinAnimation(reelsRef) {
   /**
    * Get win image and config based on intensity
    */
-  function getWinConfig(intensity) {
+  function getWinConfig(intensity, canvasWidth, canvasHeight) {
+    const responsiveScale = getResponsiveScale(canvasWidth, canvasHeight);
+    
     const configs = {
       small: {
         imageKey: "win_small",
-        targetHeight: 250,
+        targetHeight: 250 * responsiveScale,
         textFallback: "WIN!",
       },
       medium: {
         imageKey: "win_grand",
-        targetHeight: 300,
+        targetHeight: 300 * responsiveScale,
         textFallback: "BIG WIN!",
       },
       big: {
         imageKey: "win_grand",
-        targetHeight: 350,
+        targetHeight: 350 * responsiveScale,
         textFallback: "GRAND WIN!",
       },
       mega: {
         imageKey: "win_mega",
-        targetHeight: 400,
+        targetHeight: 400 * responsiveScale,
         textFallback: "MASSIVE WIN!",
       },
       jackpot: {
         imageKey: "win_megagrand",
-        targetHeight: 450,
+        targetHeight: 450 * responsiveScale,
         textFallback: "JACKPOT!",
       },
     };
@@ -232,7 +247,7 @@ export function createMassiveWinAnimation(reelsRef) {
   function createWinText(canvasWidth, canvasHeight, intensity = "mega") {
     textContainer.removeChildren();
 
-    const config = getWinConfig(intensity);
+    const config = getWinConfig(intensity, canvasWidth, canvasHeight);
 
     // Try to use image first
     const winImage =
@@ -245,10 +260,19 @@ export function createMassiveWinAnimation(reelsRef) {
       const textSprite = new Sprite(texture);
       textSprite.anchor.set(0.5);
       textSprite.x = canvasWidth / 2;
-      textSprite.y = canvasHeight / 2;
+      // Move up 20% to center better in the visible area
+      textSprite.y = canvasHeight * 0.4;
 
       // Scale to appropriate size based on intensity
-      const scale = config.targetHeight / textSprite.height;
+      let scale = config.targetHeight / textSprite.height;
+      
+      // Ensure sprite doesn't exceed 90% of canvas width
+      const maxWidth = canvasWidth * 0.9;
+      const scaledWidth = textSprite.width * scale;
+      if (scaledWidth > maxWidth) {
+        scale = maxWidth / textSprite.width;
+      }
+      
       textSprite.scale.set(0);
 
       textContainer.addChild(textSprite);
@@ -290,7 +314,8 @@ export function createMassiveWinAnimation(reelsRef) {
       const text = new Text(config.textFallback, textStyle);
       text.anchor.set(0.5);
       text.x = canvasWidth / 2;
-      text.y = canvasHeight / 2;
+      // Move up 20% to center better in the visible area
+      text.y = canvasHeight * 0.4;
       text.scale.set(0);
 
       textContainer.addChild(text);
@@ -379,7 +404,10 @@ export function createMassiveWinAnimation(reelsRef) {
 
     // Calculate angle for this tile in the circular formation
     const angle = (index / totalTiles) * Math.PI * 2;
-    const orbitRadius = 300; // Radius of the circular orbit
+    
+    // Responsive orbit radius based on canvas size
+    const minDimension = Math.min(centerX, centerY);
+    const orbitRadius = Math.min(300, minDimension * 0.6); // Max 60% of min dimension
 
     // Calculate orbit position
     const orbitX = centerX + Math.cos(angle) * orbitRadius;
@@ -627,9 +655,13 @@ export function createMassiveWinAnimation(reelsRef) {
     const formattedAmount = amount.toLocaleString();
     const digits = formattedAmount.split("");
 
+    // Scale down glyphs more aggressively on smaller screens
+    const responsiveScale = getResponsiveScale(canvasWidth, canvasHeight);
     const PUNCTUATION_SCALE_FACTOR = 0.5;
     const PERIOD_Y_POSITION = 1.0;
     const COMMA_Y_POSITION = 0.65;
+    // Base scale factor for the entire amount display
+    const BASE_GLYPH_SCALE = 0.7 * responsiveScale;
 
     // Get reference height from first digit
     let referenceHeight = 0;
@@ -664,11 +696,11 @@ export function createMassiveWinAnimation(reelsRef) {
         sprite = new Sprite(texture);
 
         const spriteScale =
-          (referenceHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR;
+          (referenceHeight / sprite.height) * PUNCTUATION_SCALE_FACTOR * BASE_GLYPH_SCALE;
         sprite.scale.set(spriteScale);
         sprite.x = offsetX - sprite.width * 0.1;
         sprite.y =
-          referenceHeight * (d === "." ? PERIOD_Y_POSITION : COMMA_Y_POSITION);
+          referenceHeight * (d === "." ? PERIOD_Y_POSITION : COMMA_Y_POSITION) * BASE_GLYPH_SCALE;
 
         numberContainer.addChild(sprite);
         offsetX += sprite.width * 0.7;
@@ -680,6 +712,7 @@ export function createMassiveWinAnimation(reelsRef) {
         const texture =
           imageSrc instanceof Texture ? imageSrc : Texture.from(imageSrc);
         sprite = new Sprite(texture);
+        sprite.scale.set(BASE_GLYPH_SCALE);
         sprite.x = offsetX;
         sprite.y = 0;
         numberContainer.addChild(sprite);
@@ -687,16 +720,18 @@ export function createMassiveWinAnimation(reelsRef) {
       }
     }
 
-    // Scale to fit within canvas
-    const maxWidth = canvasWidth * 0.7;
+    // Scale to fit within canvas - more aggressive on mobile
+    const maxWidth = canvasWidth * 0.85;
     if (numberContainer.width > maxWidth) {
       const scale = maxWidth / numberContainer.width;
       numberContainer.scale.set(scale);
     }
 
-    // Position below win text
+    // Position below win text - increase offset to prevent overlap
+    // Use larger offset to ensure clear separation between win text and amount
+    const yOffset = 150 * responsiveScale;
     numberContainer.x = canvasWidth / 2 - numberContainer.width / 2;
-    numberContainer.y = canvasHeight / 2 + 100;
+    numberContainer.y = canvasHeight * 0.4 + yOffset;
     numberContainer.scale.set(0);
 
     textContainer.addChild(numberContainer);
@@ -813,7 +848,8 @@ export function createMassiveWinAnimation(reelsRef) {
     // Step 3: Tiles orbit in circle and spiral inward (0.5s start)
     if (tilePositions && tilePositions.length > 0) {
       const centerX = canvasWidth / 2;
-      const centerY = canvasHeight / 2;
+      // Move orbit center up to align with win text (40% instead of 50%)
+      const centerY = canvasHeight * 0.45;
 
       animationTimeline.call(
         () => {
@@ -845,11 +881,12 @@ export function createMassiveWinAnimation(reelsRef) {
       // Step 3.5: Central explosion when tiles converge (3.6s = 0.5 + 0.3 + 1.0 + 1.0 + 0.8)
       animationTimeline.call(
         () => {
-          // Create massive crystal explosion from center
-          const crystalCount = 150; // Massive burst!
+          // Create massive crystal explosion from center - responsive count
+          const responsiveScale = getResponsiveScale(canvasWidth, canvasHeight);
+          const crystalCount = Math.floor(150 * responsiveScale); // Fewer particles on mobile
           for (let i = 0; i < crystalCount; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 3 + Math.random() * 8;
+            const speed = (3 + Math.random() * 8) * responsiveScale;
 
             // Create crystal at center
             const crystal = createCrystal(centerX, centerY, i * 0.005);
@@ -900,12 +937,17 @@ export function createMassiveWinAnimation(reelsRef) {
       () => {
         createWinText(canvasWidth, canvasHeight, intensity);
 
-        // Create extra crystals around text
-        for (let i = 0; i < 50; i++) {
-          const angle = (i / 50) * Math.PI * 2;
-          const radius = 200 + Math.random() * 100;
+        // Create extra crystals around text - responsive count and radius
+        const responsiveScale = getResponsiveScale(canvasWidth, canvasHeight);
+        const crystalCount = Math.floor(50 * responsiveScale);
+        const baseRadius = 200 * responsiveScale;
+        const radiusVariation = 100 * responsiveScale;
+        
+        for (let i = 0; i < crystalCount; i++) {
+          const angle = (i / crystalCount) * Math.PI * 2;
+          const radius = baseRadius + Math.random() * radiusVariation;
           const x = canvasWidth / 2 + Math.cos(angle) * radius;
-          const y = canvasWidth / 2 + Math.sin(angle) * radius;
+          const y = canvasHeight / 2 + Math.sin(angle) * radius;
           createCrystal(x, y, i * 0.01);
         }
       },
