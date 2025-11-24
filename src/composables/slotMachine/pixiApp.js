@@ -11,11 +11,11 @@ export function usePixiApp(canvasState) {
             app = new Application()
             canvasEl = document.createElement('canvas')
 
-            // Always centered horizontally, full height
+            // Always centered horizontally and vertically
             canvasEl.style.position = 'fixed'
             canvasEl.style.left = '50%'
             canvasEl.style.top = '50%'
-            canvasEl.style.transform = 'translateX(-50%) translateY(-50%)'
+            canvasEl.style.transform = 'translate(-50%, -50%)'
             canvasEl.style.width = `${width}px`
             canvasEl.style.height = `${height}px`
             canvasEl.style.pointerEvents = 'auto'
@@ -43,20 +43,21 @@ export function usePixiApp(canvasState) {
             })
             .catch(err => console.error('Pixi init failed:', err))
         } else {
+            // Resize both the renderer AND the canvas CSS
             if (app.renderer) {
                 app.renderer.resize(width, height)
             } else {
                 pendingSize = { width, height }
             }
 
-            // Always centered horizontally, full height
+            // Update canvas CSS dimensions to match new size
             if (canvasEl) {
                 canvasEl.style.position = 'fixed'
                 canvasEl.style.left = '50%'
-                canvasEl.style.top = '0'
-                canvasEl.style.transform = 'translateX(-50%)'
+                canvasEl.style.top = '50%'
+                canvasEl.style.transform = 'translate(-50%, -50%)'
                 canvasEl.style.width = `${width}px`
-                canvasEl.style.height = '100vh'
+                canvasEl.style.height = `${height}px`
                 canvasEl.style.zIndex = '9999'
             }
         }

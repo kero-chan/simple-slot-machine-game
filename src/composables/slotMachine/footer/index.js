@@ -409,6 +409,9 @@ export function useFooter(gameState) {
   }
 
   function buildMenuContainer() {
+    // Clear menu container before rebuilding to prevent overlay issues
+    menuContainer.removeChildren()
+    
     const menuHeight = 0.5*h
     menuContainer.position.set(x, y + menuHeight)
     container.addChild(menuContainer)

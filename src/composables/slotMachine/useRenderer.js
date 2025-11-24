@@ -166,6 +166,15 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         const h = canvasState.canvasHeight.value
         if (!w || !h) return
         
+        // Check if size changed and need to resize PixiJS
+        const resized = w !== lastW || h !== lastH
+        if (resized) {
+            // Resize PixiJS app to match new canvas dimensions
+            pixiApp.ensure(w, h)
+            lastW = w
+            lastH = h
+        }
+        
         // If stage not ready, skip this frame (will be called again)
         if (!pixiApp.isReady()) return
         
@@ -175,10 +184,6 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             console.warn('[Renderer] Root not initialized in updateOnce')
             return
         }
-
-        const resized = w !== lastW || h !== lastH
-        lastW = w
-        lastH = h
 
         const { headerRect, mainRect, footerRect, tileSize } = computeLayout(w, h)
 

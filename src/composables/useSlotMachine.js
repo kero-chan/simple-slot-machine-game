@@ -102,6 +102,9 @@ export function useSlotMachine(canvasRef) {
 
   const handleResize = async () => {
     await canvasState.setupCanvas()
+    // Force render immediately after resize to update canvas display
+    // The renderer will call pixiApp.ensure() with new dimensions
+    renderer.render()
   }
 
   const start = () => {
