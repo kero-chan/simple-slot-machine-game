@@ -25,7 +25,6 @@ export const ASSETS = {
     effect_golden_light_burst: new URL('../assets/slotMachine/effects/effect_golden_light_burst.png', import.meta.url).href,
 
     // Winning announcements
-    win_bg: new URL('../assets/slotMachine/winAnnouncements/win_bg.png', import.meta.url).href,
     win_small: new URL('../assets/slotMachine/winAnnouncements/win_small.png', import.meta.url).href,
     win_grand: new URL('../assets/slotMachine/winAnnouncements/win_grand.png', import.meta.url).href,
     win_mega: new URL('../assets/slotMachine/winAnnouncements/win_mega.png', import.meta.url).href,

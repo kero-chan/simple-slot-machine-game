@@ -12,6 +12,7 @@ import { createJackpotVideoOverlay } from './overlay/jackpotVideoOverlay'
 import { createBonusTilePopAnimation } from './overlay/bonusTilePopAnimation'
 import { createJackpotResultOverlay } from './overlay/jackpotResultOverlay'
 import { createWinningSparkles } from './reels/winning/winningSparkles'
+import { createMassiveWinAnimation } from '../slotMachine/overlay/massiveWinAnimation'
 import { useGameStore, GAME_STATES } from '../../stores/gameStore'
 import { watch } from 'vue'
 
@@ -28,6 +29,7 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
     let footer = null
     let glowOverlay = null
     let winningSparkles = null
+    let massiveWinAnimation = null
     let winOverlay = null
     let bonusOverlay = null
     let bonusTilePopAnimation = null
@@ -101,11 +103,12 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             footer = useFooter(gameState)
             glowOverlay = useGlowOverlay(gameState, gridState)
             winningSparkles = createWinningSparkles()
-            winOverlay = createWinOverlay(gameState)
+            // winOverlay = createWinOverlay(gameState)
             bonusOverlay = createBonusOverlay(gameState)
             bonusTilePopAnimation = createBonusTilePopAnimation(gridState, reels)
             jackpotVideoOverlay = createJackpotVideoOverlay()
             jackpotResultOverlay = createJackpotResultOverlay(gameState)
+            massiveWinAnimation = createMassiveWinAnimation(reels)
             if (controlHandlers && footer?.setHandlers) {
                 footer.setHandlers(controlHandlers)
             }
@@ -115,11 +118,12 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             root.addChild(glowOverlay.container)
             root.addChild(winningSparkles.container)
             root.addChild(footer.container)
-            root.addChild(winOverlay.container)
+            // root.addChild(winOverlay.container)
             root.addChild(jackpotResultOverlay.container)
             root.addChild(bonusTilePopAnimation.container)
             root.addChild(jackpotVideoOverlay.container)
             root.addChild(bonusOverlay.container)
+            root.addChild(massiveWinAnimation.container)
 
             // Watch for bonus overlay state
             watch(() => gameStore.gameFlowState, (newState) => {
@@ -216,17 +220,17 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
             if (footer?.updateValues) footer.updateValues()
             if (footer?.update) footer.update(timestamp)
 
-            // Update win overlay animation
-            if (winOverlay) {
-                winOverlay.update(timestamp)
-                if (resized && winOverlay.container.visible) {
-                    winOverlay.build(w, h)
-                }
-                // Update gameState flag based on overlay visibility
-                if (gameState.showingWinOverlay.value && !winOverlay.isShowing()) {
-                    gameStore.hideWinOverlay()
-                }
-            }
+            // // Update win overlay animation
+            // if (winOverlay) {
+            //     winOverlay.update(timestamp)
+            //     if (resized && winOverlay.container.visible) {
+            //         winOverlay.build(w, h)
+            //     }
+            //     // Update gameState flag based on overlay visibility
+            //     if (gameState.showingWinOverlay.value && !winOverlay.isShowing()) {
+            //         gameStore.hideWinOverlay()
+            //     }
+            // }
 
             // Update bonus overlay animation
             if (bonusOverlay) {
@@ -257,6 +261,14 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
                 jackpotResultOverlay.update(timestamp)
                 if (resized && jackpotResultOverlay.container.visible) {
                     jackpotResultOverlay.build(w, h)
+                }
+            }
+
+            // Update massive win animation
+            if (massiveWinAnimation) {
+                massiveWinAnimation.update?.(timestamp)
+                if (resized && massiveWinAnimation.container.visible) {
+                massiveWinAnimation.build?.(w, h)
                 }
             }
         }
@@ -315,22 +327,103 @@ export function useRenderer(canvasState, gameState, gridState, controls) {
         }
     }
 
+    // Helper to get tile positions for animations
+    const getTilePositions = () => {
+        if (!reels) return []
+
+        const positions = []
+        const { mainRect, tileSize } = computeLayout(canvasState.canvasWidth.value, canvasState.canvasHeight.value)
+        const canvasW = canvasState.canvasWidth.value
+
+        // CRITICAL: Match the exact tile sizing calculation from reels/index.ts draw() function
+        const TILE_SPACING = 5  // Spacing between tiles (all sides)
+        const margin = 10  // Small margin on left and right
+        const totalSpacingX = TILE_SPACING * (COLS - 1)
+        const availableWidth = canvasW - (margin * 2) - totalSpacingX
+        const scaledTileW = availableWidth / COLS  // Actual rendered tile width
+        const scaledTileH = scaledTileW * (tileSize.h / tileSize.w)  // Maintain aspect ratio
+        const stepX = scaledTileW + TILE_SPACING  // Tile width + spacing
+        const stepY = scaledTileH + TILE_SPACING  // Tile height + spacing
+        const originX = margin  // Start from left margin
+
+        // Calculate positions for all tiles in the grid (5 columns x 4 rows)
+        // This matches how tiles are positioned in reels/index.js
+        for (let col = 0; col < COLS; col++) {
+        for (let row = 0; row < ROWS_FULL; row++) {
+            const xCell = originX + col * stepX
+            const yCell = mainRect.y + (row + TOP_PARTIAL) * stepY
+
+            // Position at center of tile (matching reels positioning)
+            const BLEED = 2
+            const w = scaledTileW + BLEED * 2
+            const h = scaledTileH + BLEED * 2
+            const x = Math.round(xCell) - BLEED + w / 2
+            const y = yCell - BLEED + h / 2
+
+            positions.push({
+            x,
+            y,
+            width: scaledTileW,  // Use actual scaled width (without BLEED)
+            height: scaledTileH, // Use actual scaled height (without BLEED)
+            col,
+            row: row + 4  // Convert visual row to grid row (add BUFFER_OFFSET)
+            })
+        }
+        }
+
+        return positions
+    }
+
+    // Expose massive win animation trigger
+    const showMassiveWinAnimation = (intensity, amount, onComplete) => {
+        const w = canvasState.canvasWidth.value;
+        const h = canvasState.canvasHeight.value;
+        const tilePositions = getTilePositions();
+
+        if (massiveWinAnimation) {
+            massiveWinAnimation.show(w, h, tilePositions, intensity, amount, onComplete);
+        }
+    };
+
+
     // Expose win overlay for game logic to trigger
     const showWinOverlay = (intensity, amount) => {
-        const w = canvasState.canvasWidth.value
-        const h = canvasState.canvasHeight.value
+        const w = canvasState.canvasWidth.value;
+        const h = canvasState.canvasHeight.value;
 
-        // Show different overlay based on whether we're in free spin mode (jackpot mode)
-        if (gameStore.inFreeSpinMode && jackpotResultOverlay) {
-            // Jackpot mode - show jackpot result overlay
-            jackpotResultOverlay.show(amount, w, h)
-            gameStore.showWinOverlay()
-        } else if (winOverlay) {
-            // Normal mode - show regular win overlay
-            winOverlay.show(intensity, amount, w, h)
-            gameStore.showWinOverlay()
+        console.log('🎰 showWinOverlay called:', {
+            intensity,
+            amount,
+            inFreeSpinMode: gameStore.inFreeSpinMode
+        });
+
+        // Use massive win animation for ALL wins in normal mode
+        if (massiveWinAnimation && !gameStore.inFreeSpinMode) {
+            console.log('✨ Triggering MASSIVE WIN animation');
+            const tilePositions = getTilePositions();
+            massiveWinAnimation.show(w, h, tilePositions, intensity, amount, () => {
+            console.log('✅ Massive win animation completed');
+            console.log('🔍 Current game state before completeWinOverlay:', gameStore.gameFlowState);
+            console.log('🔍 Hiding win overlay flag...');
+            gameStore.hideWinOverlay();
+            console.log('🔍 Calling gameStore.completeWinOverlay()...');
+            gameStore.completeWinOverlay();
+            console.log('🔍 Current game state after completeWinOverlay:', gameStore.gameFlowState);
+            });
+            gameStore.showWinOverlay();
+        } else if (gameStore.inFreeSpinMode && jackpotResultOverlay) {
+            console.log('🎲 Showing jackpot result overlay');
+            jackpotResultOverlay.show?.(amount, w, h);
+            gameStore.showWinOverlay();
+        } else {
+            console.warn('⚠️ Falling back to old win overlay (this should not happen!)');
+            if (winOverlay) {
+            winOverlay.show?.(intensity, amount, w, h);
+            gameStore.showWinOverlay();
+            }
         }
-    }
+    };
+
 
     // Expose reels API for GSAP-driven animations
     const getReels = () => reels

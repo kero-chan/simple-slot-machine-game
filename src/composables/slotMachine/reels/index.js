@@ -808,6 +808,7 @@ export function useReels(gameState, gridState) {
     // Expose API
     return {
         container,
+        tilesContainer,
         draw,
         winningEffects,
         triggerPop,

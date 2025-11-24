@@ -275,28 +275,6 @@ export function createWinOverlay(gameState) {
     background.fill({ color: config.bgColor, alpha: config.bgAlpha })
     container.addChild(background)
 
-    // Add bg image on top of dark overlay - full canvas width
-    try {
-      const bgSrc = ASSETS.loadedImages?.win_bg || ASSETS.imagePaths?.win_bg
-      if (bgSrc) {
-        const bgTexture = bgSrc instanceof Texture ? bgSrc : Texture.from(bgSrc)
-        bgImage = new Sprite(bgTexture)
-        bgImage.anchor.set(0.5)
-        bgImage.x = canvasWidth / 2
-        bgImage.y = canvasHeight / 2
-
-        // Scale bg image to fullscreen - fit height and cover
-        const scaleX = canvasWidth / bgImage.width
-        const scaleY = canvasHeight / bgImage.height
-        const bgScale = Math.max(scaleX, scaleY) // Cover entire screen
-        bgImage.scale.set(bgScale)
-
-        container.addChild(bgImage)
-      }
-    } catch (error) {
-      console.warn('Failed to load win bg image:', error)
-    }
-
     // Create title - either image or text
     let imageLoaded = false
     if (config.useImage && config.imageKey) {
